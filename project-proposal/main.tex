@@ -1,242 +1,606 @@
 \documentclass[11pt,a4paper]{article}
+
 \usepackage[margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{parskip}
+\usepackage{needspace}
+\usepackage{etoolbox}
 
 % -----------------------------------------------------
-% bvraghav-tiet-ucs503p-article.sty
+% Formatting
 % -----------------------------------------------------
 
-% Variable: Lab Instructor
-\makeatletter \newcommand{\BvrSetLabInstructor}[1]{%
-  \gdef\Bvr@LabInstructor{#1}}
-% default
-\newcommand{\Bvr@LabInstructor}{Dr. Raghav %
-  B. Venkataramaiyer}
-% public accessor
-\newcommand{\BvrLabInstructorValue}{\Bvr@LabInstructor}
-\makeatother
+\definecolor{rowshade}{RGB}{235,239,245}
 
-% Add subtitle
-\usepackage{titling}
-% -- Set title bold
-\pretitle{\begin{center}\bfseries\fontsize{18bp}{18bp}\selectfont}
-\makeatletter
-\newcommand{\BvrSubtitle}[1]{%
-  \posttitle{%
-    \par\end{center}
-    \begin{center}\large#1\end{center}
-    \vskip 0.5em}%
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{black}}
+  {\thesection.}{0.6em}{}
+  [{\titlerule[1pt]}]
+
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{black}}
+  {\thesubsection}{0.6em}{}
+
+\titlespacing*{\section}
+  {0pt}{2.2ex plus 1ex minus .2ex}{1.2ex}
+
+\titlespacing*{\subsection}
+  {0pt}{1.6ex plus .5ex minus .2ex}{0.8ex}
+
+% Keep a heading together with the text that follows it.
+% Force a page break before the heading rather than leaving it
+% orphaned at the bottom of a page.
+\pretocmd{\section}{\needspace{7\baselineskip}}{}{}
+\pretocmd{\subsection}{\needspace{4\baselineskip}}{}{}
+
+\setlist[itemize]{
+    leftmargin=1.4em,
+    itemsep=1pt,
+    topsep=2pt,
+    parsep=0pt
 }
-\makeatother
 
-% Hints in the section title(s)
-\newcommand{\BvrHint}[1]{%
-  {\normalfont\normalsize\itshape\hfill #1}}
+\setlist[enumerate]{
+    leftmargin=1.4em,
+    itemsep=1pt,
+    topsep=2pt,
+    parsep=0pt
+}
+
+\setlength{\parskip}{3pt}
+
+\hypersetup{
+    colorlinks=false,
+    hidelinks
+}
+
+% Header / footer
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small Intelligent Expense Tracker - Project Proposal}
+\fancyhead[R]{\small\thepage}
+\setlength{\headheight}{14pt}
 
 % -----------------------------------------------------
-
-\title{Grievance-Resolution System for a Tier-2/3 City}
-
-\BvrSetLabInstructor{Dr. Raghav B. Venkataramaiyer}
-
-\BvrSubtitle{%
-  Project Proposal for UCS503P  \\
-  Submitted to: \BvrLabInstructorValue \\ \bfseries
-  Thapar Institute of Engineering and Technology% 
-}
-
-\author{
-  Vidya Vaidyanathan, CSED%
-  \thanks{Roll No: \texttt{1024030xxx}, %
-    Email: \texttt{vvaidhanathan\_be24\@thapar.edu}}
-  \and 
-  Bhanurekha Ganesan, CSED%
-  \thanks{Roll No: \texttt{1024030xxx}, %
-    Email: \texttt{bganesan\_be24\@thapar.edu}}
-}
-
-\date{\today}
 
 \begin{document}
-\maketitle
 
-\section{Higher-order goal%
-  \BvrHint{\ldots secondary framing}}
-This project aims to improve sustainable urban
-governance by reducing the time and effort required to
-resolve citizen issues. While the topic is broader than
-any single municipality, the immediate engineering
-objective is to translate \emph{efficient public
-  service delivery} into a measurable, deployable
-software solution.
+% =====================================================
+% TITLE
+% =====================================================
 
-\section{Time-to-value %
-\BvrHint{\ldots primary heuristic}}
-\begin{itemize}[leftmargin=0.7cm]
-    \item We will deliver meaningful increments quickly by prototyping the core user workflow and validating it with users within a short iteration window.
-    \item We will prioritize fast feedback over perfection by using weekly iterations (and targeting CI-backed automation early) to reduce release friction.
-    \item Success is defined by what can be delivered and measured in the first iteration, then improved based on user feedback.
-\end{itemize}
+\begin{center}
+
+    {\huge\bfseries
+    Intelligent Expense Tracker}\\[0.5em]
+
+    {\large
+    An Automated Platform for Expense Capture, Collaborative Spending,
+    and Financial Intelligence}
+    \\[0.9em]
+
+    {\normalsize\itshape
+    Software Engineering - Semester Project Proposal}\\[0.8em]
+
+    {\small\bfseries Team Members}\\[0.3em]
+
+    {\small
+    Aashi Tyagi (1024170263) \quad
+    Sarwangini Hamal (1024170262)\\[0.15em]
+    Divyansh Kumar (1024170267) \quad
+    Gauransh Arora (1024170264)}\\[0.5em]
+
+    {\small\textbf{Submitted to:} Nisha Thakur}
+
+\end{center}
+
+\vspace{0.8em}
+
+% =====================================================
+% 1. INTRODUCTION
+% =====================================================
+
+\section{Introduction}
+
+Every digital payment already carries the information needed to
+understand it: a UPI transaction has a merchant, an amount, and a time;
+a printed bill lists individual items and prices; a bank statement
+records a running history of debits and credits. In practice, however,
+this information stays scattered across screenshots, paper receipts, and
+PDF statements, and none of it is usable until a person manually
+retypes it into an expense-tracking app.
+
+This project proposes a system built around a simple idea: instead of
+asking users to record their expenses, the application should read the
+financial documents users already generate and turn them into a single,
+structured financial history. Expense splitting, analytics, and
+financial insights are then built on top of this history rather than on
+manually typed entries. The project is therefore not simply an expense
+tracker or a bill-splitting tool, but an automated financial record
+and analysis system, of which splitting and analytics are two of
+several components.
+
+% =====================================================
+% 2. PROBLEM STATEMENT
+% =====================================================
 
 \section{Problem Statement}
-Citizens in a tier-2/3 Indian city face delays and uncertainty when reporting local issues (e.g., streetlight outages, water leakage, garbage accumulation, road potholes). Common pain points include:
-\begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Fragmentation:} complaints are often made via multiple channels (calls, social media, paper forms), causing lost context.
-    \item \textbf{Low transparency:} citizens cannot easily see the status of their complaint (e.g., ``received'', ``assigned'', ``in progress'', ``resolved'').
-    \item \textbf{Slow coordination:} departments/field teams lack a unified, trackable workflow with clear ownership.
-    \item \textbf{Poor data quality:} duplicate or incomplete reports force rework and extend resolution time.
+
+Financial information is generated constantly, but it is not structured
+or easily usable. This produces several concrete problems:
+
+\begin{itemize}
+
+    \item \textbf{Fragmented financial information.} Receipts contain
+    merchant, item, and price detail; UPI screenshots contain
+    transaction detail; bank statements contain a running transaction
+    history. None of these sources are connected, so a user's complete
+    spending picture never exists in one place.
+
+    \item \textbf{Repeated manual effort.} Even though this information
+    already exists digitally, users must retype it into a tracker,
+    which is slow enough that most people stop doing it consistently.
+
+    \item \textbf{Limited understanding of spending.} Most expense
+    trackers can answer ``how much did I spend'', but not ``where did
+    it go'', ``why did it increase'', or ``what is recurring''.
+
+    \item \textbf{No decision support.} Recorded expenses are rarely
+    used to evaluate a planned purchase, and shared expenses add a
+    further layer of complexity because the person who pays and the
+    people who benefit are often different.
+
 \end{itemize}
 
-\textbf{Why this matters now (contextual relevance):} In an urban setting with limited staff bandwidth, even small process improvements can noticeably reduce resolution delays and repeated submissions.
+The proposed system addresses this by automating the capture step and
+then using the resulting structured history to answer these harder
+questions, rather than stopping at transaction logging.
 
-\section{Proposed Solution %
-\BvrHint{\ldots Software Proposition}}
-\subsection{Overview}
-Build a \textbf{web-based} ``Grievance-to-Resolution'' system with the following components:
-\begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Citizen submission portal:} users submit an issue with photo (optional), category, and locality/ward.
-    \item \textbf{Automated triage:} basic duplicate detection and completeness checks.
-    \item \textbf{Department workflow:} assign issues to relevant department/team and update statuses.
-    \item \textbf{Status transparency:} citizens track status and receive notifications when resolved.
-    \item \textbf{Admin/ops dashboard:} performance summaries (resolution time, backlog).
+% =====================================================
+% 3. OBJECTIVES
+% =====================================================
+
+\section{Objectives}
+
+\noindent\textbf{Primary goal.}
+To design and build a platform that automatically converts bills, UPI
+screenshots, and bank statements into a structured, verified financial
+history, and uses that history for collaborative expense management and
+spending intelligence.
+
+\noindent\textbf{Specific objectives:}
+
+\begin{itemize}
+
+    \item Automate expense capture from bills, receipts, UPI
+    screenshots, and bank statements using OCR.
+
+    \item Convert extracted information into structured, categorized
+    transactions, including merchant, amount, date, and individual
+    items, with user verification before storage.
+
+    \item Support collaborative expense management through equal,
+    percentage, and custom splitting, with debt tracking between users.
+
+    \item Provide multi-dimensional spending analytics across
+    categories, merchants, items, and time periods.
+
+    \item Detect recurring expenses and unusual spending patterns from
+    transaction history.
+
+    \item Support spending decisions through purchase-readiness
+    analysis and wishlist tracking.
+
+    \item Enable natural-language interaction with the user's own
+    financial history.
+
 \end{itemize}
 
-\subsection{Core workflow}
-\begin{enumerate}[leftmargin=0.7cm]
-    \item Citizen creates a complaint and receives a complaint ID immediately.
-    \item System validates completeness and suggests possible duplicates (lightweight similarity on text/category and approximate location).
-    \item Department staff update status (Received $\rightarrow$ Assigned $\rightarrow$ In Progress $\rightarrow$ Resolved).
-    \item Citizen views status updates and resolution notes.
+% =====================================================
+% 4. PROPOSED SOLUTION
+% =====================================================
+
+\section{Proposed Solution}
+
+At a high level, the system takes any financial document a user already
+has, such as a bill, a UPI payment screenshot, or a bank statement, and
+turns it into a verified transaction. The user shares or uploads the
+document; the system extracts and normalizes the relevant fields and
+suggests a category; the user confirms or corrects this before it is
+saved. Once confirmed, the transaction becomes part of the user's
+financial history, which is then used by separate modules for
+collaborative splitting, analytics, recurring and unusual spending
+detection, purchase-readiness analysis, and natural-language queries.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.75\textwidth]{system_flow}
+    \caption{Overall System Flow}
+    \label{fig:system-flow}
+\end{figure}
+
+This flow keeps the user in control of what enters their financial
+record, while shifting the repetitive work of data entry onto the
+system.
+
+
+% =====================================================
+% 5. SYSTEM ARCHITECTURE AND METHODOLOGY
+% =====================================================
+
+\section{System Architecture and Methodology}
+
+\subsection{System Architecture}
+
+The system follows a three-tier architecture: a Flutter mobile frontend,
+a FastAPI backend exposing REST APIs, and a PostgreSQL database for
+persistent storage.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.75\textwidth]{backend_architecture}
+    \caption{System Architecture}
+    \label{fig:backend-architecture}
+\end{figure}
+
+The backend is organized into an extraction layer for OCR and document
+parsing, a processing layer for categorization and verification, and an
+intelligence layer for splitting, analytics, pattern detection, and
+queries. These components read from and write to a shared PostgreSQL
+schema covering users, transactions, items, categories, splits, and
+wishlist entries.
+
+\subsection{Automated Expense Extraction and Verification}
+
+The core extraction workflow is:
+
+\begin{enumerate}
+
+    \item A user uploads a bill or shares a UPI payment screenshot.
+
+    \item OCR extracts raw text from the image.
+
+    \item The processing layer identifies merchant, amount, date, items,
+    quantities, and taxes from the extracted text.
+
+    \item Transactions and individual items are categorized using
+    merchant information, keywords, and lightweight classification.
+
+    \item The extracted information, along with a confidence score, is
+    shown to the user for verification.
+
+    \item The confirmed transaction is stored in PostgreSQL and becomes
+    available to every downstream module.
+
 \end{enumerate}
 
-\subsection{Operational constraints for an educational, tier-2/3 setting}
-\begin{itemize}[leftmargin=0.7cm]
-    \item Keep the solution usable on low-to-mid range devices via responsive web design.
-    \item Avoid dependence on advanced research algorithms; focus on workflow, automation, and system correctness.
-    \item Design for deployability using common web hosting and managed databases.
+The system does not treat OCR output as final. Extracted data is always
+presented for user confirmation before it becomes part of the financial
+history, which limits how far an extraction error can propagate.
+
+\subsection{Collaborative Expense Management}
+
+Shared expenses such as meals, trips, hostel costs, or group purchases
+can be split between participants using equal, percentage-based, or custom
+amounts. The system tracks who paid, who owes what, and maintains a
+running settlement history between users, so debts do not need to be
+tracked manually outside the app.
+
+\subsection{Expense Tracking and Spending Analytics}
+
+The application maintains a chronological expense timeline containing
+merchant, amount, category, items, and the originating bill or
+screenshot. The analytics layer builds on this timeline to provide
+category-wise and monthly spending, merchant-level and item-level
+analysis, comparisons with previous months, and ``where did my money
+go'' summaries.
+
+% =====================================================
+% 6. FINANCIAL INTELLIGENCE
+% =====================================================
+
+\section{Financial Intelligence}
+
+This section covers the modules that use the stored transaction history
+to go beyond recording expenses and actually derive information from
+them. These modules are the main differentiator of the project over a
+standard tracker or splitting app.
+
+\subsection{Unusual Spending Detection}
+
+Historical spending per category is used to establish a normal range for
+the user. Transactions or category totals that deviate noticeably from
+this range are flagged for the user's attention. This is a
+historical-pattern-based check rather than a trained anomaly-detection
+model.
+
+\subsection{Recurring Expense and Subscription Detection}
+
+Transactions with similar merchants, amounts, and regular time intervals
+are identified as likely recurring expenses or subscriptions. This is
+inferred purely from transaction history rather than from direct access
+to UPI mandates or bank-level subscription data.
+
+\subsection{Purchase Readiness and Wishlist Analysis}
+
+Users can add a planned purchase to a wishlist along with its expected
+price. The system evaluates the purchase against current spending,
+monthly average spending, recurring payments, historical trends, savings
+goals, and discretionary budget, and returns a simple verdict:
+\textbf{Comfortable}, \textbf{Possible}, or
+\textbf{Not recommended currently}.
+
+The system can also compare current-month spending with the user's
+historical average to identify whether the user currently has additional
+discretionary room for a wishlist purchase. This is intended as a
+data-driven spending indicator, not professional financial advice.
+
+\subsection{Ask Your Expenses}
+
+An ``Ask Your Expenses'' interface lets users query their own financial
+history in natural language instead of navigating separate dashboards.
+
+Example questions include:
+
+\begin{itemize}
+    \item ``How much did I spend on food this month?''
+    \item ``What are my recurring monthly expenses?''
+    \item ``How much does Rahul owe me?''
+    \item ``Where did most of my money go this month?''
 \end{itemize}
 
-\section{Solution Approach %
-\BvrHint{\ldots Engineering focus}}
-This is an engineering course project, so we focus on scalable administrative and workflow aspects rather than novel algorithm research.
+Supported questions are mapped to structured database queries or
+analytical operations and executed only against the user's own data.
 
-\subsection{Duplicate/quality assistance %
-\BvrHint{\ldots non-research}}
-Duplicate detection will be heuristic-based:
-\begin{itemize}[leftmargin=0.7cm]
-    \item Normalize text (category + short description keywords).
-    \item Use a simple similarity measure (e.g., token overlap / TF-IDF cosine with threshold) without claiming state-of-the-art.
-    \item Show top candidate duplicates to staff for decision; never fully auto-delete or auto-reject.
+\subsection{Bank Statement Processing}
+
+Supported PDF or CSV bank statements can be uploaded and converted into
+structured transactions, which are normalized, categorized, and merged
+with existing expenses after user verification. Real-time bank
+synchronization is outside the initial scope, since it requires
+additional financial ecosystem access and consent mechanisms.
+
+% =====================================================
+% 7. SCOPE AND MVP
+% =====================================================
+
+\section{Scope and MVP}
+
+\subsection{MVP Scope}
+
+The MVP includes bill and UPI screenshot extraction with user
+verification, expense categorization and history, collaborative
+splitting, spending analytics, recurring-expense detection, unusual
+spending detection, wishlist and purchase-readiness analysis, the
+Ask Your Expenses query interface, and supported bank-statement
+processing.
+
+\subsection{Out of Scope}
+
+Real-time bank and UPI account synchronization, direct control or
+blocking of third-party payments, and professional financial advisory or
+investment-recommendation features are outside the MVP. These require
+regulatory and financial ecosystem access beyond a semester project and
+are noted as future extensions instead.
+
+% =====================================================
+% 8. TESTING AND EVALUATION
+% =====================================================
+
+\section{Testing and Evaluation}
+
+Success will be measured against four concrete evaluation areas, chosen
+to match the project's central claims:
+
+\begin{itemize}
+
+    \item \textbf{OCR extraction accuracy.} Extracted merchant, amount,
+    date, and item fields will be compared against manually verified
+    ground truth on a sample set of bills and screenshots.
+
+    \item \textbf{Categorization accuracy.} The proportion of
+    transactions assigned to the correct category, checked against
+    user corrections.
+
+    \item \textbf{Time saved.} The time taken to record an expense via
+    upload and verification will be compared against fully manual entry.
+
+    \item \textbf{Query correctness.} A fixed set of natural-language
+    questions will be run against known data, and returned answers
+    checked against the underlying database calculations.
+
 \end{itemize}
 
-\subsection{Web architecture %
-\BvrHint{\ldots web-based solution}}
-A typical 3-tier web architecture:
-\begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Frontend:} responsive UI for citizens and staff (status pages, submission form, dashboard).
-    \item \textbf{Backend API:} authentication, complaint submission, status transitions, assignment logic.
-    \item \textbf{Database:} store users, complaints, status history, attachments metadata.
+Unit tests will cover backend services and transaction-processing logic,
+and integration tests will verify the complete document-to-database
+workflow before user testing begins.
+
+% =====================================================
+% 9. TECHNOLOGY STACK AND RESOURCES
+% =====================================================
+
+\section{Technology Stack and Resources}
+
+\noindent\textbf{Technology stack.}
+Flutter will provide the cross-platform mobile interface, covering
+authentication, screenshot sharing, image upload, expense verification,
+dashboards, and financial queries. FastAPI will expose REST APIs for
+authentication, transaction processing, splitting, analytics, and
+financial queries. PostgreSQL will store users, transactions, items,
+categories, splits, and wishlist data. Git and GitHub will be used for
+version control.
+
+\noindent\textbf{Human resources.}
+The team will divide responsibilities across mobile development, backend
+development, database design, OCR and data processing, and testing.
+
+\noindent\textbf{Budget.}
+No external funding is required for the prototype. OCR, PostgreSQL, and
+the backend can be implemented using free or open-source resources, with
+free-tier deployment for the staging build. Paid AI services and
+production financial integrations remain optional future requirements.
+
+% =====================================================
+% 10. TIMELINE
+% =====================================================
+
+\section{Timeline}
+
+The project will be developed incrementally, with the automated capture
+workflow completed before collaborative and intelligence features.
+
+{\small
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{5pt}
+
+\begin{center}
+
+\begin{tabular}{
+    @{}
+    >{\raggedright\arraybackslash}p{1.5cm}
+    >{\raggedright\arraybackslash}p{9.3cm}
+    >{\raggedright\arraybackslash}p{3.6cm}
+    @{}
+}
+
+\hline
+
+\rowcolor{rowshade}
+\textbf{Weeks} & \textbf{Phase} & \textbf{Deliverable} \\
+
+\hline
+
+1--2 &
+Planning and Design: requirements, architecture, UI &
+ER diagram \\
+
+\hline
+
+3--4 &
+Core Application: authentication, transaction model, manual entry &
+Mobile shell + backend \\
+
+\hline
+
+5--6 &
+Automated Extraction: OCR, bill and UPI screenshot processing &
+Expense extraction module \\
+
+\hline
+
+7--8 &
+Expense Management: categories, splitting, transaction history &
+Core expense tracker \\
+
+\hline
+
+9--10 &
+Analytics: dashboards, category, merchant, and item spending &
+Analytics dashboard \\
+
+\hline
+
+11--12 &
+Financial Intelligence: recurring and unusual spending detection,
+wishlist, and queries &
+Intelligence modules \\
+
+\hline
+
+13 &
+Testing and Integration: unit, integration, and user testing &
+Integrated build \\
+
+\hline
+
+14 &
+\textbf{Buffer}: bug fixing and optimization &
+Stabilised build \\
+
+\hline
+
+15 &
+Deployment, documentation, and demonstration &
+Final application + report \\
+
+\hline
+
+\end{tabular}
+
+\end{center}
+}
+
+% =====================================================
+% 11. RISKS AND FUTURE EXTENSIONS
+% =====================================================
+
+\section{Risks and Future Extensions}
+
+\subsection{Risks and Mitigation}
+
+\begin{itemize}
+
+    \item \textbf{OCR inaccuracies}, especially for low-quality or
+    unusual receipt formats, are mitigated through confidence scores and
+    mandatory user verification before storage.
+
+    \item \textbf{Inconsistent receipt and screenshot layouts} across
+    merchants are mitigated by supporting common formats first and
+    providing a manual-correction fallback.
+
+    \item \textbf{Incorrect categorization} affecting analytics is
+    mitigated through user correction, which is fed back into
+    classification rules.
+
+    \item \textbf{Financial data sensitivity} is mitigated through
+    authentication, access control, secure transport, and data
+    minimisation.
+
+    \item \textbf{Scope creep}, given the number of modules, is
+    mitigated through an MVP-first approach with clearly defined
+    out-of-scope features.
+
 \end{itemize}
 
-\subsection{CI/CD and fast delivery enabler}
-CI/CD will be used to:
-\begin{itemize}[leftmargin=0.7cm]
-    \item Automatically build and run tests on every change.
-    \item Produce repeatable deployment artifacts to staging.
-    \item Enable safe and frequent releases of incremental features.
-\end{itemize}
+\subsection{Future Extensions}
 
-\section{Evaluation Criterion %
-\BvrHint{\ldots measurable and attributable}}
-We define success using measurable metrics tied to the core workflow.
+Future directions include consent-based bank and UPI account aggregation,
+more advanced anomaly detection, household or shared-family expense
+management, and more sophisticated budgeting and financial
+recommendations, once sufficient real usage data exists to support them
+responsibly.
 
-\subsection{Primary evaluation metric}
-\textbf{Time-to-acknowledgement (TTA):} time between complaint submission and ``Received/Assigned'' status creation in the system.
-\begin{itemize}[leftmargin=0.7cm]
-    \item Target: median TTA $\le$ 2 hours during pilot window.
-    \item Attribution: measured from database timestamps (submission vs. first status update by staff).
-\end{itemize}
+A future parent dashboard could allow parents to define spending limits,
+monitor a child's spending, and receive alerts when a child approaches a
+budget threshold. However, directly blocking payments through
+third-party UPI applications is outside the core scope.
 
-\subsection{Secondary evaluation metrics}
-\begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Resolution time reduction:} reduce time-to-resolved compared to baseline process (even if baseline is collected via survey).
-    \item \textbf{Duplicate rate:} percentage of complaints flagged as duplicates and resolved without rework.
-    \item \textbf{User clarity:} citizen-reported clarity of status using a simple 1--5 feedback question.
-    \item \textbf{Reliability:} availability of staging/production for login and submission during business hours (e.g., $\ge$ 99\% uptime in pilot).
-\end{itemize}
-
-\subsection{Pilot validation plan %
-\BvrHint{\ldots high-level}}
-\begin{itemize}[leftmargin=0.7cm]
-    \item Recruit 10--20 pilot users (citizens) and 3--5 staff roles (department simulation if real staff unavailable).
-    \item Compare metrics before/after within the iteration window by logging baseline estimates via short interviews or existing process observations.
-\end{itemize}
-
-\section{Scalability %
-\BvrHint{\ldots with foresight}}
-The proposition should scale in both theoretical and practical senses.
-
-\begin{enumerate}[leftmargin=0.7cm]
-    \item \textbf{Scalable (theoretically):} The system should support growth in number of complaints and concurrent dashboard usage by:
-    \begin{itemize}[leftmargin=0.7cm]
-        \item decoupling components (frontend/backend),
-        \item enabling pagination and indexing for common queries,
-        \item using stateless API design.
-    \end{itemize}
-    
-    \item \textbf{Operationally deployable (practically):} The system should run on common web hosting:
-    \begin{itemize}[leftmargin=0.7cm]
-        \item managed database,
-        \item containerized or platform-hosted deployment,
-        \item CI/CD pipeline for staging/production.
-    \end{itemize}
-\end{enumerate}
-
-\section{Engine availability heuristic}
-A mature set of ``engines'' (tooling/services) is available to implement this as a web-based project:
-\begin{itemize}[leftmargin=0.7cm]
-    \item Web framework for REST APIs and templated/reactive pages.
-    \item Managed relational or document database.
-    \item Authentication approach (token-based or session-based).
-    \item Object storage for optional attachments (or local storage for pilot).
-    \item Test framework for unit/integration tests.
-    \item CI runner and staging deployment target.
-\end{itemize}
-We will use these mature components to focus on workflow design, correctness, and measurement rather than inventing new infrastructure.
-
-\section{Project scope and deliverables %
-\BvrHint{\ldots iteration-friendly}}
-\subsection{Initial deliverable %
-\BvrHint{\ldots first iteration}}
-\begin{itemize}[leftmargin=0.7cm]
-    \item Citizen submission form + complaint ID generation
-    \item Staff workflow: update status and assignment
-    \item Citizen status page: view timeline/history
-    \item Basic logging and timestamps for TTA measurement
-    \item CI: build + backend unit tests + linting
-    \item CD to staging with a single command or pipeline job
-\end{itemize}
-
-\subsection{Subsequent deliverables}
-\begin{itemize}[leftmargin=0.7cm]
-    \item Lightweight duplicate suggestions with staff review
-    \item Notification layer (email/SMS optional in later iteration; can start with in-app notifications)
-    \item Admin dashboard for metrics and backlog
-    \item Improved search/filtering and indexed queries for scale readiness
-\end{itemize}
-
-\section{Risks and mitigations}
-\begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Data privacy / consent:} minimize collected data; keep attachments optional; store only what is needed.
-    \item \textbf{Staff adoption:} provide an easy UI for status updates; keep workflow steps minimal; include shortcuts.
-    \item \textbf{Evaluation measurement ambiguity:} instrument timestamps and define clear status transitions before development begins.
-    \item \textbf{Operational issues in pilot:} use staging early; ensure CI/CD produces repeatable deployments.
-\end{itemize}
+% =====================================================
+% 12. SUMMARY
+% =====================================================
 
 \section{Summary}
-This project proposes a deployable web platform to reduce grievance handling delays in a tier-2/3 city context. It meets the course criteria by emphasizing time-to-value through rapid iterations, implementing CI/CD to support frequent safe releases, and using measurable evaluation criteria (especially time-to-acknowledgement). It remains focused on engineering workflow and scalability readiness rather than research-driven novelty.
+
+This project proposes the Intelligent Expense Tracker, a system that
+automates the capture of financial information from bills, UPI
+screenshots, and bank statements, and turns it into a verified,
+structured financial history. The central objective is to transform
+fragmented and unstructured transaction information into a structured
+financial history that can be automatically analyzed to help users
+understand and make better everyday spending decisions through
+collaborative splitting, spending analytics, recurring and unusual
+spending detection, purchase-readiness analysis, and natural-language
+queries, built on Flutter, FastAPI, and PostgreSQL.
 
 \end{document}
