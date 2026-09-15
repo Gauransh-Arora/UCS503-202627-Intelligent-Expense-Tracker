@@ -13,20 +13,20 @@ class ExpenseDetailScreen extends StatelessWidget {
   String _sourceLabel(String? source) {
     switch (source) {
       case 'ocr_receipt':
-        return '📷 Scanned Receipt';
+        return 'Scanned Receipt';
       case 'ocr_upi':
-        return '🖼 UPI Screenshot';
+        return 'UPI Screenshot';
       case 'bank_statement':
-        return '📄 Bank Statement';
+        return 'Bank Statement';
       default:
-        return '✏️ Manual Entry';
+        return 'Manual Entry';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final catColor = AppColors.categoryColor(expense.category);
-    final catEmoji = AppColors.categoryEmoji(expense.category);
+    final catIcon = AppColors.categoryIcon(expense.category);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -75,7 +75,7 @@ class ExpenseDetailScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Center(
-                      child: Text(catEmoji, style: const TextStyle(fontSize: 36)),
+                      child: Icon(catIcon, size: 36, color: catColor),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -102,13 +102,19 @@ class ExpenseDetailScreen extends StatelessWidget {
                           color: catColor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          '$catEmoji ${expense.category}',
-                          style: TextStyle(
-                            color: catColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
+                        child: Row(
+                          children: [
+                            Icon(catIcon, size: 14, color: catColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              expense.category,
+                              style: TextStyle(
+                                color: catColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -148,7 +154,7 @@ class ExpenseDetailScreen extends StatelessWidget {
                 if (expense.isRecurring)
                   _InfoRow(
                     label: 'Type',
-                    value: '🔄 Recurring Expense',
+                    value: 'Recurring Expense',
                     icon: Icons.repeat_rounded,
                   ),
                 if (expense.notes != null)
@@ -208,7 +214,7 @@ class ExpenseDetailScreen extends StatelessWidget {
 
             // ─── Actions ──────────────────────────────────────────────────
             PrimaryButton(
-              label: '👥  Split Expense',
+              label: 'Split Expense',
               backgroundColor: AppColors.primary,
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(

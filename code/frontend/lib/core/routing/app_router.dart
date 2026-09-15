@@ -5,6 +5,7 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/auth/register_screen.dart';
 import '../../features/add_expense/manual_expense_screen.dart';
 import '../../features/add_expense/ocr_flow/capture_screen.dart';
+import '../../features/add_expense/ocr_flow/image_preview_screen.dart';
 import '../../features/add_expense/bank_statement_screen.dart';
 import '../../features/insights/insights_screen.dart';
 import '../../features/recurring/recurring_screen.dart';
@@ -16,7 +17,10 @@ import '../../navigation/main_navigation.dart';
 class AppRouter {
   AppRouter._();
 
+  static final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
   static final GoRouter router = GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: AppConstants.routeSplash,
     routes: [
       GoRoute(
@@ -42,6 +46,28 @@ class AppRouter {
       GoRoute(
         path: AppConstants.routeCapture,
         builder: (context, state) => const CaptureScreen(type: 'receipt'),
+      ),
+      GoRoute(
+        path: '/image-preview',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return ImagePreviewScreen(
+            source: extra['source'] as String? ?? 'shared',
+            filePath: extra['filePath'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/shared-text-expense',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return ManualExpenseScreen(
+            prefillAmount: extra['amount'] as String?,
+            prefillMerchant: extra['merchant'] as String?,
+            prefillNote: extra['note'] as String?,
+            prefillRawText: extra['rawText'] as String?,
+          );
+        },
       ),
       GoRoute(
         path: AppConstants.routeBankStatement,

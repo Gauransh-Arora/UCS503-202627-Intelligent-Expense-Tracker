@@ -17,23 +17,16 @@ class ExpenseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catColor = AppColors.categoryColor(expense.category);
-    final catEmoji = AppColors.categoryEmoji(expense.category);
+    final catIcon = AppColors.categoryIcon(expense.category);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: AppColors.surfaceCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border, width: 2),
         ),
         child: Row(
           children: [
@@ -46,7 +39,7 @@ class ExpenseCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: Text(catEmoji, style: const TextStyle(fontSize: 22)),
+                child: Icon(catIcon, size: 22, color: catColor),
               ),
             ),
             const SizedBox(width: 12),
@@ -88,7 +81,7 @@ class ExpenseCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
-                            '🔄 Recurring',
+                            'Recurring',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -106,7 +99,7 @@ class ExpenseCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
-                            '👥 Split',
+                            'Split',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,

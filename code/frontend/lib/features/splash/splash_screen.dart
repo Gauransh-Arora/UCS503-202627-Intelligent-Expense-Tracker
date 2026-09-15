@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../navigation/main_navigation.dart';
 import '../auth/register_screen.dart';
+import '../../widgets/primary_button.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -61,11 +62,7 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1A1F4B), Color(0xFF2D3580), Color(0xFF6C63FF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: AppColors.primary,
         ),
         child: SafeArea(
           child: Center(
@@ -86,17 +83,17 @@ class _SplashScreenState extends State<SplashScreen>
                             width: 96,
                             height: 96,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(28),
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(32),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
+                                color: AppColors.primaryDark,
                                 width: 2,
                               ),
                             ),
                             child: const Icon(
                               Icons.account_balance_wallet_rounded,
                               size: 52,
-                              color: Colors.white,
+                              color: AppColors.primary,
                             ),
                           ),
                           const SizedBox(height: 28),
@@ -203,13 +200,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(16),
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Icon(
                       Icons.account_balance_wallet_rounded,
                       size: 28,
-                      color: Colors.white,
+                      color: AppColors.primary,
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -270,21 +267,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 24),
 
                   // Login button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _login,
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Sign In'),
-                    ),
+                  PrimaryButton(
+                    label: 'Sign In',
+                    isLoading: _isLoading,
+                    onPressed: _login,
                   ),
                   const SizedBox(height: 24),
 

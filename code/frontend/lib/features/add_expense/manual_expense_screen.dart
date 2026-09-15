@@ -7,7 +7,21 @@ import '../../widgets/primary_button.dart';
 
 class ManualExpenseScreen extends StatefulWidget {
   final ExpenseModel? editExpense;
-  const ManualExpenseScreen({super.key, this.editExpense});
+
+  /// Pre-fill fields from a shared UPI / payment text message.
+  final String? prefillAmount;
+  final String? prefillMerchant;
+  final String? prefillNote;
+  final String? prefillRawText;
+
+  const ManualExpenseScreen({
+    super.key,
+    this.editExpense,
+    this.prefillAmount,
+    this.prefillMerchant,
+    this.prefillNote,
+    this.prefillRawText,
+  });
 
   @override
   State<ManualExpenseScreen> createState() => _ManualExpenseScreenState();
@@ -42,6 +56,14 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
             'quantity': i.quantity,
             'price': i.price,
           }));
+    } else {
+      // Pre-fill from shared UPI text
+      if (widget.prefillAmount != null) _amountCtrl.text = widget.prefillAmount!;
+      if (widget.prefillMerchant != null) _merchantCtrl.text = widget.prefillMerchant!;
+      if (widget.prefillNote != null) _notesCtrl.text = widget.prefillNote!;
+      if (widget.prefillRawText != null) {
+        _selectedPaymentMethod = 'UPI';
+      }
     }
   }
 
@@ -148,6 +170,47 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
           children: [
+            // ── UPI raw-text banner ────────────────────────────────────────
+            if (widget.prefillRawText != null) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A2744),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.accent.withOpacity(0.4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.mobile_friendly_rounded,
+                            color: AppColors.accent, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Shared UPI Message',
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.prefillRawText!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             // Amount
             _FormCard(
               title: 'Amount *',
@@ -240,7 +303,7 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
                           value: cat,
                           child: Row(
                             children: [
-                              Text(AppColors.categoryEmoji(cat)),
+                              Icon(AppColors.categoryIcon(cat), size: 16),
                               const SizedBox(width: 8),
                               Text(cat),
                             ],

@@ -101,7 +101,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
           ),
           child: Column(
             children: [
-              const Text('📄', style: TextStyle(fontSize: 56)),
+              const Icon(Icons.description_rounded, size: 56, color: AppColors.primary),
               const SizedBox(height: 12),
               Text(
                 'Import Bank Statement',
@@ -127,7 +127,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
           children: [
             Expanded(
               child: _FormatButton(
-                emoji: '📋',
+                icon: Icons.picture_as_pdf_rounded,
                 label: 'PDF Statement',
                 isSelected: _isPdf,
                 onTap: () => _pickFile(true),
@@ -136,7 +136,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: _FormatButton(
-                emoji: '📊',
+                icon: Icons.table_chart_rounded,
                 label: 'CSV File',
                 isSelected: !_isPdf,
                 onTap: () => _pickFile(false),
@@ -186,7 +186,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
           ),
           const SizedBox(height: 24),
           PrimaryButton(
-            label: _isProcessing ? 'Processing...' : '🔍  Upload & Process',
+            label: _isProcessing ? 'Processing...' : 'Upload & Process',
             isLoading: _isProcessing,
             onPressed: _isProcessing ? null : _process,
           ),
@@ -233,7 +233,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
           ),
           child: Row(
             children: [
-              const Text('📄', style: TextStyle(fontSize: 36)),
+              const Icon(Icons.description_rounded, size: 36, color: Colors.white),
               const SizedBox(width: 16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,13 +364,13 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
 }
 
 class _FormatButton extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _FormatButton({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -395,7 +395,7 @@ class _FormatButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 28)),
+            Icon(icon, size: 28, color: isSelected ? AppColors.accent : AppColors.textSecondary),
             const SizedBox(height: 8),
             Text(
               label,

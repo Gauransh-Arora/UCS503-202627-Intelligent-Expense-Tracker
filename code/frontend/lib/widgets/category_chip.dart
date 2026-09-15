@@ -18,13 +18,13 @@ class CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AppColors.categoryColor(category);
-    final emoji = AppColors.categoryEmoji(category);
+    final icon = AppColors.categoryIcon(category);
 
     return FilterChip(
       selected: isSelected,
       onSelected: onSelected,
       avatar: showEmoji
-          ? Text(emoji, style: const TextStyle(fontSize: 14))
+          ? Icon(icon, size: 14, color: color)
           : null,
       label: Text(category),
       labelStyle: TextStyle(

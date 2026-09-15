@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import '../models/expense_model.dart';
 import '../models/split_model.dart';
 import '../models/wishlist_model.dart';
@@ -290,7 +291,7 @@ class MockData {
       category: 'Entertainment',
       interval: 'monthly',
       nextExpected: DateTime(2026, 9, 30),
-      emoji: '🎬',
+      icon: Icons.movie_rounded,
     ),
     RecurringExpenseModel(
       id: 'rec_002',
@@ -299,7 +300,7 @@ class MockData {
       category: 'Entertainment',
       interval: 'monthly',
       nextExpected: DateTime(2026, 9, 22),
-      emoji: '🎵',
+      icon: Icons.music_note_rounded,
     ),
     RecurringExpenseModel(
       id: 'rec_003',
@@ -308,7 +309,7 @@ class MockData {
       category: 'Bills',
       interval: 'monthly',
       nextExpected: DateTime(2026, 9, 26),
-      emoji: '📱',
+      icon: Icons.smartphone_rounded,
     ),
     RecurringExpenseModel(
       id: 'rec_004',
@@ -317,7 +318,7 @@ class MockData {
       category: 'Bills',
       interval: 'monthly',
       nextExpected: DateTime(2026, 9, 15),
-      emoji: '⚡',
+      icon: Icons.electrical_services_rounded,
     ),
     RecurringExpenseModel(
       id: 'rec_005',
@@ -326,7 +327,7 @@ class MockData {
       category: 'Bills',
       interval: 'monthly',
       nextExpected: DateTime(2026, 9, 5),
-      emoji: '🏘️',
+      icon: Icons.apartment_rounded,
     ),
   ];
 
@@ -338,7 +339,7 @@ class MockData {
       name: 'MacBook Air M3',
       expectedPrice: 114900,
       readiness: 'Possible',
-      imageEmoji: '💻',
+      imageIcon: Icons.laptop_mac_rounded,
       analysis: 'Based on your current monthly savings of ₹35,420 and recurring expenses of ₹18,000/month, you could save enough in approximately 4 months. However, your food and shopping spend has been trending upward.',
       addedAt: DateTime(2026, 8, 10),
     ),
@@ -347,7 +348,7 @@ class MockData {
       name: 'Sony WH-1000XM5 Headphones',
       expectedPrice: 24990,
       readiness: 'Comfortable',
-      imageEmoji: '🎧',
+      imageIcon: Icons.headphones_rounded,
       analysis: 'This purchase fits comfortably within your budget. You have ₹35,420 remaining this month and this represents less than 75% of your monthly discretionary spend.',
       addedAt: DateTime(2026, 8, 15),
     ),
@@ -356,7 +357,7 @@ class MockData {
       name: 'PlayStation 5',
       expectedPrice: 54990,
       readiness: 'Not Recommended',
-      imageEmoji: '🎮',
+      imageIcon: Icons.sports_esports_rounded,
       analysis: 'Your current spending patterns leave limited room for large discretionary purchases. Your food and health spending has been unusually high this month. We recommend waiting until your spending stabilizes.',
       addedAt: DateTime(2026, 8, 20),
     ),
@@ -365,7 +366,7 @@ class MockData {
       name: 'Kindle Paperwhite',
       expectedPrice: 13999,
       readiness: 'Comfortable',
-      imageEmoji: '📖',
+      imageIcon: Icons.book_rounded,
       analysis: 'Well within your discretionary budget. This is a small purchase relative to your monthly remaining balance.',
       addedAt: DateTime(2026, 8, 25),
     ),

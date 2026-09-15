@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/primary_button.dart';
@@ -5,7 +6,8 @@ import 'processing_screen.dart';
 
 class ImagePreviewScreen extends StatelessWidget {
   final String source;
-  const ImagePreviewScreen({super.key, required this.source});
+  final String? filePath;
+  const ImagePreviewScreen({super.key, required this.source, this.filePath});
 
   @override
   Widget build(BuildContext context) {
@@ -37,19 +39,32 @@ class ImagePreviewScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('🧾', style: TextStyle(fontSize: 80)),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Receipt Preview',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                  if (filePath != null)
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.file(
+                          File(filePath!),
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                        ),
+                      ),
+                    )
+                  else ...[
+                    const Text('🧾', style: TextStyle(fontSize: 80)),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Receipt Preview',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 8),
                   Text(
-                    'Source: ${source == 'camera' ? '📷 Camera' : '🖼 Gallery'}',
+                    'Source: ${source == 'camera' ? 'Camera' : 'Gallery'}',
                     style: const TextStyle(color: Colors.white38, fontSize: 13),
                   ),
                   const SizedBox(height: 24),

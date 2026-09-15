@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 
 class EmptyState extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String title;
   final String description;
   final String? actionLabel;
@@ -10,7 +10,7 @@ class EmptyState extends StatelessWidget {
 
   const EmptyState({
     super.key,
-    this.emoji = '📭',
+    this.icon = Icons.inbox_rounded,
     required this.title,
     required this.description,
     this.actionLabel,
@@ -25,7 +25,7 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 56)),
+            Icon(icon, size: 56, color: AppColors.primary),
             const SizedBox(height: 16),
             Text(
               title,

@@ -104,11 +104,11 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                gradient: AppColors.accentGradient,
-                borderRadius: BorderRadius.circular(10),
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Center(
-                child: Text('🤖', style: TextStyle(fontSize: 18)),
+                child: Icon(Icons.smart_toy_rounded, size: 18, color: Colors.white),
               ),
             ),
             const SizedBox(width: 10),
@@ -158,7 +158,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
                       ),
                     ),
                     backgroundColor: AppColors.surfaceElevated,
-                    side: const BorderSide(color: AppColors.border),
+                    side: const BorderSide(color: AppColors.border, width: 2),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -249,11 +249,11 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.border),
+                        borderSide: const BorderSide(color: AppColors.border, width: 2),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.border),
+                        borderSide: const BorderSide(color: AppColors.border, width: 2),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
@@ -267,8 +267,8 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.accentGradient,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
@@ -304,12 +304,12 @@ class _ChatBubble extends StatelessWidget {
             Container(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
               child: const Center(
-                child: Text('🤖', style: TextStyle(fontSize: 16)),
+                child: Icon(Icons.smart_toy_rounded, size: 16, color: Colors.white),
               ),
             ),
             const SizedBox(width: 8),

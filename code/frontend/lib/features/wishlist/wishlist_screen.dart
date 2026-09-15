@@ -197,8 +197,8 @@ class _WishlistCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Center(
-                child: Text(item.imageEmoji ?? '🛍',
-                    style: const TextStyle(fontSize: 28)),
+                child: Icon(item.imageIcon ?? Icons.shopping_bag_rounded,
+                    size: 28, color: color),
               ),
             ),
             const SizedBox(width: 14),
@@ -227,8 +227,8 @@ class _WishlistCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(item.readinessEmoji,
-                            style: const TextStyle(fontSize: 13)),
+                        Icon(item.readinessIcon,
+                            size: 13, color: color),
                         const SizedBox(width: 5),
                         Text(
                           item.readiness,

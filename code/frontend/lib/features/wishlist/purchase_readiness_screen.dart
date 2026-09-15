@@ -81,9 +81,10 @@ class PurchaseReadinessScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Text(
-                      item.imageEmoji ?? '🛍️',
-                      style: const TextStyle(fontSize: 42),
+                    child: Icon(
+                      item.imageIcon ?? Icons.shopping_bag_rounded,
+                      size: 40,
+                      color: _verdictColor,
                     ),
                   ),
                 ),

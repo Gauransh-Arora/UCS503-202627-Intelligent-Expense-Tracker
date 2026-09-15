@@ -29,12 +29,12 @@ class RecurringScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
+              color: AppColors.primary,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               children: [
-                const Text('🔄', style: TextStyle(fontSize: 40)),
+                const Icon(Icons.autorenew_rounded, size: 40, color: Colors.white),
                 const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,8 +99,8 @@ class _RecurringCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border, width: 2),
       ),
       child: Row(
         children: [
@@ -112,8 +112,7 @@ class _RecurringCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
-              child: Text(expense.emoji ?? '💳',
-                  style: const TextStyle(fontSize: 24)),
+              child: Icon(expense.icon ?? Icons.credit_card_rounded, size: 24, color: catColor),
             ),
           ),
           const SizedBox(width: 14),

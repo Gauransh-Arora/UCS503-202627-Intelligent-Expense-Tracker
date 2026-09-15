@@ -38,16 +38,16 @@ class HomeScreen extends StatelessWidget {
             title: Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Icon(
                     Icons.account_balance_wallet_rounded,
-                    color: Colors.white,
-                    size: 20,
+                    color: AppColors.primary,
+                    size: 24,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -164,13 +164,12 @@ class _SpendingSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: AppColors.primaryDark,
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -325,7 +324,7 @@ class _InsightCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Center(
-              child: Text('⚠️', style: TextStyle(fontSize: 22)),
+              child: Icon(Icons.warning_rounded, size: 22, color: AppColors.warning),
             ),
           ),
           const SizedBox(width: 14),
@@ -379,13 +378,13 @@ class _CategoryBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AppColors.categoryColor(category.category);
-    final emoji = AppColors.categoryEmoji(category.category);
+    final icon = AppColors.categoryIcon(category.category);
 
     return Column(
       children: [
         Row(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 16)),
+            Icon(icon, size: 16, color: color),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

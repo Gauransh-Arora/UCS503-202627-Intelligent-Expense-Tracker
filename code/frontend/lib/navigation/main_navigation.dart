@@ -78,18 +78,18 @@ class _MainNavigationState extends State<MainNavigation> {
                       child: Container(
                         width: 56,
                         height: 56,
+                        margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
-                          gradient: AppColors.accentGradient,
-                          shape: BoxShape.circle,
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.accent.withOpacity(0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                              color: AppColors.primaryDark,
+                              offset: const Offset(0, 4), // Solid bottom depth
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+                        child: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
                       ),
                     ),
                   ),

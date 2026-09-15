@@ -40,7 +40,7 @@ class AddExpenseModal extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _OptionTile(
-            emoji: '✏️',
+            icon: Icons.edit_rounded,
             title: 'Record Manually',
             subtitle: 'Enter expense details yourself',
             color: AppColors.accent,
@@ -53,7 +53,7 @@ class AddExpenseModal extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _OptionTile(
-            emoji: '📷',
+            icon: Icons.camera_alt_rounded,
             title: 'Scan Bill / Receipt',
             subtitle: 'Capture a receipt with your camera',
             color: AppColors.catFood,
@@ -68,7 +68,7 @@ class AddExpenseModal extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _OptionTile(
-            emoji: '🖼',
+            icon: Icons.image_rounded,
             title: 'Upload UPI Screenshot',
             subtitle: 'Import from your gallery',
             color: AppColors.catTravel,
@@ -83,7 +83,7 @@ class AddExpenseModal extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _OptionTile(
-            emoji: '📄',
+            icon: Icons.description_rounded,
             title: 'Upload Bank Statement',
             subtitle: 'Import PDF or CSV statement',
             color: AppColors.catBills,
@@ -101,14 +101,14 @@ class AddExpenseModal extends StatelessWidget {
 }
 
 class _OptionTile extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
 
   const _OptionTile({
-    required this.emoji,
+    required this.icon,
     required this.title,
     required this.subtitle,
     required this.color,
@@ -123,8 +123,8 @@ class _OptionTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: color.withOpacity(0.07),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.2)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.3), width: 2),
         ),
         child: Row(
           children: [
@@ -135,7 +135,7 @@ class _OptionTile extends StatelessWidget {
                 color: color.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
+              child: Center(child: Icon(icon, size: 24, color: color)),
             ),
             const SizedBox(width: 14),
             Expanded(

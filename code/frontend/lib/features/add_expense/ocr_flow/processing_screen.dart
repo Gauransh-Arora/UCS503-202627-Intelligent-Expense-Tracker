@@ -88,7 +88,7 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                     ),
                   ),
                   child: const Center(
-                    child: Text('🔍', style: TextStyle(fontSize: 48)),
+                    child: Icon(Icons.search_rounded, size: 48, color: AppColors.primary),
                   ),
                 ),
               ),

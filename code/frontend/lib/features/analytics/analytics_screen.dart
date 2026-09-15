@@ -62,7 +62,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           Row(
             children: [
               _QuickCard(
-                emoji: '⚠️',
+                icon: Icons.warning_rounded,
                 label: 'Unusual\nSpending',
                 color: AppColors.warning,
                 onTap: () => Navigator.of(context).push(
@@ -71,7 +71,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               ),
               const SizedBox(width: 12),
               _QuickCard(
-                emoji: '🔄',
+                icon: Icons.autorenew_rounded,
                 label: 'Recurring\nExpenses',
                 color: AppColors.info,
                 onTap: () => Navigator.of(context).push(
@@ -134,7 +134,7 @@ class _TotalCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.border, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,13 +194,13 @@ class _TotalCard extends StatelessWidget {
 // ─── Quick Card ───────────────────────────────────────────────────────────────
 
 class _QuickCard extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
 
   const _QuickCard({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
@@ -215,12 +215,12 @@ class _QuickCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: color.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.3)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(0.3), width: 2),
           ),
           child: Row(
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 24)),
+              Icon(icon, size: 24, color: color),
               const SizedBox(width: 10),
               Text(
                 label,
@@ -303,7 +303,7 @@ class _CategoryLegendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AppColors.categoryColor(category.category);
-    final emoji = AppColors.categoryEmoji(category.category);
+    final icon = AppColors.categoryIcon(category.category);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -320,7 +320,7 @@ class _CategoryLegendRow extends StatelessWidget {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 10),
-          Text(emoji),
+          Icon(icon, size: 16, color: color),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -362,8 +362,8 @@ class _LineChart extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border, width: 2),
       ),
       child: LineChart(
         LineChartData(
@@ -444,15 +444,15 @@ class _MerchantRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AppColors.categoryColor(merchant.category);
-    final emoji = AppColors.categoryEmoji(merchant.category);
+    final icon = AppColors.categoryIcon(merchant.category);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border, width: 2),
       ),
       child: Row(
         children: [
@@ -477,7 +477,7 @@ class _MerchantRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(emoji, style: const TextStyle(fontSize: 20)),
+          Icon(icon, size: 20, color: color),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

@@ -1,4 +1,4 @@
-package com.example.frontend
+package com.example.intelligent_expense_tracker
 
 import io.flutter.embedding.android.FlutterActivity
 

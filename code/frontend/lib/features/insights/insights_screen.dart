@@ -38,8 +38,8 @@ class InsightsScreen extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(unusual.isEmpty ? '🎉' : '⚠️',
-                    style: const TextStyle(fontSize: 28)),
+                Icon(unusual.isEmpty ? Icons.celebration_rounded : Icons.warning_rounded,
+                    size: 28, color: unusual.isEmpty ? AppColors.success : AppColors.warning),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -126,7 +126,7 @@ class _InsightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catColor = AppColors.categoryColor(insight.category);
-    final catEmoji = AppColors.categoryEmoji(insight.category);
+    final catIcon = AppColors.categoryIcon(insight.category);
     final isUnusual = insight.isUnusual;
     final statusColor = isUnusual ? AppColors.warning : AppColors.success;
 
@@ -156,7 +156,7 @@ class _InsightCard extends StatelessWidget {
                   color: catColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(child: Text(catEmoji, style: const TextStyle(fontSize: 20))),
+                child: Center(child: Icon(catIcon, size: 20, color: catColor)),
               ),
               const SizedBox(width: 12),
               Expanded(

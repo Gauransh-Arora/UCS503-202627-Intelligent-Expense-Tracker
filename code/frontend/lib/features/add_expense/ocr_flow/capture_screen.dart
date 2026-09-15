@@ -42,7 +42,7 @@ class CaptureScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      isReceipt ? '📷' : '🖼',
+                      isReceipt ? 'Receipt' : 'UPI',
                       style: const TextStyle(fontSize: 64),
                     ),
                     const SizedBox(height: 12),
@@ -77,7 +77,7 @@ class CaptureScreen extends StatelessWidget {
 
             if (isReceipt) ...[
               PrimaryButton(
-                label: '📷  Open Camera',
+                label: 'Open Camera',
                 onPressed: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
                     builder: (_) =>
@@ -89,7 +89,7 @@ class CaptureScreen extends StatelessWidget {
             ],
 
             PrimaryButton(
-              label: '🖼  Choose from Gallery',
+              label: 'Choose from Gallery',
               backgroundColor: AppColors.primary,
               onPressed: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute(

@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 
 class WishlistItemModel {
   final String id;
@@ -6,7 +7,7 @@ class WishlistItemModel {
   final double expectedPrice;
   final String readiness; // 'Comfortable', 'Possible', 'Not Recommended'
   final String? analysis;
-  final String? imageEmoji;
+  final IconData? imageIcon;
   final DateTime addedAt;
 
   const WishlistItemModel({
@@ -15,7 +16,7 @@ class WishlistItemModel {
     required this.expectedPrice,
     required this.readiness,
     this.analysis,
-    this.imageEmoji,
+    this.imageIcon,
     required this.addedAt,
   });
 
@@ -24,16 +25,16 @@ class WishlistItemModel {
     return formatter.format(expectedPrice);
   }
 
-  String get readinessEmoji {
+  IconData get readinessIcon {
     switch (readiness) {
       case 'Comfortable':
-        return '🟢';
+        return Icons.check_circle_rounded;
       case 'Possible':
-        return '🟡';
+        return Icons.info_rounded;
       case 'Not Recommended':
-        return '🔴';
+        return Icons.cancel_rounded;
       default:
-        return '⚪';
+        return Icons.help_rounded;
     }
   }
 }
@@ -45,7 +46,7 @@ class RecurringExpenseModel {
   final String category;
   final String interval; // 'monthly', 'weekly', 'yearly'
   final DateTime nextExpected;
-  final String? emoji;
+  final IconData? icon;
 
   const RecurringExpenseModel({
     required this.id,
@@ -54,7 +55,7 @@ class RecurringExpenseModel {
     required this.category,
     required this.interval,
     required this.nextExpected,
-    this.emoji,
+    this.icon,
   });
 
   String get formattedAmount {

@@ -96,13 +96,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: const [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: AppColors.primaryDark,
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
@@ -290,8 +289,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             decoration: BoxDecoration(
               color: AppColors.dangerLight,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.danger.withOpacity(0.3), width: 2),
             ),
             child: ListTile(
               leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
@@ -351,8 +350,8 @@ class _SettingsGroup extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border, width: 2),
       ),
       child: Column(children: children),
     );

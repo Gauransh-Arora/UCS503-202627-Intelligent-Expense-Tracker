@@ -159,7 +159,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           Expanded(
             child: _filtered.isEmpty
                 ? EmptyState(
-                    emoji: '🔍',
+                    icon: Icons.search_rounded,
                     title: 'No expenses found',
                     description: _searchQuery.isNotEmpty
                         ? 'No results for "$_searchQuery"'
