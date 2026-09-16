@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../services/api_service.dart';
 import 'ocr_review_screen.dart';
 
 class ProcessingScreen extends StatefulWidget {
-  const ProcessingScreen({super.key});
+  final String filePath;
+  const ProcessingScreen({super.key, required this.filePath});
 
   @override
   State<ProcessingScreen> createState() => _ProcessingScreenState();
@@ -35,23 +37,40 @@ class _ProcessingScreenState extends State<ProcessingScreen>
 
     _progressCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4000),
+      duration: const Duration(milliseconds: 15000), // Max 15s wait
     )..forward();
 
-    // Simulate step-by-step extraction
-    for (int i = 0; i < _steps.length; i++) {
-      Future.delayed(Duration(milliseconds: 600 + i * 700), () {
-        if (mounted) setState(() => _completedSteps = i + 1);
-      });
-    }
+    _processDocument();
+  }
 
-    // Navigate to review after processing
-    Future.delayed(const Duration(milliseconds: 4500), () {
+  Future<void> _processDocument() async {
+    try {
+      // Step 1: Upload
+      if (mounted) setState(() => _completedSteps = 1);
+      final docId = await ApiService.uploadDocument(widget.filePath);
+
+      // Step 2: Process OCR
+      if (mounted) setState(() => _completedSteps = 2);
+      final ocrResult = await ApiService.processDocument(docId);
+      
+      if (mounted) setState(() => _completedSteps = 5);
+
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const OcrReviewScreen()),
+        MaterialPageRoute(
+          builder: (_) => OcrReviewScreen(ocrData: ocrResult),
+        ),
       );
-    });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to process image: \$e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      Navigator.pop(context); // Go back to preview
+    }
   }
 
   @override

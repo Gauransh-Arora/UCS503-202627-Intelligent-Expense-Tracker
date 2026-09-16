@@ -29,6 +29,14 @@ class ExpenseItemModel {
         quantity: json['quantity'] ?? 1,
         price: (json['price'] as num).toDouble(),
       );
+
+  factory ExpenseItemModel.fromJsonBackend(Map<String, dynamic> json) =>
+      ExpenseItemModel(
+        id: json['id'],
+        name: json['item_name'],
+        quantity: json['quantity'] ?? 1,
+        price: (json['unit_price'] as num).toDouble(),
+      );
 }
 
 class ExpenseModel {
@@ -108,6 +116,21 @@ class ExpenseModel {
         notes: json['notes'],
         isRecurring: json['isRecurring'] ?? false,
         splitId: json['splitId'],
+      );
+
+  factory ExpenseModel.fromJsonBackend(Map<String, dynamic> json) => ExpenseModel(
+        id: json['id'],
+        merchant: json['merchant_name'] ?? 'Unknown Merchant',
+        amount: (json['amount'] as num).toDouble(),
+        date: DateTime.parse(json['transaction_date']),
+        category: 'Uncategorized', // The backend currently returns category_id. We map it statically or ignore for now, UI can handle defaults.
+        paymentMethod: json['payment_method'] ?? 'Unknown',
+        items: (json['items'] as List? ?? [])
+            .map((e) => ExpenseItemModel.fromJsonBackend(e))
+            .toList(),
+        source: 'manual', // backend doesn't explicitly return source yet
+        notes: json['description'],
+        isRecurring: false,
       );
 
   ExpenseModel copyWith({

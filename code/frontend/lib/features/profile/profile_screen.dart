@@ -288,11 +288,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // ─── Logout Button ────────────────────────────────────────
           Container(
             decoration: BoxDecoration(
-              color: AppColors.dangerLight,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.danger.withOpacity(0.3), width: 2),
             ),
-            child: ListTile(
+            child: Material(
+              color: AppColors.dangerLight,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
               leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
               title: const Text(
                 'Log Out',
@@ -304,6 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               onTap: _showLogoutDialog,
             ),
+          ),
           ),
           const SizedBox(height: 20),
 
@@ -349,11 +353,15 @@ class _SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.border, width: 2),
       ),
-      child: Column(children: children),
+      child: Material(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: children),
+      ),
     );
   }
 }

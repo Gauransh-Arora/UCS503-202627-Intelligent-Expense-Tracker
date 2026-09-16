@@ -5,6 +5,7 @@ import '../../data/mock_data.dart';
 import '../../models/expense_model.dart';
 import '../../widgets/expense_card.dart';
 import '../../widgets/empty_state.dart';
+import '../../services/api_service.dart';
 import 'expense_detail_screen.dart';
 
 class ExpensesScreen extends StatefulWidget {
@@ -19,9 +20,34 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   String _searchQuery = '';
   String? _selectedCategory;
   String _sortBy = 'newest';
+  
+  bool _isLoading = true;
+  String? _error;
+  List<ExpenseModel> _allExpenses = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchExpenses();
+  }
+
+  Future<void> _fetchExpenses() async {
+    try {
+      final expenses = await ApiService.getTransactions(limit: 100);
+      setState(() {
+        _allExpenses = expenses;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   List<ExpenseModel> get _filtered {
-    var list = MockData.expenses.toList();
+    var list = _allExpenses.toList();
 
     if (_searchQuery.isNotEmpty) {
       list = list
@@ -113,7 +139,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null 
+              ? Center(child: Text('Error: $_error', style: const TextStyle(color: AppColors.danger)))
+              : Column(
         children: [
           // Search bar
           Padding(

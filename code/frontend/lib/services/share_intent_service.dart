@@ -44,41 +44,53 @@ class ShareIntentService {
     );
   }
 
+  static bool isReady = false;
+  static String? _pendingFile;
+  static String? _pendingText;
+
+  static void onAppReady() {
+    isReady = true;
+    if (_pendingFile != null) {
+      _handleSharedFile(_pendingFile!);
+      _pendingFile = null;
+    }
+    if (_pendingText != null) {
+      _handleSharedText(_pendingText!);
+      _pendingText = null;
+    }
+  }
+
   // ── Image / file handler ─────────────────────────────────────────────────
   static void _handleSharedFile(String filePath) {
-    if (AppRouter.rootNavigatorKey.currentContext != null) {
-      AppRouter.router.push(
-        '/image-preview',
-        extra: {
-          'source': 'shared',
-          'filePath': filePath,
-        },
-      );
-    } else {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _handleSharedFile(filePath);
-      });
+    if (!isReady || AppRouter.rootNavigatorKey.currentContext == null) {
+      _pendingFile = filePath;
+      return;
     }
+    AppRouter.router.push(
+      '/image-preview',
+      extra: {
+        'source': 'shared',
+        'filePath': filePath,
+      },
+    );
   }
 
   // ── Text / UPI payment handler ───────────────────────────────────────────
   static void _handleSharedText(String text) {
-    if (AppRouter.rootNavigatorKey.currentContext != null) {
-      final parsed = _parseUpiText(text);
-      AppRouter.router.push(
-        '/shared-text-expense',
-        extra: {
-          'rawText': text,
-          'amount': parsed['amount'],
-          'merchant': parsed['merchant'],
-          'note': parsed['note'],
-        },
-      );
-    } else {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _handleSharedText(text);
-      });
+    if (!isReady || AppRouter.rootNavigatorKey.currentContext == null) {
+      _pendingText = text;
+      return;
     }
+    final parsed = _parseUpiText(text);
+    AppRouter.router.push(
+      '/shared-text-expense',
+      extra: {
+        'rawText': text,
+        'amount': parsed['amount'],
+        'merchant': parsed['merchant'],
+        'note': parsed['note'],
+      },
+    );
   }
 
   /// Parses common UPI/BHIM payment message formats and extracts key fields.

@@ -3,6 +3,8 @@ import '../../core/theme/app_colors.dart';
 import '../../navigation/main_navigation.dart';
 import '../auth/register_screen.dart';
 import '../../widgets/primary_button.dart';
+import '../../services/api_service.dart';
+import '../../services/share_intent_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -37,9 +39,31 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
+    _checkAuthAndNavigate();
+  }
 
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (!mounted) return;
+  Future<void> _checkAuthAndNavigate() async {
+    // Wait for the animation to finish + check token
+    final results = await Future.wait([
+      Future.delayed(const Duration(milliseconds: 2500)),
+      ApiService.getToken(),
+    ]);
+    
+    final token = results[1] as String?;
+    
+    if (!mounted) return;
+    
+    if (token != null && token.isNotEmpty) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const MainNavigation(),
+          transitionDuration: const Duration(milliseconds: 500),
+          transitionsBuilder: (_, animation, __, child) =>
+              FadeTransition(opacity: animation, child: child),
+        ),
+      );
+      Future.delayed(const Duration(milliseconds: 550), () => ShareIntentService.onAppReady());
+    } else {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => const LoginScreen(),
@@ -48,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen>
               FadeTransition(opacity: animation, child: child),
         ),
       );
-    });
+    }
   }
 
   @override
@@ -174,11 +198,24 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainNavigation()),
-    );
+    
+    try {
+      await ApiService.login(_emailCtrl.text, _passwordCtrl.text);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
+      Future.delayed(const Duration(milliseconds: 500), () => ShareIntentService.onAppReady());
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   @override

@@ -5,29 +5,37 @@ import '../../../widgets/primary_button.dart';
 import '../../../models/expense_model.dart';
 
 class OcrReviewScreen extends StatefulWidget {
-  const OcrReviewScreen({super.key});
+  final Map<String, dynamic> ocrData;
+  const OcrReviewScreen({super.key, required this.ocrData});
 
   @override
   State<OcrReviewScreen> createState() => _OcrReviewScreenState();
 }
 
 class _OcrReviewScreenState extends State<OcrReviewScreen> {
-  // Pre-filled with mock OCR result
-  final _merchantCtrl = TextEditingController(text: 'Restaurant ABC');
-  final _amountCtrl = TextEditingController(text: '1250');
-  String _selectedDate = '02 Sep 2026';
-  String _selectedCategory = 'Food & Dining';
+  late final TextEditingController _merchantCtrl;
+  late final TextEditingController _amountCtrl;
+  late String _selectedDate;
+  late String _selectedCategory;
   bool _isConfirming = false;
-  double _confidence = 0.92; // 92% confidence
+  late double _confidence;
 
-  // Mock extracted items
-  final List<Map<String, dynamic>> _items = [
-    {'name': 'Paneer Butter Masala', 'price': 380.0},
-    {'name': 'Dal Makhani', 'price': 320.0},
-    {'name': 'Naan (4 pcs)', 'price': 200.0},
-    {'name': 'Lassi ×2', 'price': 200.0},
-    {'name': 'GST & Service', 'price': 150.0},
-  ];
+  late final List<Map<String, dynamic>> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    final data = widget.ocrData;
+    _merchantCtrl = TextEditingController(text: data['merchant_name'] ?? '');
+    _amountCtrl = TextEditingController(text: data['amount']?.toString() ?? '');
+    
+    // Parse date if available
+    _selectedDate = data['date'] ?? 'Unknown Date';
+    _selectedCategory = data['category_suggestion'] ?? 'Food & Dining';
+    _confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
+    
+    _items = List<Map<String, dynamic>>.from(data['items'] ?? []);
+  }
 
   @override
   void dispose() {
@@ -177,13 +185,16 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                 child: _ReviewField(
                   label: 'Category',
                   child: DropdownButton<String>(
-                    value: _selectedCategory,
                     isExpanded: true,
                     underline: const SizedBox(),
                     items: AppConstants.categories
                         .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
                         .toList(),
+                    // Fallback to first category if the suggested one isn't in the list
                     onChanged: (v) => setState(() => _selectedCategory = v!),
+                    value: AppConstants.categories.contains(_selectedCategory) 
+                        ? _selectedCategory 
+                        : AppConstants.categories.first,
                   ),
                 ),
               ),
@@ -217,7 +228,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                               style: Theme.of(context).textTheme.bodyMedium),
                         ),
                         Text(
-                          '₹${(item['price'] as double).toStringAsFixed(0)}',
+                          '₹${(item['total_price'] as num).toDouble().toStringAsFixed(0)}',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -233,7 +244,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                     const Text('Total',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     Text(
-                      '₹${_items.fold<double>(0, (s, i) => s + (i['price'] as double)).toStringAsFixed(0)}',
+                      '₹${_items.fold<double>(0, (s, i) => s + (i['total_price'] as num).toDouble()).toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         color: AppColors.danger,

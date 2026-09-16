@@ -15,6 +15,12 @@ class CategorySpending {
     final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     return formatter.format(amount);
   }
+
+  factory CategorySpending.fromJsonBackend(Map<String, dynamic> json) => CategorySpending(
+        category: json['category_name'] ?? 'Unknown',
+        amount: (json['total_amount'] as num).toDouble(),
+        percentage: (json['percentage'] as num).toDouble(),
+      );
 }
 
 class MonthlySpending {
@@ -22,6 +28,11 @@ class MonthlySpending {
   final double amount;
 
   const MonthlySpending({required this.month, required this.amount});
+
+  factory MonthlySpending.fromJsonBackend(Map<String, dynamic> json) => MonthlySpending(
+        month: json['month'],
+        amount: (json['total_amount'] as num).toDouble(),
+      );
 }
 
 class MerchantSpending {
@@ -41,6 +52,13 @@ class MerchantSpending {
     final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     return formatter.format(amount);
   }
+
+  factory MerchantSpending.fromJsonBackend(Map<String, dynamic> json) => MerchantSpending(
+        merchant: json['merchant_name'],
+        amount: (json['total_amount'] as num).toDouble(),
+        transactionCount: json['transaction_count'] ?? 1,
+        category: 'Unknown',
+      );
 }
 
 class SpendingInsight {
@@ -108,5 +126,22 @@ class AnalyticsSummary {
   String get formattedRemaining {
     final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     return formatter.format(remaining);
+  }
+
+  factory AnalyticsSummary.fromJsonBackend(Map<String, dynamic> json) {
+    return AnalyticsSummary(
+      totalSpending: (json['current_month_spending'] as num).toDouble(),
+      previousMonthSpending: (json['previous_month_spending'] as num).toDouble(),
+      income: 60000, // Hardcoded for now as backend doesn't provide income
+      byCategory: (json['top_categories'] as List? ?? [])
+          .map((e) => CategorySpending.fromJsonBackend(e))
+          .toList(),
+      monthlyTrend: (json['spending_trend'] as List? ?? [])
+          .map((e) => MonthlySpending.fromJsonBackend(e))
+          .toList(),
+      topMerchants: (json['top_merchants'] as List? ?? [])
+          .map((e) => MerchantSpending.fromJsonBackend(e))
+          .toList(),
+    );
   }
 }

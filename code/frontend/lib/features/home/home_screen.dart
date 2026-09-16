@@ -8,9 +8,28 @@ import '../expenses/expenses_screen.dart';
 import '../expenses/expense_detail_screen.dart';
 import '../ask_expenses/ask_expenses_screen.dart';
 import '../analytics/analytics_screen.dart';
+import '../../services/api_service.dart';
+import '../../models/expense_model.dart';
+import '../../models/analytics_model.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late Future<List<dynamic>> _dashboardDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _dashboardDataFuture = Future.wait([
+      ApiService.getAnalyticsSummary(),
+      ApiService.getTransactions(limit: 3),
+    ]);
+  }
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -21,15 +40,31 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final summary = MockData.analyticsSummary;
-    final recentExpenses = MockData.expenses.take(3).toList();
     final currMonth = DateFormat('MMMM yyyy').format(DateTime.now());
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          // ─── App bar ────────────────────────────────────────────────────
+      body: FutureBuilder<List<dynamic>>(
+        future: _dashboardDataFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.danger)));
+          }
+          
+          final summary = snapshot.data?[0] as AnalyticsSummary?;
+          final recentExpenses = snapshot.data?[1] as List<ExpenseModel>? ?? [];
+
+          if (summary == null) {
+            return const Center(child: Text("No data"));
+          }
+
+          return CustomScrollView(
+            slivers: [
+              // ─── App bar ────────────────────────────────────────────────────
           SliverAppBar(
             expandedHeight: 0,
             floating: true,
@@ -145,6 +180,8 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ],
+      );
+        },
       ),
     );
   }

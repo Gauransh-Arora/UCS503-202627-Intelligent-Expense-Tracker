@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_data.dart';
+import '../../services/api_service.dart';
 import '../../models/analytics_model.dart';
 import '../../widgets/section_header.dart';
 import '../insights/insights_screen.dart';
@@ -18,11 +18,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   int _touchedIndex = -1;
+  late Future<AnalyticsSummary> _summaryFuture;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    _summaryFuture = ApiService.getAnalyticsSummary();
   }
 
   @override
@@ -33,7 +35,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final summary = MockData.analyticsSummary;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -51,9 +52,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-        children: [
+      body: FutureBuilder<AnalyticsSummary>(
+        future: _summaryFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.danger)));
+          }
+          final summary = snapshot.data;
+          if (summary == null) return const Center(child: Text('No data'));
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+            children: [
           // ─── Total + MoM ────────────────────────────────────────────────
           _TotalCard(summary: summary),
           const SizedBox(height: 24),
@@ -113,6 +126,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             return _MerchantRow(rank: i + 1, merchant: m);
           }),
         ],
+      );
+        },
       ),
     );
   }
