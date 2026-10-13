@@ -20,19 +20,12 @@ class UserCategoryPreference(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
 
-    # The merchant keyword that triggered this preference
-    merchant_keyword = Column(String(255), nullable=False, index=True)
-    usage_count = Column(Integer, default=1, nullable=False)  # how often this rule fired
+    # The merchant name that triggered this preference
+    merchant_name = Column(String(255), nullable=False, index=True)
 
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 
@@ -41,4 +34,4 @@ class UserCategoryPreference(Base):
     category = relationship("Category", back_populates="preferences")
 
     def __repr__(self) -> str:
-        return f"<UserCategoryPreference keyword={self.merchant_keyword} → category={self.category_id}>"
+        return f"<UserCategoryPreference merchant={self.merchant_name} → category={self.category_id}>"

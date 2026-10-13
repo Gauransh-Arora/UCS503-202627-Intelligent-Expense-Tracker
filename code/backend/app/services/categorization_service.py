@@ -193,7 +193,7 @@ def categorize_merchant(
         .all()
     )
     for p in pref:
-        if p.merchant_keyword.lower() in merchant_lower:
+        if p.merchant_name.lower() in merchant_lower:
             return p.category_id
 
     # 2. Check global rules
@@ -216,26 +216,25 @@ def save_user_preference(
     Save or update a user's merchant→category preference.
     Called when the user corrects an auto-categorized transaction.
     """
-    keyword = merchant_name.lower().strip()
+    name_lower = merchant_name.lower().strip()
 
     existing = (
         db.query(UserCategoryPreference)
         .filter(
             UserCategoryPreference.user_id == user_id,
-            UserCategoryPreference.merchant_keyword == keyword,
+            UserCategoryPreference.merchant_name == name_lower,
         )
         .first()
     )
 
     if existing:
         existing.category_id = category_id
-        existing.usage_count += 1
     else:
         db.add(
             UserCategoryPreference(
                 user_id=user_id,
                 category_id=category_id,
-                merchant_keyword=keyword,
+                merchant_name=name_lower,
             )
         )
     db.commit()

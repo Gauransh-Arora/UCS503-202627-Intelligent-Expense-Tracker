@@ -37,8 +37,8 @@ def seed_data():
             ("PVR Cinemas", "Entertainment", 400.0, 1200.0)
         ]
 
-        payment_methods = list(PaymentMethod)
-        verification_statuses = list(VerificationStatus)
+        payment_methods = ["upi", "card", "cash", "bank", "other"]
+        verification_statuses = ["pending", "verified", "auto"]
 
         transactions = []
         now = datetime.now(timezone.utc)
@@ -62,12 +62,14 @@ def seed_data():
                 user_id=USER_ID,
                 category_id=category.id,
                 merchant_name=merchant_name,
+                transaction_type="expense",
                 amount=amount,
                 currency="INR",
                 transaction_date=txn_date.date(),
                 payment_method=random.choice(payment_methods),
                 description=f"Mock transaction for {merchant_name}",
                 verification_status=random.choice(verification_statuses),
+                is_verified=True,
                 auto_categorized=random.choice([True, False])
             )
             transactions.append(txn)

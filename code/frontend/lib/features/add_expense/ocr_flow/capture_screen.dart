@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/primary_button.dart';
 import 'image_preview_screen.dart';
@@ -8,6 +9,21 @@ class CaptureScreen extends StatelessWidget {
   const CaptureScreen({super.key, required this.type});
 
   bool get isReceipt => type == 'receipt';
+
+  Future<void> _pickImage(BuildContext context, ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source);
+    if (pickedFile != null && context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ImagePreviewScreen(
+            source: source == ImageSource.camera ? 'camera' : 'gallery',
+            filePath: pickedFile.path,
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,12 +94,7 @@ class CaptureScreen extends StatelessWidget {
             if (isReceipt) ...[
               PrimaryButton(
                 label: 'Open Camera',
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const ImagePreviewScreen(source: 'camera'),
-                  ),
-                ),
+                onPressed: () => _pickImage(context, ImageSource.camera),
               ),
               const SizedBox(height: 14),
             ],
@@ -91,12 +102,7 @@ class CaptureScreen extends StatelessWidget {
             PrimaryButton(
               label: 'Choose from Gallery',
               backgroundColor: AppColors.primary,
-              onPressed: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const ImagePreviewScreen(source: 'gallery'),
-                ),
-              ),
+              onPressed: () => _pickImage(context, ImageSource.gallery),
             ),
 
             const Spacer(),

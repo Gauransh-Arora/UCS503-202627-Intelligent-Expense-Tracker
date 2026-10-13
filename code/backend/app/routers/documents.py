@@ -39,11 +39,28 @@ async def upload_document(
     Call POST /documents/{id}/process to run OCR.
     """
     # Validate MIME type
-    if file.content_type not in ALLOWED_MIME_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"File type '{file.content_type}' not supported. Use JPEG, PNG, WebP, or PDF.",
-        )
+    valid_extensions = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".pdf"}
+    ext = Path(file.filename or "file").suffix.lower()
+    
+    final_content_type = file.content_type
+
+    if final_content_type not in ALLOWED_MIME_TYPES:
+        if final_content_type == "application/octet-stream" and ext in valid_extensions:
+            if ext in {".jpg", ".jpeg"}:
+                final_content_type = "image/jpeg"
+            elif ext == ".png":
+                final_content_type = "image/png"
+            elif ext == ".pdf":
+                final_content_type = "application/pdf"
+            elif ext == ".webp":
+                final_content_type = "image/webp"
+            elif ext == ".heic":
+                final_content_type = "image/heic"
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"File type '{final_content_type}' not supported. Use JPEG, PNG, WebP, or PDF.",
+            )
 
     # Ensure upload directory exists
     upload_dir = Path(settings.UPLOAD_DIR) / str(current_user.id)
@@ -60,12 +77,10 @@ async def upload_document(
     doc = Document(
         user_id=current_user.id,
         original_filename=file.filename or "unknown",
-        stored_filename=safe_name,
-        file_path=str(file_path),
-        file_size=str(len(content)),
-        mime_type=file.content_type,
-        document_type=document_type,
-        processing_status=ProcessingStatus.PENDING,
+        file_url=str(file_path),
+        mime_type=final_content_type,
+        document_type=document_type.value if hasattr(document_type, "value") else str(document_type),
+        processing_status=ProcessingStatus.UPLOADED.value,
     )
     db.add(doc)
     db.commit()
@@ -91,15 +106,15 @@ def process_document(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    if doc.processing_status == ProcessingStatus.PROCESSING:
+    if doc.processing_status == ProcessingStatus.PROCESSING.value:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Document is already being processed")
 
-    doc.processing_status = ProcessingStatus.PROCESSING
+    doc.processing_status = ProcessingStatus.PROCESSING.value
     db.commit()
 
     try:
-        raw_text = run_ocr(doc.file_path)
-        doc.ocr_raw_text = raw_text
+        raw_text = run_ocr(doc.file_url) # doc.file_path was replaced with doc.file_url
+        doc.ocr_text = raw_text
 
         extracted = extract_transaction_data(raw_text)
 
@@ -112,8 +127,9 @@ def process_document(
                 cat = db.query(Category).filter(Category.id == cat_id).first()
                 category_name = cat.name if cat else None
 
-        doc.processing_status = ProcessingStatus.COMPLETED
-        doc.processed_at = datetime.now(timezone.utc)
+        doc.processing_status = ProcessingStatus.PROCESSED.value
+        if "confidence" in extracted:
+            doc.ocr_confidence = extracted.get("confidence", 0.0)
         db.commit()
 
         return OCRResult(
@@ -129,9 +145,14 @@ def process_document(
         )
 
     except Exception as e:
-        doc.processing_status = ProcessingStatus.FAILED
-        doc.processing_error = str(e)
-        db.commit()
+        import traceback
+        traceback.print_exc()
+        try:
+            db.rollback()
+            doc.processing_status = ProcessingStatus.FAILED.value
+            db.commit()
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OCR processing failed: {str(e)}",

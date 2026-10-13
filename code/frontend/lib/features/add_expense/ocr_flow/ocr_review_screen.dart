@@ -103,8 +103,8 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                     children: [
                       Text(
                         isHighConfidence
-                            ? '✓ High Confidence (${(_confidence * 100).toStringAsFixed(0)}%)'
-                            : '⚠ Some fields may be incorrect',
+                            ? 'High Confidence (${(_confidence * 100).toStringAsFixed(0)}%)'
+                            : 'Some fields may be incorrect',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,

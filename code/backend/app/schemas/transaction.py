@@ -9,18 +9,20 @@ from app.models.transaction import PaymentMethod, VerificationStatus
 
 
 class TransactionItemCreate(BaseModel):
-    item_name: str
+    name: str
     quantity: int = 1
-    unit_price: float
+    unit_price: Optional[float] = None
     total_price: float
+    category_id: Optional[UUID] = None
 
 
 class TransactionItemResponse(BaseModel):
     id: UUID
-    item_name: str
+    name: str
     quantity: int
-    unit_price: float
+    unit_price: Optional[float]
     total_price: float
+    category_id: Optional[UUID]
 
     model_config = {"from_attributes": True}
 

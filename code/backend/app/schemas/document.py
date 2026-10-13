@@ -11,15 +11,14 @@ from app.models.document import DocumentType, ProcessingStatus
 class DocumentResponse(BaseModel):
     id: UUID
     user_id: UUID
-    original_filename: str
-    file_size: Optional[str]
-    mime_type: Optional[str]
-    document_type: DocumentType
-    processing_status: ProcessingStatus
-    ocr_raw_text: Optional[str]
-    processing_error: Optional[str]
+    original_filename: Optional[str] = None
+    file_url: Optional[str] = None
+    mime_type: Optional[str] = None
+    document_type: str
+    processing_status: str
+    ocr_text: Optional[str] = None
+    ocr_confidence: Optional[float] = None
     created_at: datetime
-    processed_at: Optional[datetime]
 
     model_config = {"from_attributes": True}
 

@@ -25,7 +25,7 @@ class PaymentMethod(str, enum.Enum):
     CASH = "cash"
     UPI = "upi"
     CARD = "card"
-    NET_BANKING = "net_banking"
+    NET_BANKING = "bank"
     WALLET = "wallet"
     OTHER = "other"
 
@@ -45,15 +45,17 @@ class Transaction(Base):
     document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
 
     # Core fields
+    transaction_type = Column(String(50), default="expense", nullable=False)
+    is_verified = Column(Boolean, default=True, nullable=False)
     merchant_name = Column(String(255), nullable=False)
     amount = Column(Float, nullable=False)
     currency = Column(String(10), default="INR", nullable=False)
     transaction_date = Column(Date, nullable=False)
-    payment_method = Column(Enum(PaymentMethod), default=PaymentMethod.UPI, nullable=False)
+    payment_method = Column(String(50), default="upi", nullable=False)
     description = Column(Text, nullable=True)
 
     # OCR / AI
-    verification_status = Column(Enum(VerificationStatus), default=VerificationStatus.AUTO, nullable=False)
+    verification_status = Column(String(50), default="auto", nullable=False)
     ocr_confidence = Column(Float, nullable=True)  # 0.0 – 1.0
 
     # Categorization
@@ -92,10 +94,11 @@ class TransactionItem(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    item_name = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
-    unit_price = Column(Float, nullable=False)
+    unit_price = Column(Float, nullable=True)
     total_price = Column(Float, nullable=False)
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),
@@ -107,4 +110,4 @@ class TransactionItem(Base):
     transaction = relationship("Transaction", back_populates="items")
 
     def __repr__(self) -> str:
-        return f"<TransactionItem name={self.item_name} total={self.total_price}>"
+        return f"<TransactionItem name={self.name} total={self.total_price}>"
