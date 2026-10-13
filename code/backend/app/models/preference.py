@@ -2,8 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -16,9 +15,9 @@ class UserCategoryPreference(Base):
     """
     __tablename__ = "user_category_preferences"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    category_id = Column(Uuid, ForeignKey("categories.id"), nullable=False)
 
     # The merchant name that triggered this preference
     merchant_name = Column(String(255), nullable=False, index=True)

@@ -83,3 +83,47 @@ class TransactionResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CategoryMiniResponse(BaseModel):
+    id: UUID
+    name: str
+    icon: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class SourceDocumentMiniResponse(BaseModel):
+    id: UUID
+    original_filename: Optional[str] = None
+    file_url: Optional[str] = None
+    mime_type: Optional[str] = None
+    document_type: str
+    processing_status: str
+    ocr_confidence: Optional[float] = None
+    ocr_text: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class TransactionDetailResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    merchant_name: str
+    amount: float
+    currency: str
+    transaction_date: date
+    payment_method: PaymentMethod
+    description: Optional[str]
+    is_verified: bool = True
+    verification_status: VerificationStatus
+    ocr_confidence: Optional[float]
+    auto_categorized: bool
+    category_id: Optional[UUID]
+    category: Optional[CategoryMiniResponse] = None
+    source_document: Optional[SourceDocumentMiniResponse] = None
+    items: list[TransactionItemResponse] = []
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -3,8 +3,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -25,8 +24,8 @@ class ExpenseSplit(Base):
     """A group expense that is split among participants."""
     __tablename__ = "expense_splits"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    created_by = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     title = Column(String(255), nullable=False)
     total_amount = Column(Float, nullable=False)
@@ -52,13 +51,14 @@ class SplitParticipant(Base):
     """One person's share in an expense split."""
     __tablename__ = "split_participants"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    split_id = Column(UUID(as_uuid=True), ForeignKey("expense_splits.id", ondelete="CASCADE"), nullable=False, index=True)
-    transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    split_id = Column(Uuid, ForeignKey("expense_splits.id", ondelete="CASCADE"), nullable=False, index=True)
+    transaction_id = Column(Uuid, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
 
-    # Participant info — may or may not be a registered user
+    # Participant info — may or may not be a registered user or saved friend
     participant_name = Column(String(255), nullable=False)
-    participant_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    participant_user_id = Column(Uuid, ForeignKey("users.id"), nullable=True)
+    friend_id = Column(Uuid, ForeignKey("friends.id", ondelete="SET NULL"), nullable=True)
 
     amount_owed = Column(Float, nullable=False)
     percentage = Column(Float, nullable=True)  # used when split_type = PERCENTAGE
@@ -82,12 +82,13 @@ class Settlement(Base):
     """Records when a participant settles their debt."""
     __tablename__ = "settlements"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    split_id = Column(UUID(as_uuid=True), ForeignKey("expense_splits.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    split_id = Column(Uuid, ForeignKey("expense_splits.id", ondelete="CASCADE"), nullable=True, index=True)
     payer_name = Column(String(255), nullable=False)
     payee_name = Column(String(255), nullable=False)
     amount = Column(Float, nullable=False)
-    status = Column(Enum(SettlementStatus), default=SettlementStatus.PENDING, nullable=False)
+    status = Column(Enum(SettlementStatus), default=SettlementStatus.SETTLED, nullable=False)
     settled_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(

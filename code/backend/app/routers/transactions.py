@@ -1,39 +1,29 @@
-"""Transactions router — full CRUD with filtering."""
+"""Transactions router — full CRUD, chronological history, and detailed breakdown."""
 from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.transaction import Transaction, TransactionItem, VerificationStatus
 from app.models.user import User
 from app.schemas.transaction import (
     TransactionCreate,
+    TransactionDetailResponse,
     TransactionResponse,
     TransactionUpdate,
 )
-from app.services.categorization_service import categorize_merchant
+from app.services.transaction_service import (
+    create_transaction as service_create_transaction,
+    delete_transaction as service_delete_transaction,
+    get_transaction_details as service_get_transaction_details,
+    get_transactions as service_get_transactions,
+    update_transaction as service_update_transaction,
+)
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
-
-
-def _get_transaction_or_404(tx_id: UUID, user_id: UUID, db: Session) -> Transaction:
-    """Fetch a transaction belonging to the current user or raise 404."""
-    tx = (
-        db.query(Transaction)
-        .filter(
-            Transaction.id == tx_id,
-            Transaction.user_id == user_id,
-            Transaction.is_deleted == False,
-        )
-        .first()
-    )
-    if not tx:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
-    return tx
 
 
 @router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
@@ -43,49 +33,11 @@ def create_transaction(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new expense transaction."""
-    # Auto-categorize if no category provided
-    category_id = tx_in.category_id
-    auto_categorized = False
-    if category_id is None:
-        suggested = categorize_merchant(tx_in.merchant_name, current_user.id, db)
-        if suggested:
-            category_id = suggested
-            auto_categorized = True
-
-    tx = Transaction(
-        user_id=current_user.id,
-        merchant_name=tx_in.merchant_name,
-        amount=tx_in.amount,
-        currency=tx_in.currency,
-        transaction_date=tx_in.transaction_date,
-        payment_method=tx_in.payment_method,
-        description=tx_in.description,
-        category_id=category_id,
-        document_id=tx_in.document_id,
-        auto_categorized=auto_categorized,
-        verification_status=VerificationStatus.AUTO,
-    )
-    db.add(tx)
-    db.flush()  # get tx.id before inserting items
-
-    for item_in in tx_in.items:
-        db.add(
-            TransactionItem(
-                transaction_id=tx.id,
-                item_name=item_in.item_name,
-                quantity=item_in.quantity,
-                unit_price=item_in.unit_price,
-                total_price=item_in.total_price,
-            )
-        )
-
-    db.commit()
-    db.refresh(tx)
-    return tx
+    return service_create_transaction(current_user.id, tx_in, db)
 
 
 @router.get("/", response_model=list[TransactionResponse])
-def list_transactions(
+def get_transactions(
     category_id: Optional[UUID] = Query(None),
     payment_method: Optional[str] = Query(None),
     month: Optional[int] = Query(None, ge=1, le=12),
@@ -98,41 +50,44 @@ def list_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List transactions for the current user with optional filtering."""
-    q = db.query(Transaction).filter(
-        Transaction.user_id == current_user.id,
-        Transaction.is_deleted == False,
+    """Retrieve chronological expense history with optional filters."""
+    return service_get_transactions(
+        user_id=current_user.id,
+        db=db,
+        category_id=category_id,
+        payment_method=payment_method,
+        month=month,
+        year=year,
+        start_date=start_date,
+        end_date=end_date,
+        merchant=merchant,
+        limit=limit,
+        offset=offset,
     )
 
-    if category_id:
-        q = q.filter(Transaction.category_id == category_id)
-    if payment_method:
-        q = q.filter(Transaction.payment_method == payment_method)
-    if month:
-        q = q.filter(Transaction.transaction_date.month == month)  # type: ignore[attr-defined]
-        from sqlalchemy import extract
-        q = q.filter(extract("month", Transaction.transaction_date) == month)
-    if year:
-        from sqlalchemy import extract
-        q = q.filter(extract("year", Transaction.transaction_date) == year)
-    if start_date:
-        q = q.filter(Transaction.transaction_date >= start_date)
-    if end_date:
-        q = q.filter(Transaction.transaction_date <= end_date)
-    if merchant:
-        q = q.filter(Transaction.merchant_name.ilike(f"%{merchant}%"))
 
-    return q.order_by(Transaction.transaction_date.desc()).offset(offset).limit(limit).all()
+# Alias
+list_transactions = get_transactions
 
 
-@router.get("/{transaction_id}", response_model=TransactionResponse)
+@router.get("/{transaction_id}", response_model=TransactionDetailResponse)
 def get_transaction(
     transaction_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get a single transaction by ID."""
-    return _get_transaction_or_404(transaction_id, current_user.id, db)
+    """Get single transaction with full merchant, items, category, and source document details."""
+    return service_get_transaction_details(transaction_id, current_user.id, db)
+
+
+@router.get("/{transaction_id}/details", response_model=TransactionDetailResponse)
+def get_transaction_details(
+    transaction_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Explicit endpoint for merchant, items, category, and source document."""
+    return service_get_transaction_details(transaction_id, current_user.id, db)
 
 
 @router.put("/{transaction_id}", response_model=TransactionResponse)
@@ -142,22 +97,8 @@ def update_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update an existing transaction. Partial updates supported."""
-    tx = _get_transaction_or_404(transaction_id, current_user.id, db)
-
-    update_data = tx_update.model_dump(exclude_unset=True)
-
-    # If user is correcting the category, learn the preference
-    if "category_id" in update_data and update_data["category_id"] != tx.category_id:
-        from app.services.categorization_service import save_user_preference
-        save_user_preference(tx.merchant_name, update_data["category_id"], current_user.id, db)
-
-    for field, value in update_data.items():
-        setattr(tx, field, value)
-
-    db.commit()
-    db.refresh(tx)
-    return tx
+    """Update transaction details. Partial updates supported."""
+    return service_update_transaction(transaction_id, current_user.id, tx_update, db)
 
 
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -166,7 +107,5 @@ def delete_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Soft-delete a transaction."""
-    tx = _get_transaction_or_404(transaction_id, current_user.id, db)
-    tx.is_deleted = True
-    db.commit()
+    """Soft-delete an expense transaction."""
+    service_delete_transaction(transaction_id, current_user.id, db)

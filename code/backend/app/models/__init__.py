@@ -7,6 +7,8 @@ from app.models.split import ExpenseSplit, SplitParticipant, Settlement
 from app.models.wishlist import WishlistItem
 from app.models.recurring import RecurringExpense
 from app.models.preference import UserCategoryPreference
+from app.models.friend import Friend
+from app.models.notification import Notification, NotificationType
 
 __all__ = [
     "User",
@@ -20,4 +22,7 @@ __all__ = [
     "WishlistItem",
     "RecurringExpense",
     "UserCategoryPreference",
+    "Friend",
+    "Notification",
+    "NotificationType",
 ]

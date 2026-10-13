@@ -22,7 +22,19 @@ from app.database import Base, engine
 # Import all models so SQLAlchemy registers them before create_all
 import app.models  # noqa: F401
 
-from app.routers import auth, transactions, documents, splits, analytics, wishlist, ai, categories
+from app.routers import (
+    ai,
+    analytics,
+    auth,
+    categories,
+    documents,
+    friends,
+    intelligence,
+    notifications,
+    splits,
+    transactions,
+    wishlist,
+)
 
 
 @asynccontextmanager
@@ -101,8 +113,11 @@ app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(documents.router)
 app.include_router(splits.router)
+app.include_router(friends.router)
 app.include_router(analytics.router)
 app.include_router(wishlist.router)
+app.include_router(intelligence.router)
+app.include_router(notifications.router)
 app.include_router(ai.router)
 
 

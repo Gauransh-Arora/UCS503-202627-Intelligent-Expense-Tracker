@@ -45,3 +45,42 @@ class AnalyticsSummary(BaseModel):
     top_merchants: list[MerchantSummary] = []
     spending_trend: list[SpendingTrend] = []
     unusual_spending_alerts: list[str] = []
+
+
+class ItemSpendingSummary(BaseModel):
+    item_name: str
+    total_amount: float
+    total_quantity: int
+    avg_unit_price: float
+    transaction_count: int
+
+
+class CategoryComparisonItem(BaseModel):
+    category_name: str
+    current_amount: float
+    previous_amount: float
+    difference_amount: float
+    percentage_change: float
+
+
+class MonthlyComparison(BaseModel):
+    current_month: str
+    current_total: float
+    current_count: int
+    previous_month: str
+    previous_total: float
+    previous_count: int
+    difference_amount: float
+    percentage_change: float
+    verdict: str
+    category_comparison: list[CategoryComparisonItem] = []
+
+
+class SpendingSummaryResponse(BaseModel):
+    summary_text: str
+    period: str
+    total_spent: float
+    transaction_count: int
+    top_category: Optional[str] = None
+    top_merchant: Optional[str] = None
+    key_insights: list[str] = []

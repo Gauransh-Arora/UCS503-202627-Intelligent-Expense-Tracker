@@ -2,8 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Text, Float
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Text, Float, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -29,8 +28,8 @@ class ProcessingStatus(str, enum.Enum):
 class Document(Base):
     __tablename__ = "documents"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # File info
     original_filename = Column(Text, nullable=True)

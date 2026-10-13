@@ -14,8 +14,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Uuid,
 )
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -39,10 +39,10 @@ class VerificationStatus(str, enum.Enum):
 class Transaction(Base):
     __tablename__ = "transactions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
-    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    category_id = Column(Uuid, ForeignKey("categories.id"), nullable=True)
+    document_id = Column(Uuid, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
 
     # Core fields
     transaction_type = Column(String(50), default="expense", nullable=False)
@@ -91,14 +91,14 @@ class TransactionItem(Base):
     """Individual line items within a bill (e.g. Domino's: Pizza ₹300, Coke ₹60)."""
     __tablename__ = "transaction_items"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    transaction_id = Column(UUID(as_uuid=True), ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    transaction_id = Column(Uuid, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
     unit_price = Column(Float, nullable=True)
     total_price = Column(Float, nullable=False)
-    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
+    category_id = Column(Uuid, ForeignKey("categories.id"), nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

@@ -1,14 +1,16 @@
 """Categories router — list and seed default categories."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from uuid import UUID
-from typing import Optional
 
 from app.database import get_db
-from app.models.category import Category, DEFAULT_CATEGORIES
-from app.utils.auth import get_current_user
+from app.models.category import DEFAULT_CATEGORIES, Category
 from app.models.user import User
+from app.services.transaction_service import get_categories as service_get_categories
+from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
@@ -23,21 +25,21 @@ class CategoryResponse(BaseModel):
 
 
 @router.get("/", response_model=list[CategoryResponse])
-def list_categories(
+def get_categories(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
-    """Return all available expense categories."""
-    return db.query(Category).order_by(Category.name).all()
+    """Retrieve all expense categories."""
+    return service_get_categories(db)
+
+
+# Alias
+list_categories = get_categories
 
 
 @router.post("/seed", status_code=status.HTTP_201_CREATED)
 def seed_categories(db: Session = Depends(get_db)):
-    """
-    Seed the default categories into the database.
-    Safe to call multiple times — skips existing ones.
-    Normally called once at startup.
-    """
+    """Seed default categories if they don't exist."""
     created = 0
     for name, icon in DEFAULT_CATEGORIES:
         exists = db.query(Category).filter(Category.name == name).first()

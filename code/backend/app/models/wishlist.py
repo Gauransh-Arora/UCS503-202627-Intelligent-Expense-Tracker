@@ -2,8 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -12,8 +11,8 @@ from app.database import Base
 class WishlistItem(Base):
     __tablename__ = "wishlist_items"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     expected_price = Column(Float, nullable=False)
@@ -25,6 +24,8 @@ class WishlistItem(Base):
     # Computed fields (updated by intelligence_service)
     purchase_readiness = Column(Float, nullable=True)   # 0–100
     estimated_months = Column(Float, nullable=True)     # months until affordable
+    verdict = Column(String(50), nullable=True)         # "Comfortable", "Possible", "Not recommended currently"
+    discretionary_budget = Column(Float, nullable=True)
     is_purchased = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(

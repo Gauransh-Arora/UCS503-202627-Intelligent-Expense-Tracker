@@ -1,8 +1,7 @@
 """Category model."""
 import uuid
 
-from sqlalchemy import Boolean, Column, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, String, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -27,7 +26,7 @@ DEFAULT_CATEGORIES = [
 class Category(Base):
     __tablename__ = "categories"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     name = Column(String(100), unique=True, nullable=False, index=True)
     icon = Column(String(10), nullable=True)
     is_default = Column(Boolean, default=True, nullable=False)

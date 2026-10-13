@@ -3,8 +3,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,9 +20,9 @@ class Frequency(str, enum.Enum):
 class RecurringExpense(Base):
     __tablename__ = "recurring_expenses"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True)
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    category_id = Column(Uuid, ForeignKey("categories.id"), nullable=True)
 
     merchant_name = Column(String(255), nullable=False)
     average_amount = Column(Float, nullable=False)

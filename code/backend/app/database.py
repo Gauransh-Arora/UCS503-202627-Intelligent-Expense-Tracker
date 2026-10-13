@@ -11,12 +11,19 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import settings
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,       # reconnect if connection dropped
-    pool_size=5,
-    max_overflow=10,
-)
+db_url = settings.DATABASE_URL
+if db_url.startswith("sqlite"):
+    engine = create_engine(
+        db_url,
+        connect_args={"check_same_thread": False},
+    )
+else:
+    engine = create_engine(
+        db_url,
+        pool_pre_ping=True,       # reconnect if connection dropped
+        pool_size=5,
+        max_overflow=10,
+    )
 
 SessionLocal = sessionmaker(
     bind=engine,

@@ -49,6 +49,8 @@ class WishlistResponse(BaseModel):
     url: Optional[str]
     purchase_readiness: Optional[float]
     estimated_months: Optional[float]
+    verdict: Optional[str] = None
+    discretionary_budget: Optional[float] = None
     is_purchased: bool
     created_at: datetime
     updated_at: datetime
@@ -64,4 +66,24 @@ class ReadinessResponse(BaseModel):
     estimated_months: Optional[float]  # None if already affordable
     monthly_discretionary: float
     avg_monthly_spending: float
+    verdict: str                       # "Comfortable", "Possible", "Not recommended currently"
     analysis_notes: list[str] = []
+
+
+class DiscretionaryBudgetInfo(BaseModel):
+    monthly_discretionary: float
+    avg_monthly_spending: float
+    monthly_recurring: float
+    savings_reserve: float
+    analysis_notes: list[str] = []
+
+
+class SubscriptionResponse(BaseModel):
+    merchant_name: str
+    monthly_amount: float
+    annual_amount: float
+    frequency: str
+    confidence: float
+    category_name: Optional[str] = None
+    typical_day: Optional[int] = None
+    status: str = "active"
