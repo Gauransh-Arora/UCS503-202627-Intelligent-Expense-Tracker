@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -154,4 +153,107 @@ class ApiService {
       throw Exception('Failed to load analytics: ${response.body}');
     }
   }
+
+  // ─── Bank Statements ──────────────────────────────────────────────────────────
+
+  /// Uploads a bank statement (PDF or CSV) and returns the statement ID.
+  static Future<String> uploadBankStatement(String filePath) async {
+    final uri = Uri.parse('$baseUrl/bank-statements/upload');
+    final request = http.MultipartRequest('POST', uri);
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+    final token = await getToken();
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 201) {
+      final data = json.decode(response.body);
+      return data['id'] as String;
+    } else {
+      throw Exception('Upload failed: ${response.body}');
+    }
+  }
+
+  /// Triggers parsing of the uploaded statement and returns parsed detail JSON.
+  static Future<Map<String, dynamic>> parseBankStatement(
+      String statementId) async {
+    final uri =
+        Uri.parse('$baseUrl/bank-statements/$statementId/parse');
+    final token = await getToken();
+
+    final response = await http.post(
+      uri,
+      headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Parsing failed: ${response.body}');
+    }
+  }
+
+  /// Lists all bank statement summaries for the current user.
+  static Future<List<Map<String, dynamic>>> listBankStatements() async {
+    final uri = Uri.parse('$baseUrl/bank-statements/');
+    final token = await getToken();
+
+    final response = await http.get(
+      uri,
+      headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to load statements: ${response.body}');
+    }
+  }
+
+  /// Returns full detail (including parsed rows) for a single statement.
+  static Future<Map<String, dynamic>> getBankStatement(
+      String statementId) async {
+    final uri = Uri.parse('$baseUrl/bank-statements/$statementId');
+    final token = await getToken();
+
+    final response = await http.get(
+      uri,
+      headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to load statement: ${response.body}');
+    }
+  }
+
+  /// Deletes a bank statement.
+  static Future<void> deleteBankStatement(String statementId) async {
+    final uri = Uri.parse('$baseUrl/bank-statements/$statementId');
+    final token = await getToken();
+
+    final response = await http.delete(
+      uri,
+      headers: {
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Delete failed: ${response.body}');
+    }
+  }
 }
+

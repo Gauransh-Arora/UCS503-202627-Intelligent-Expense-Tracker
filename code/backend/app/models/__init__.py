@@ -9,6 +9,7 @@ from app.models.recurring import RecurringExpense
 from app.models.preference import UserCategoryPreference
 from app.models.friend import Friend
 from app.models.notification import Notification, NotificationType
+from app.models.bank_statement import BankStatement, StatementStatus
 
 __all__ = [
     "User",
@@ -25,4 +26,6 @@ __all__ = [
     "Friend",
     "Notification",
     "NotificationType",
+    "BankStatement",
+    "StatementStatus",
 ]

@@ -9,6 +9,7 @@ dependencies = [
     "bcrypt<4.1.0",
     "fastapi>=0.141.1",
     "passlib[bcrypt]>=1.7.4",
+    "pdfplumber>=0.11.0",
     "pillow>=12.3.0",
     "psycopg2-binary>=2.9.13",
     "pydantic-settings>=2.15.0",

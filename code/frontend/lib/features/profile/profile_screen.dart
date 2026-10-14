@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/mock_data.dart';
+import '../bank_statement/bank_statements_screen.dart';
 import '../wishlist/wishlist_screen.dart';
 import '../recurring/recurring_screen.dart';
 import '../split_expense/shared_expenses_screen.dart';
@@ -204,6 +205,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 subtitle: 'Automated deviation detection',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                ),
+              ),
+              const Divider(height: 1, indent: 56),
+              _SettingsTile(
+                icon: Icons.account_balance_rounded,
+                iconColor: AppColors.catTravel,
+                title: 'Bank Statements',
+                subtitle: 'Upload & analyse PDF/CSV statements',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const BankStatementsScreen()),
                 ),
               ),
             ],

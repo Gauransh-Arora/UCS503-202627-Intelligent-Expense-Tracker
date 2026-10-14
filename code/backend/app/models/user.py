@@ -37,6 +37,7 @@ class User(Base):
     splits_created = relationship("ExpenseSplit", back_populates="created_by_user", cascade="all, delete-orphan")
     friends = relationship("Friend", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    bank_statements = relationship("BankStatement", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email}>"
