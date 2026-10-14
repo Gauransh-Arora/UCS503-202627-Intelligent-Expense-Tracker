@@ -90,6 +90,9 @@ _INTENTS = [
         r"how many.*(transaction|expense|purchase|time)",
         r"number of.*(transaction|expense)",
     ]),
+    ("balances", [
+        r"(who owes|owe me|who do i owe|balance|split|debt|settle|lent|borrowed)",
+    ]),
 ]
 
 
@@ -302,6 +305,48 @@ def _handle_transaction_count(user_id: UUID, month: int, year: int, period: str,
     )
 
 
+def _handle_balances(user_id: UUID, db: Session) -> NLQueryResponse:
+    from app.services.split_service import calculate_user_balance
+    bal = calculate_user_balance(user_id, db)
+
+    if not bal.friends:
+        return NLQueryResponse(
+            question="Who owes me money?",
+            answer="All settled up! You have no outstanding debts or split balances.",
+            data={"net_balance": 0.0, "friends": []},
+            query_type="balances",
+        )
+
+    owed_lines = []
+    owe_lines = []
+    for f in bal.friends:
+        if f.owed_to_user > 0:
+            owed_lines.append(f"  • {f.friend_name} owes you ₹{f.owed_to_user:,.2f}")
+        if f.user_owes > 0:
+            owe_lines.append(f"  • You owe {f.friend_name} ₹{f.user_owes:,.2f}")
+
+    parts = []
+    if owed_lines:
+        parts.append("People who owe you:\n" + "\n".join(owed_lines))
+    if owe_lines:
+        parts.append("People you owe:\n" + "\n".join(owe_lines))
+    if not parts:
+        parts.append("All settled up! No outstanding balances.")
+
+    parts.append(f"Net balance: ₹{bal.net_balance:,.2f}")
+
+    return NLQueryResponse(
+        question="Who owes me money?",
+        answer="\n\n".join(parts),
+        data={
+            "net_balance": bal.net_balance,
+            "total_owed_to_user": bal.total_owed_to_user,
+            "total_user_owes": bal.total_user_owes,
+        },
+        query_type="balances",
+    )
+
+
 # ── Main entry point ──────────────────────────────────────────────────────────
 
 def answer_nl_query(question: str, user_id: UUID, db: Session) -> NLQueryResponse:
@@ -322,6 +367,7 @@ def answer_nl_query(question: str, user_id: UUID, db: Session) -> NLQueryRespons
         "merchant_specific": lambda: _handle_merchant_specific(question, user_id, month, year, period, db),
         "unusual_spending": lambda: _handle_unusual(user_id, db),
         "transaction_count": lambda: _handle_transaction_count(user_id, month, year, period, db),
+        "balances": lambda: _handle_balances(user_id, db),
     }
 
     handler = handlers.get(intent, handlers["spending_total"])
