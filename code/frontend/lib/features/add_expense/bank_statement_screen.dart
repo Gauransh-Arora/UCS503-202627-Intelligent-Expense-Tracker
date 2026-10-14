@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
 
 class BankStatementScreen extends StatefulWidget {
@@ -18,11 +19,11 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   bool _isProcessing = false;
 
   final List<Map<String, dynamic>> _transactions = [
-    {'merchant': 'Swiggy', 'amount': 450, 'date': '28 Aug 2026', 'category': 'Food & Dining', 'verified': true},
-    {'merchant': 'Amazon Pay', 'amount': 1299, 'date': '27 Aug 2026', 'category': 'Shopping', 'verified': true},
-    {'merchant': 'Netflix', 'amount': 649, 'date': '26 Aug 2026', 'category': 'Entertainment', 'verified': true},
-    {'merchant': 'Unknown Merchant XZ2', 'amount': 850, 'date': '25 Aug 2026', 'category': '❓ Unrecognised', 'verified': false},
-    {'merchant': 'Ola Cab', 'amount': 280, 'date': '24 Aug 2026', 'category': 'Travel', 'verified': true},
+    {'merchant': 'Swiggy', 'amount': 450.0, 'date': '2026-08-28', 'category': 'Food & Dining', 'verified': true},
+    {'merchant': 'Amazon Pay', 'amount': 1299.0, 'date': '2026-08-27', 'category': 'Shopping', 'verified': true},
+    {'merchant': 'Netflix', 'amount': 649.0, 'date': '2026-08-26', 'category': 'Entertainment', 'verified': true},
+    {'merchant': 'Unknown Merchant XZ2', 'amount': 850.0, 'date': '2026-08-25', 'category': 'Unrecognised', 'verified': false},
+    {'merchant': 'Ola Cab', 'amount': 280.0, 'date': '2026-08-24', 'category': 'Travel', 'verified': true},
   ];
 
   Future<void> _pickFile(bool isPdf) async {
@@ -36,7 +37,8 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
 
   Future<void> _process() async {
     setState(() => _isProcessing = true);
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
     setState(() {
       _isProcessing = false;
       _state = _BankState.processed;
@@ -44,14 +46,30 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   }
 
   Future<void> _importAll() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    int imported = 0;
+    for (final tx in _transactions) {
+      if (tx['verified'] == true) {
+        try {
+          await ApiService.createTransaction({
+            'merchant_name': tx['merchant'],
+            'amount': (tx['amount'] as num).toDouble(),
+            'currency': 'INR',
+            'transaction_date': tx['date'],
+            'payment_method': 'net_banking',
+            'description': 'Imported from bank statement',
+          });
+          imported++;
+        } catch (_) {}
+      }
+    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✓  42 transactions imported successfully!'),
+      SnackBar(
+        content: Text('$imported transactions imported successfully'),
         backgroundColor: AppColors.success,
       ),
     );
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true);
   }
 
   @override
@@ -348,14 +366,16 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         const SizedBox(height: 20),
 
         PrimaryButton(
-          label: '✓  Import All 42 Transactions',
+          label: 'Import All Transactions',
+          icon: const Icon(Icons.download_done_rounded, color: Colors.white, size: 20),
           onPressed: _importAll,
         ),
         const SizedBox(height: 12),
         Center(
-          child: TextButton(
+          child: TextButton.icon(
+            icon: const Icon(Icons.arrow_back_rounded, size: 16),
             onPressed: () => setState(() => _state = _BankState.initial),
-            child: const Text('← Upload Different File'),
+            label: const Text('Upload Different File'),
           ),
         ),
       ],

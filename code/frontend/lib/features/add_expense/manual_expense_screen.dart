@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/expense_model.dart';
+import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
 
 class ManualExpenseScreen extends StatefulWidget {
@@ -37,12 +38,14 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
   String _selectedCategory = 'Food & Dining';
   String _selectedPaymentMethod = 'UPI';
   bool _isSaving = false;
+  List<String> _categoryOptions = List<String>.from(AppConstants.categories);
 
   final List<Map<String, dynamic>> _items = [];
 
   @override
   void initState() {
     super.initState();
+    _loadCategories();
     if (widget.editExpense != null) {
       final e = widget.editExpense!;
       _amountCtrl.text = e.amount.toStringAsFixed(0);
@@ -136,20 +139,88 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
     );
   }
 
+  void _loadCategories() {
+    ApiService.getCategories().then((cats) {
+      if (cats.isNotEmpty && mounted) {
+        setState(() {
+          _categoryOptions = cats.map((c) => c.name).toList();
+          if (!_categoryOptions.contains(_selectedCategory) && _categoryOptions.isNotEmpty) {
+            _selectedCategory = _categoryOptions.first;
+          }
+        });
+      }
+    }).catchError((_) {});
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(widget.editExpense != null
-            ? 'Expense updated successfully!'
-            : 'Expense saved successfully!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-    Navigator.of(context).pop();
+
+    try {
+      final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0.0;
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final rawMethod = _selectedPaymentMethod.toLowerCase();
+      final paymentMethod = rawMethod.contains('credit')
+          ? 'credit_card'
+          : (rawMethod.contains('debit')
+              ? 'debit_card'
+              : (rawMethod.contains('cash')
+                  ? 'cash'
+                  : (rawMethod.contains('net') || rawMethod.contains('bank')
+                      ? 'net_banking'
+                      : 'upi')));
+
+      final itemsPayload = _items.map((i) => {
+            'name': i['name'],
+            'quantity': (i['quantity'] as num?)?.toInt() ?? 1,
+            'unit_price': (i['price'] as num?)?.toDouble() ?? 0.0,
+            'total_price': ((i['price'] as num?)?.toDouble() ?? 0.0) *
+                ((i['quantity'] as num?)?.toInt() ?? 1),
+          }).toList();
+
+      if (widget.editExpense != null) {
+        final payload = <String, dynamic>{
+          'merchant_name': _merchantCtrl.text.trim(),
+          'amount': amount,
+          'currency': 'INR',
+          'transaction_date': dateStr,
+          'payment_method': paymentMethod,
+          'description': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+        };
+        await ApiService.updateTransaction(widget.editExpense!.id, payload);
+      } else {
+        final payload = <String, dynamic>{
+          'merchant_name': _merchantCtrl.text.trim(),
+          'amount': amount,
+          'currency': 'INR',
+          'transaction_date': dateStr,
+          'payment_method': paymentMethod,
+          'description': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+          'items': itemsPayload,
+        };
+        await ApiService.createTransaction(payload);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.editExpense != null
+              ? 'Expense updated successfully'
+              : 'Expense saved successfully'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   @override
@@ -298,7 +369,7 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
                   filled: false,
                   contentPadding: EdgeInsets.zero,
                 ),
-                items: AppConstants.categories
+                items: _categoryOptions
                     .map((cat) => DropdownMenuItem(
                           value: cat,
                           child: Row(

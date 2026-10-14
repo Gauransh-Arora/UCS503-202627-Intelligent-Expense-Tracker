@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/expense_model.dart';
+import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
 import '../split_expense/split_screen.dart';
 import '../add_expense/manual_expense_screen.dart';
@@ -39,11 +40,15 @@ class ExpenseDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => Navigator.of(context).push(
+            onPressed: () => Navigator.of(context).push<bool>(
               MaterialPageRoute(
                 builder: (_) => ManualExpenseScreen(editExpense: expense),
               ),
-            ),
+            ).then((res) {
+              if (res == true && context.mounted) {
+                Navigator.pop(context, true);
+              }
+            }),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: AppColors.danger),
@@ -240,12 +245,29 @@ class ExpenseDetailScreen extends StatelessWidget {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Expense deleted')),
-              );
+            onPressed: () async {
+              try {
+                await ApiService.deleteTransaction(expense.id);
+                if (!context.mounted) return;
+                Navigator.pop(context); // close dialog
+                Navigator.pop(context, true); // return true to parent
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Expense deleted successfully'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Failed to delete: ${e.toString().replaceAll('Exception: ', '')}'),
+                    backgroundColor: AppColors.danger,
+                  ),
+                );
+              }
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             child: const Text('Delete'),

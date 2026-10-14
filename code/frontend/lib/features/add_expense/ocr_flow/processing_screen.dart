@@ -16,12 +16,12 @@ class _ProcessingScreenState extends State<ProcessingScreen>
   late AnimationController _pulseCtrl;
   late AnimationController _progressCtrl;
 
-  final List<_ExtractionStep> _steps = [
-    _ExtractionStep(label: 'Merchant Name', icon: '🏪'),
-    _ExtractionStep(label: 'Total Amount', icon: '💰'),
-    _ExtractionStep(label: 'Date & Time', icon: '📅'),
-    _ExtractionStep(label: 'Line Items', icon: '📋'),
-    _ExtractionStep(label: 'Category', icon: '🏷️'),
+  final List<_ExtractionStep> _steps = const [
+    _ExtractionStep(label: 'Merchant Name', icon: Icons.storefront_rounded),
+    _ExtractionStep(label: 'Total Amount', icon: Icons.payments_rounded),
+    _ExtractionStep(label: 'Date & Time', icon: Icons.calendar_today_rounded),
+    _ExtractionStep(label: 'Line Items', icon: Icons.receipt_rounded),
+    _ExtractionStep(label: 'Category', icon: Icons.label_outline_rounded),
   ];
 
   int _completedSteps = 0;
@@ -203,7 +203,11 @@ class _ProcessingScreenState extends State<ProcessingScreen>
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text(step.icon),
+                            Icon(
+                              step.icon,
+                              size: 18,
+                              color: isDone ? AppColors.primary : AppColors.textTertiary,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               step.label,
@@ -234,6 +238,6 @@ class _ProcessingScreenState extends State<ProcessingScreen>
 
 class _ExtractionStep {
   final String label;
-  final String icon;
+  final IconData icon;
   const _ExtractionStep({required this.label, required this.icon});
 }

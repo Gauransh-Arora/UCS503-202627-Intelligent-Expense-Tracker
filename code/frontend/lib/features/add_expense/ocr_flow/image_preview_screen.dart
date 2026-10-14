@@ -51,7 +51,7 @@ class ImagePreviewScreen extends StatelessWidget {
                       ),
                     )
                   else ...[
-                    const Text('🧾', style: TextStyle(fontSize: 80)),
+                    const Icon(Icons.receipt_long_rounded, color: Colors.white70, size: 80),
                     const SizedBox(height: 20),
                     const Text(
                       'Receipt Preview',
@@ -74,9 +74,16 @@ class ImagePreviewScreen extends StatelessWidget {
                       color: Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      '✓  Image looks clear',
-                      style: TextStyle(color: Colors.greenAccent, fontSize: 13),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 14),
+                        SizedBox(width: 6),
+                        Text(
+                          'Image looks clear',
+                          style: TextStyle(color: Colors.greenAccent, fontSize: 13),
+                        ),
+                      ],
                     ),
                   ),
                 ],

@@ -1,48 +1,65 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_constants.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_data.dart';
 import '../../models/wishlist_model.dart';
-import '../../widgets/primary_button.dart';
+import '../../services/api_service.dart';
 
-class PurchaseReadinessScreen extends StatelessWidget {
+class PurchaseReadinessScreen extends StatefulWidget {
   final WishlistItemModel item;
 
   const PurchaseReadinessScreen({super.key, required this.item});
 
-  Color get _verdictColor {
-    switch (item.readiness) {
-      case AppConstants.readinessComfortable:
-        return AppColors.success;
-      case AppConstants.readinessPossible:
-        return AppColors.warning;
-      case AppConstants.readinessNotRecommended:
-      default:
-        return AppColors.danger;
+  @override
+  State<PurchaseReadinessScreen> createState() => _PurchaseReadinessScreenState();
+}
+
+class _PurchaseReadinessScreenState extends State<PurchaseReadinessScreen> {
+  bool _isLoading = true;
+  ReadinessResponseModel? _readinessData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReadiness();
+  }
+
+  Future<void> _loadReadiness() async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await ApiService.calculatePurchaseReadiness(widget.item.id);
+      if (!mounted) return;
+      setState(() {
+        _readinessData = res;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
     }
   }
 
-  String get _verdictBadge {
-    switch (item.readiness) {
-      case AppConstants.readinessComfortable:
-        return '🟢 Comfortable';
-      case AppConstants.readinessPossible:
-        return '🟡 Possible';
-      case AppConstants.readinessNotRecommended:
-      default:
-        return '🔴 Not Recommended';
-    }
+  Color _getVerdictColor(String verdict) {
+    final v = verdict.toLowerCase();
+    if (v.contains('comfortable')) return AppColors.success;
+    if (v.contains('possible')) return AppColors.warning;
+    return AppColors.danger;
+  }
+
+  IconData _getVerdictIcon(String verdict) {
+    final v = verdict.toLowerCase();
+    if (v.contains('comfortable')) return Icons.check_circle_rounded;
+    if (v.contains('possible')) return Icons.info_rounded;
+    return Icons.warning_rounded;
   }
 
   @override
   Widget build(BuildContext context) {
-    final summary = MockData.analyticsSummary;
-    final recurringTotal = MockData.recurringExpenses.fold<double>(
-      0,
-      (sum, r) => sum + r.amount,
-    );
-    final monthlySavings = summary.remaining;
-    final monthsToSave = (item.expectedPrice / (monthlySavings > 0 ? monthlySavings : 1)).ceil();
+    final currencyFormatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+    final verdict = _readinessData?.verdict ?? widget.item.readiness;
+    final verdictColor = _getVerdictColor(verdict);
+    final verdictIcon = _getVerdictIcon(verdict);
+    final readinessScore = _readinessData?.purchaseReadiness ?? widget.item.purchaseReadiness ?? 65.0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -53,224 +70,215 @@ class PurchaseReadinessScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-        children: [
-          // ─── Top Item Overview Card ─────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
               children: [
+                // ─── Top Item Overview Card ─────────────────────────────
                 Container(
-                  width: 80,
-                  height: 80,
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: _verdictColor.withOpacity(0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Icon(
-                      item.imageIcon ?? Icons.shopping_bag_rounded,
-                      size: 40,
-                      color: _verdictColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  item.name,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item.formattedPrice,
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _verdictColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: _verdictColor.withOpacity(0.4)),
-                  ),
-                  child: Text(
-                    _verdictBadge,
-                    style: TextStyle(
-                      color: _verdictColor,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // ─── Financial Health Context ────────────────────────────
-          Text(
-            'Financial Overview',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              children: [
-                _FinancialRow(
-                  label: 'Monthly Income',
-                  value: summary.formattedIncome,
-                  color: AppColors.success,
-                  icon: Icons.account_balance_wallet_outlined,
-                ),
-                const Divider(height: 20),
-                _FinancialRow(
-                  label: 'Current Month Spending',
-                  value: summary.formattedTotal,
-                  color: AppColors.textPrimary,
-                  icon: Icons.shopping_bag_outlined,
-                ),
-                const Divider(height: 20),
-                _FinancialRow(
-                  label: 'Recurring Commitments',
-                  value: '₹${recurringTotal.toStringAsFixed(0)} / mo',
-                  color: AppColors.info,
-                  icon: Icons.repeat_rounded,
-                ),
-                const Divider(height: 20),
-                _FinancialRow(
-                  label: 'Estimated Discretionary Buffer',
-                  value: summary.formattedRemaining,
-                  color: AppColors.accent,
-                  icon: Icons.savings_outlined,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // ─── AI Readiness Assessment ─────────────────────────────
-          Text(
-            'AI Readiness Assessment',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: _verdictColor.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _verdictColor.withOpacity(0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.insights_rounded, color: _verdictColor, size: 22),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Verdict: ${item.readiness}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: _verdictColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  item.analysis ??
-                      'Based on your income, spending trends, and recurring obligations, this item represents a financial commitment that requires careful budgeting.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        height: 1.5,
-                        color: AppColors.textPrimary,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: Row(
+                  child: Column(
                     children: [
-                      const Icon(Icons.timer_outlined, color: AppColors.accent, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          monthsToSave <= 1
-                              ? 'Affordable within 1 month of standard savings buffer.'
-                              : 'Recommended savings duration: ~$monthsToSave months at current pace.',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: verdictColor.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            verdictIcon,
+                            size: 36,
+                            color: verdictColor,
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.item.name,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.item.formattedPrice,
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Clean Badge - NO EMOJIS
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: verdictColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: verdictColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(verdictIcon, size: 18, color: verdictColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              verdict,
+                              style: TextStyle(
+                                color: verdictColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Readiness Score Progress Bar
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Affordability Score',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${readinessScore.clamp(0, 100).toStringAsFixed(0)} / 100',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: verdictColor,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: (readinessScore / 100).clamp(0.0, 1.0),
+                              backgroundColor: AppColors.border,
+                              valueColor: AlwaysStoppedAnimation<Color>(verdictColor),
+                              minHeight: 10,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+
+                // ─── Financial Breakdown Context ────────────────────────────
+                Text(
+                  'Financial Evaluation',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      _FinancialRow(
+                        label: 'Monthly Discretionary Budget',
+                        value: _readinessData != null
+                            ? currencyFormatter.format(_readinessData!.monthlyDiscretionary)
+                            : 'Evaluated by AI',
+                        color: AppColors.primary,
+                        icon: Icons.account_balance_wallet_outlined,
+                      ),
+                      const Divider(height: 20),
+                      _FinancialRow(
+                        label: 'Average Monthly Spending',
+                        value: _readinessData != null
+                            ? currencyFormatter.format(_readinessData!.avgMonthlySpending)
+                            : 'Tracked',
+                        color: AppColors.textPrimary,
+                        icon: Icons.shopping_bag_outlined,
+                      ),
+                      const Divider(height: 20),
+                      _FinancialRow(
+                        label: 'Estimated Saving Timeline',
+                        value: _readinessData?.estimatedMonths != null
+                            ? '${_readinessData!.estimatedMonths!.toStringAsFixed(1)} months'
+                            : (verdict.toLowerCase().contains('comfortable') ? 'Immediately Affordable' : '1 - 2 months'),
+                        color: verdictColor,
+                        icon: Icons.timelapse_rounded,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // ─── AI Analysis & Recommendation Notes ──────────────────────
+                if (_readinessData?.analysisNotes.isNotEmpty ?? false) ...[
+                  Text(
+                    'Smart Analysis Notes',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._readinessData!.analysisNotes.map((note) => Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceCard,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                Icons.check_circle_outline_rounded,
+                                size: 18,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                note,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-
-          // ─── Action Buttons ──────────────────────────────────────
-          PrimaryButton(
-            label: 'Set Up Savings Goal',
-            icon: const Icon(Icons.flag_outlined, color: Colors.white),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Savings goal created for ${item.name}!'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          SecondaryButton(
-            label: 'Mark as Purchased',
-            icon: const Icon(Icons.check_circle_outline, color: AppColors.accent),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('${item.name} marked as purchased!'),
-                  backgroundColor: AppColors.accent,
-                ),
-              );
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
     );
   }
 }
@@ -292,14 +300,23 @@ class _FinancialRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: AppColors.textSecondary),
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 20, color: color),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
             label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
         Text(

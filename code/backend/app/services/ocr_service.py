@@ -35,22 +35,33 @@ def run_ocr(file_path: str) -> str:
             "Also install Tesseract: brew install tesseract"
         )
 
-    path = Path(file_path)
+    path = Path(file_path).resolve()
     if not path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        # Also try relative to project root
+        alt_path = Path.cwd() / file_path
+        if alt_path.exists():
+            path = alt_path
+        else:
+            raise FileNotFoundError(f"File not found: {file_path}")
 
     # For PDFs, convert first page to image using system tools if available
     if path.suffix.lower() == ".pdf":
         return _ocr_pdf(path)
 
     image = Image.open(path)
-    # Pre-processing: convert to RGB if needed
+    # Pre-processing: convert to grayscale or RGB
     if image.mode not in ("RGB", "L"):
         image = image.convert("RGB")
 
-    # Tesseract config — PSM 6 = single block of text (good for receipts)
-    custom_config = r"--oem 3 --psm 6"
-    text = pytesseract.image_to_string(image, config=custom_config, lang="eng")
+    # Try PSM 6 first (uniform block of text, standard for receipts)
+    text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 6", lang="eng")
+    if not text.strip() or len(text.strip()) < 10:
+        # Fallback to PSM 4 (single column of variable text) or default
+        text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 4", lang="eng")
+    if not text.strip():
+        # Final fallback: default page segmentation
+        text = pytesseract.image_to_string(image, config=r"--oem 3", lang="eng")
+
     return text.strip()
 
 

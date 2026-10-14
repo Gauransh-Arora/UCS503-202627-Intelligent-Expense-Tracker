@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_data.dart';
 import '../../models/expense_model.dart';
+import '../../models/split_model.dart';
 import '../../models/user_model.dart';
+import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
 
 class SplitScreen extends StatefulWidget {
@@ -19,11 +20,43 @@ class _SplitScreenState extends State<SplitScreen> {
   final Set<String> _selectedContacts = {};
   final Map<String, TextEditingController> _controllers = {};
   bool _isSaving = false;
+  bool _isLoadingContacts = true;
+  List<FriendModel> _friends = [];
+  UserModel _currentUser = const UserModel(id: 'me', name: 'You', email: '');
 
-  List<UserModel> get _allParticipants => [
-        MockData.currentUser,
-        ...MockData.contacts.where((c) => _selectedContacts.contains(c.id)),
-      ];
+  @override
+  void initState() {
+    super.initState();
+    _loadFriends();
+  }
+
+  Future<void> _loadFriends() async {
+    try {
+      final results = await Future.wait([
+        ApiService.getFriends().catchError((_) => <FriendModel>[]),
+        ApiService.getCurrentUser().catchError((_) => const UserModel(id: 'me', name: 'You', email: '')),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _friends = results[0] as List<FriendModel>;
+        _currentUser = results[1] as UserModel;
+        _isLoadingContacts = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingContacts = false);
+    }
+  }
+
+  List<UserModel> get _allParticipants {
+    final list = <UserModel>[_currentUser];
+    for (final f in _friends) {
+      if (_selectedContacts.contains(f.id)) {
+        list.add(UserModel(id: f.id, name: f.name, email: f.email ?? ''));
+      }
+    }
+    return list;
+  }
 
   bool get _isValid {
     if (_allParticipants.length < 2) return false;
@@ -90,15 +123,51 @@ class _SplitScreenState extends State<SplitScreen> {
   Future<void> _createSplit() async {
     if (!_isValid) return;
     setState(() => _isSaving = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✓  Split created! Notifications sent to participants.'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-    Navigator.of(context).pop();
+
+    try {
+      final participantsList = _allParticipants.map((p) {
+        final isPayer = p.id == _currentUser.id;
+        final amount = double.tryParse(_controllers[p.id]?.text ?? '') ?? (widget.expense.amount / _allParticipants.length);
+        final percentage = _splitMethod == AppConstants.splitPercentage
+            ? amount
+            : (widget.expense.amount > 0 ? (amount / widget.expense.amount) * 100 : 0.0);
+
+        return {
+          'participant_name': p.name,
+          'amount_owed': isPayer ? 0.0 : amount,
+          'percentage': percentage,
+          'is_payer': isPayer,
+        };
+      }).toList();
+
+      await ApiService.createExpenseSplit(
+        title: widget.expense.merchant,
+        totalAmount: widget.expense.amount,
+        splitType: _splitMethod == AppConstants.splitPercentage
+            ? 'percentage'
+            : (_splitMethod == AppConstants.splitCustom ? 'exact' : 'equal'),
+        description: 'Split for ${widget.expense.merchant}',
+        participants: participantsList,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Split created successfully'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create split: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   @override
@@ -126,7 +195,15 @@ class _SplitScreenState extends State<SplitScreen> {
             ),
             child: Row(
               children: [
-                const Text('👥', style: TextStyle(fontSize: 36)),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.groups_rounded, color: Colors.white, size: 28),
+                ),
                 const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,74 +229,89 @@ class _SplitScreenState extends State<SplitScreen> {
           const SizedBox(height: 24),
 
           // Participants
-          Text('Add Participants', style: Theme.of(context).textTheme.titleMedium),
+          Text('Select Contacts to Split With', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
 
-          ...MockData.contacts.map((contact) {
-            final isSelected = _selectedContacts.contains(contact.id);
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    _selectedContacts.remove(contact.id);
-                    _controllers.remove(contact.id);
-                  } else {
-                    _selectedContacts.add(contact.id);
-                  }
-                  _updateEqualSplit();
-                });
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.accent.withOpacity(0.08)
-                      : AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isSelected ? AppColors.accent : AppColors.border,
-                    width: isSelected ? 2 : 1,
+          if (_isLoadingContacts)
+            const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
+          else if (_friends.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Text('No contacts found. Please add friends in Shared Expenses screen first.',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            )
+          else ...[
+            ..._friends.map((f) => UserModel(id: f.id, name: f.name, email: f.email ?? ''))
+                .map((contact) {
+              final isSelected = _selectedContacts.contains(contact.id);
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedContacts.remove(contact.id);
+                      _controllers.remove(contact.id);
+                    } else {
+                      _selectedContacts.add(contact.id);
+                    }
+                    _updateEqualSplit();
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary.withValues(alpha: 0.08)
+                        : AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                      width: isSelected ? 2 : 1,
+                    ),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor:
-                          AppColors.accent.withOpacity(isSelected ? 0.2 : 0.1),
-                      child: Text(
-                        contact.initials,
-                        style: TextStyle(
-                          color: isSelected
-                              ? AppColors.accent
-                              : AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor:
+                            AppColors.primary.withValues(alpha: isSelected ? 0.2 : 0.1),
+                        child: Text(
+                          contact.initials,
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        contact.name,
-                        style: Theme.of(context).textTheme.titleSmall,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          contact.name,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                       ),
-                    ),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        isSelected
-                            ? Icons.check_circle_rounded
-                            : Icons.circle_outlined,
-                        key: ValueKey(isSelected),
-                        color: isSelected ? AppColors.accent : AppColors.border,
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          isSelected
+                              ? Icons.check_circle_rounded
+                              : Icons.circle_outlined,
+                          key: ValueKey(isSelected),
+                          color: isSelected ? AppColors.primary : AppColors.border,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ],
           const SizedBox(height: 24),
 
           // Split method
@@ -263,20 +355,20 @@ class _SplitScreenState extends State<SplitScreen> {
               child: Column(
                 children: [
                   ..._allParticipants.map((p) {
-                    final isYou = p.id == MockData.currentUser.id;
+                    final isYou = p.id == _currentUser.id;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 14),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 18,
-                            backgroundColor: AppColors.accent.withOpacity(0.15),
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
                             child: Text(
                               p.initials,
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.accent,
+                                color: AppColors.primary,
                               ),
                             ),
                           ),
@@ -293,7 +385,7 @@ class _SplitScreenState extends State<SplitScreen> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
-                                color: AppColors.accent,
+                                color: AppColors.primary,
                               ),
                             )
                           else
@@ -316,7 +408,7 @@ class _SplitScreenState extends State<SplitScreen> {
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     borderSide: const BorderSide(
-                                        color: AppColors.accent, width: 2),
+                                        color: AppColors.primary, width: 2),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
@@ -357,7 +449,7 @@ class _SplitScreenState extends State<SplitScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _remainingCustom() == 0 ? '✓ Balanced' : 'Remaining',
+                          _remainingCustom() == 0 ? 'Balanced' : 'Remaining',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -385,7 +477,7 @@ class _SplitScreenState extends State<SplitScreen> {
             ),
             const SizedBox(height: 28),
             PrimaryButton(
-              label: '✓  Create Split',
+              label: 'Create Split',
               isLoading: _isSaving,
               onPressed: _isValid ? _createSplit : null,
             ),
@@ -428,10 +520,10 @@ class _MethodChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent : AppColors.surfaceCard,
+          color: isSelected ? AppColors.primary : AppColors.surfaceCard,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.accent : AppColors.border,
+            color: isSelected ? AppColors.primary : AppColors.border,
           ),
         ),
         child: Text(

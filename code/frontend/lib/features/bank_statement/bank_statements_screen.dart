@@ -50,14 +50,14 @@ class _BankStatementsScreenState extends State<BankStatementsScreen> {
   }
 
   Future<void> _pickAndUpload() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'csv'],
       allowMultiple: false,
     );
-    if (result == null || result.files.isEmpty) return;
+    if (result == null || result.isEmpty) return;
 
-    final file = result.files.first;
+    final file = result.first;
     if (file.path == null) return;
 
     setState(() => _isUploading = true);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_data.dart';
+import '../../services/api_service.dart';
 
 class ChatMessage {
   final String text;
@@ -28,20 +28,37 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
 
   final List<ChatMessage> _messages = [
     ChatMessage(
-      text: 'Hi ${MockData.currentUser.name.split(' ')[0]}! 👋 I am your AI Expense Assistant. Ask me anything about your spending, recurring bills, debts, or savings.',
+      text: 'Hi there! I am your AI Expense Assistant. Ask me anything about your spending, recurring bills, debts, or savings.',
       isUser: false,
       timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
     ),
   ];
 
   final List<String> _suggestions = [
-    'How much did I spend on food?',
+    'How much did I spend on food last month?',
     'What are my recurring expenses?',
     'Who owes me money?',
-    'How much did I save this month?',
-    'What did I buy on Amazon?',
-    'What is my total spending in September?',
+    'Where did most of my money go this year?',
+    'How much did I spend at Swiggy?',
+    'What is my total spending this month?',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    ApiService.getCurrentUser().then((user) {
+      if (mounted && user.name.trim().isNotEmpty) {
+        final name = user.name.trim().split(' ').first;
+        setState(() {
+          _messages[0] = ChatMessage(
+            text: 'Hi $name! I am your AI Expense Assistant. Ask me anything about your spending, recurring bills, debts, or savings.',
+            isUser: false,
+            timestamp: DateTime.now(),
+          );
+        });
+      }
+    }).catchError((_) {});
+  }
 
   @override
   void dispose() {
@@ -62,7 +79,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
     });
   }
 
-  void _sendMessage(String query) {
+  Future<void> _sendMessage(String query) async {
     final text = query.trim();
     if (text.isEmpty) return;
 
@@ -77,20 +94,30 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
     });
     _scrollToBottom();
 
-    // Simulate AI response
-    Future.delayed(const Duration(milliseconds: 700), () {
+    try {
+      final response = await ApiService.naturalLanguageQuery(text);
       if (!mounted) return;
-      final reply = MockData.getSmartResponse(text);
       setState(() {
         _isTyping = false;
         _messages.add(ChatMessage(
-          text: reply,
+          text: response.answer,
           isUser: false,
           timestamp: DateTime.now(),
         ));
       });
       _scrollToBottom();
-    });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isTyping = false;
+        _messages.add(ChatMessage(
+          text: 'I could not reach the server right now. Please ensure your backend is connected.',
+          isUser: false,
+          timestamp: DateTime.now(),
+        ));
+      });
+      _scrollToBottom();
+    }
   }
 
   @override
@@ -158,7 +185,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
                       ),
                     ),
                     backgroundColor: AppColors.surfaceElevated,
-                    side: const BorderSide(color: AppColors.border, width: 2),
+                    side: const BorderSide(color: AppColors.border, width: 1.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -203,7 +230,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
                         height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.accent,
+                          color: AppColors.primary,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -223,46 +250,48 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
           Container(
             padding: EdgeInsets.fromLTRB(
               16,
-              12,
+              8,
               16,
               MediaQuery.of(context).viewInsets.bottom + 16,
             ),
             decoration: BoxDecoration(
               color: AppColors.surfaceCard,
-              border: const Border(top: BorderSide(color: AppColors.border)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, -3),
-                ),
-              ],
+              border: const Border(
+                top: BorderSide(color: AppColors.border),
+              ),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _textCtrl,
-                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: _sendMessage,
                     decoration: InputDecoration(
-                      hintText: 'Ask about expenses, bills, or debts...',
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      hintText: 'Ask anything about your spending...',
+                      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                      filled: true,
+                      fillColor: AppColors.surfaceElevated,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.border, width: 2),
+                        borderSide: const BorderSide(color: AppColors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.border, width: 2),
+                        borderSide: const BorderSide(color: AppColors.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: const BorderSide(color: AppColors.accent, width: 2),
+                        borderSide: const BorderSide(
+                            color: AppColors.primary, width: 2),
                       ),
-                      fillColor: AppColors.background,
-                      filled: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 12,
+                      ),
                     ),
-                    onSubmitted: _sendMessage,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -272,7 +301,8 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    icon: const Icon(Icons.arrow_upward_rounded,
+                        color: Colors.white, size: 20),
                     onPressed: () => _sendMessage(_textCtrl.text),
                   ),
                 ),
@@ -287,7 +317,6 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
 
 class _ChatBubble extends StatelessWidget {
   final ChatMessage message;
-
   const _ChatBubble({required this.message});
 
   @override
@@ -297,19 +326,21 @@ class _ChatBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser) ...[
             Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
                 shape: BoxShape.circle,
               ),
               child: const Center(
-                child: Icon(Icons.smart_toy_rounded, size: 16, color: Colors.white),
+                child: Icon(Icons.smart_toy_rounded,
+                    size: 16, color: AppColors.primary),
               ),
             ),
             const SizedBox(width: 8),
@@ -318,7 +349,7 @@ class _ChatBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isUser ? AppColors.accent : AppColors.surfaceCard,
+                color: isUser ? AppColors.primary : AppColors.surfaceCard,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(18),
                   topRight: const Radius.circular(18),
@@ -328,16 +359,22 @@ class _ChatBubble extends StatelessWidget {
                 border: isUser ? null : Border.all(color: AppColors.border),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.03),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: _FormattedMessageText(
-                text: message.text,
-                isUser: isUser,
-              ),
+              child: isUser
+                  ? Text(
+                      message.text,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    )
+                  : _FormattedMessageText(text: message.text),
             ),
           ),
           if (isUser) const SizedBox(width: 8),
@@ -349,41 +386,25 @@ class _ChatBubble extends StatelessWidget {
 
 class _FormattedMessageText extends StatelessWidget {
   final String text;
-  final bool isUser;
-
-  const _FormattedMessageText({required this.text, required this.isUser});
+  const _FormattedMessageText({required this.text});
 
   @override
   Widget build(BuildContext context) {
-    final textColor = isUser ? Colors.white : AppColors.textPrimary;
-
-    // Simple markdown-style bold formatter
+    // Basic Markdown bold parser: **word**
     final parts = text.split('**');
-    if (parts.length <= 1) {
-      return Text(
-        text,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 14,
-          height: 1.4,
-        ),
-      );
-    }
-
     final spans = <TextSpan>[];
+
     for (int i = 0; i < parts.length; i++) {
       final isBold = i % 2 == 1;
-      spans.add(
-        TextSpan(
-          text: parts[i],
-          style: TextStyle(
-            color: textColor,
-            fontSize: 14,
-            fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
-            height: 1.4,
-          ),
+      spans.add(TextSpan(
+        text: parts[i],
+        style: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+          height: 1.45,
+          fontWeight: isBold ? FontWeight.w700 : FontWeight.normal,
         ),
-      );
+      ));
     }
 
     return RichText(text: TextSpan(children: spans));

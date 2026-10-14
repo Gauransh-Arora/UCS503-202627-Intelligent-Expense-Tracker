@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_data.dart';
 import '../bank_statement/bank_statements_screen.dart';
+import '../../models/user_model.dart';
+import '../../models/wishlist_model.dart';
+import '../../models/intelligence_model.dart';
+import '../../services/api_service.dart';
 import '../wishlist/wishlist_screen.dart';
 import '../recurring/recurring_screen.dart';
 import '../split_expense/shared_expenses_screen.dart';
@@ -18,6 +21,35 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _notificationsEnabled = true;
   String _selectedCurrency = 'INR (₹)';
+  UserModel? _user;
+  int _wishlistCount = 0;
+  int _recurringCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    try {
+      final user = await ApiService.getCurrentUser().catchError((_) => const UserModel(
+            id: '',
+            name: 'User',
+            email: 'user@example.com',
+          ));
+      final wishlist = await ApiService.getWishlistItems().catchError((_) => <WishlistItemModel>[]);
+      final recurring = await ApiService.detectRecurringExpenses().catchError((_) => <DetectedRecurringModel>[]);
+
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _wishlistCount = wishlist.length;
+          _recurringCount = recurring.length;
+        });
+      }
+    } catch (_) {}
+  }
 
   void _showCurrencySelector() {
     final currencies = ['INR (₹)', 'USD (\$)', 'EUR (€)', 'GBP (£)', 'AED (د.إ)'];
@@ -66,7 +98,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              await ApiService.clearToken();
+              if (!mounted) return;
               Navigator.pop(ctx);
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -83,85 +117,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = MockData.currentUser;
+    final user = _user ?? const UserModel(id: '', name: 'User', email: '');
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Profile'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-        children: [
-          // ─── User Profile Header ─────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: const [
-                BoxShadow(
-                  color: AppColors.primaryDark,
-                  offset: Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 32,
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  child: Text(
-                    user.initials,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+      body: RefreshIndicator(
+        onRefresh: _loadProfileData,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+          children: [
+            // ─── User Profile Header ─────────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.primaryDark,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    child: Text(
+                      user.initials,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.name,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        user.email,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white70,
+                        const SizedBox(height: 4),
+                        Text(
+                          user.email,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.white70,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'PRO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11,
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'ACTIVE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 24),
 
           // ─── Financial Intelligence Section ───────────────────────
@@ -172,20 +208,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.bookmark_border_rounded,
                 iconColor: AppColors.catEntertainment,
                 title: 'Wishlist & Purchase Readiness',
-                subtitle: '${MockData.wishlistItems.length} items tracked',
+                subtitle: '$_wishlistCount items tracked',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const WishlistScreen()),
-                ),
+                ).then((_) => _loadProfileData()),
               ),
               const Divider(height: 1, indent: 56),
               _SettingsTile(
                 icon: Icons.repeat_rounded,
                 iconColor: AppColors.catBills,
                 title: 'Recurring Subscriptions & Bills',
-                subtitle: '${MockData.recurringExpenses.length} recurring charges',
+                subtitle: '$_recurringCount recurring charges',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const RecurringScreen()),
-                ),
+                ).then((_) => _loadProfileData()),
               ),
               const Divider(height: 1, indent: 56),
               _SettingsTile(
@@ -286,7 +322,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('✓ Financial statement exported to Downloads!'),
+                      content: Text('Financial statement exported to Downloads!'),
                       backgroundColor: AppColors.success,
                     ),
                   );
@@ -307,18 +343,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(20),
               clipBehavior: Clip.antiAlias,
               child: ListTile(
-              leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
-              title: const Text(
-                'Log Out',
-                style: TextStyle(
-                  color: AppColors.danger,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
+                leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
+                title: const Text(
+                  'Log Out',
+                  style: TextStyle(
+                    color: AppColors.danger,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
                 ),
+                onTap: _showLogoutDialog,
               ),
-              onTap: _showLogoutDialog,
             ),
-          ),
           ),
           const SizedBox(height: 20),
 
@@ -333,8 +369,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _SectionTitle extends StatelessWidget {

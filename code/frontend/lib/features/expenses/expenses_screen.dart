@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_data.dart';
 import '../../models/expense_model.dart';
 import '../../widgets/expense_card.dart';
 import '../../widgets/empty_state.dart';
@@ -187,47 +185,52 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
           // Expense list
           Expanded(
-            child: _filtered.isEmpty
-                ? EmptyState(
-                    icon: Icons.search_rounded,
-                    title: 'No expenses found',
-                    description: _searchQuery.isNotEmpty
-                        ? 'No results for "$_searchQuery"'
-                        : 'No expenses match your current filters',
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                    itemCount: keys.fold<int>(0, (sum, k) => sum + 1 + (grouped[k]?.length ?? 0)),
-                    itemBuilder: (context, index) {
-                      // Build flat list from grouped map
-                      int counter = 0;
-                      for (final key in keys) {
-                        if (counter == index) {
-                          return _DateHeader(label: key);
-                        }
-                        counter++;
-                        final items = grouped[key]!;
-                        for (final expense in items) {
+            child: RefreshIndicator(
+              onRefresh: _fetchExpenses,
+              child: _filtered.isEmpty
+                  ? EmptyState(
+                      icon: Icons.search_rounded,
+                      title: 'No expenses found',
+                      description: _searchQuery.isNotEmpty
+                          ? 'No results for "$_searchQuery"'
+                          : 'No expenses match your current filters',
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                      itemCount: keys.fold<int>(0, (sum, k) => sum + 1 + (grouped[k]?.length ?? 0)),
+                      itemBuilder: (context, index) {
+                        // Build flat list from grouped map
+                        int counter = 0;
+                        for (final key in keys) {
                           if (counter == index) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: ExpenseCard(
-                                expense: expense,
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        ExpenseDetailScreen(expense: expense),
-                                  ),
-                                ),
-                              ),
-                            );
+                            return _DateHeader(label: key);
                           }
                           counter++;
+                          final items = grouped[key]!;
+                          for (final expense in items) {
+                            if (counter == index) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: ExpenseCard(
+                                  expense: expense,
+                                  onTap: () => Navigator.of(context).push<bool>(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          ExpenseDetailScreen(expense: expense),
+                                    ),
+                                  ).then((res) {
+                                    if (res == true) _fetchExpenses();
+                                  }),
+                                ),
+                              );
+                            }
+                            counter++;
+                          }
                         }
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                        return const SizedBox.shrink();
+                      },
+                    ),
+            ),
           ),
         ],
       ),
@@ -274,8 +277,7 @@ class _FilterSheet extends StatefulWidget {
 class _FilterSheetState extends State<_FilterSheet> {
   late String? _category;
   late String _sort;
-
-  static const _categories = [
+  List<String> _categories = [
     'Food & Dining',
     'Travel',
     'Shopping',
@@ -298,6 +300,11 @@ class _FilterSheetState extends State<_FilterSheet> {
     super.initState();
     _category = widget.selectedCategory;
     _sort = widget.sortBy;
+    ApiService.getCategories().then((cats) {
+      if (cats.isNotEmpty && mounted) {
+        setState(() => _categories = cats.map((c) => c.name).toList());
+      }
+    }).catchError((_) {});
   }
 
   @override

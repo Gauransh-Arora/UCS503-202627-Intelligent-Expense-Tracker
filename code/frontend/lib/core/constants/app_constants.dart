@@ -26,6 +26,7 @@ class AppConstants {
   static const String routeWishlist = '/wishlist';
   static const String routePurchaseReadiness = '/wishlist/:itemId';
   static const String routeAskExpenses = '/ask-expenses';
+  static const String routeNotifications = '/notifications';
   static const String routeProfile = '/profile';
 
   // Categories

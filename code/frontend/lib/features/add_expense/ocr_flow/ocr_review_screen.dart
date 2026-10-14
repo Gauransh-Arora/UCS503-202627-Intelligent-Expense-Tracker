@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/primary_button.dart';
 import '../../../models/expense_model.dart';
+import '../../../services/api_service.dart';
 
 class OcrReviewScreen extends StatefulWidget {
   final Map<String, dynamic> ocrData;
@@ -46,15 +48,61 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
 
   Future<void> _confirm() async {
     setState(() => _isConfirming = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✓  Expense confirmed and saved!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-    Navigator.of(context).popUntil((r) => r.isFirst);
+
+    try {
+      final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0.0;
+      String dateStr;
+      try {
+        final parsed = DateTime.parse(_selectedDate);
+        dateStr = DateFormat('yyyy-MM-dd').format(parsed);
+      } catch (_) {
+        dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      }
+
+      final itemsPayload = _items.map((i) => {
+            'name': i['name'] ?? 'Item',
+            'quantity': (i['quantity'] as num?)?.toInt() ?? 1,
+            'unit_price': (i['unit_price'] as num?)?.toDouble() ??
+                (i['price'] as num?)?.toDouble() ??
+                0.0,
+            'total_price': (i['total_price'] as num?)?.toDouble() ??
+                (i['price'] as num?)?.toDouble() ??
+                0.0,
+          }).toList();
+
+      final payload = <String, dynamic>{
+        'merchant_name': _merchantCtrl.text.trim().isNotEmpty
+            ? _merchantCtrl.text.trim()
+            : 'Unknown Merchant',
+        'amount': amount > 0 ? amount : 1.0,
+        'currency': 'INR',
+        'transaction_date': dateStr,
+        'payment_method': 'upi',
+        'description': 'Scanned receipt via Tesseract OCR',
+        'items': itemsPayload,
+      };
+
+      await ApiService.createTransaction(payload);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Expense confirmed and saved!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.of(context).popUntil((r) => r.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isConfirming = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Failed to save expense: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
   }
 
   @override
@@ -259,15 +307,17 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
           const SizedBox(height: 32),
 
           PrimaryButton(
-            label: '✓  Confirm Expense',
+            label: 'Confirm Expense',
+            icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
             isLoading: _isConfirming,
             onPressed: _confirm,
           ),
           const SizedBox(height: 12),
           Center(
-            child: TextButton(
+            child: TextButton.icon(
+              icon: const Icon(Icons.arrow_back_rounded, size: 16),
               onPressed: () => Navigator.pop(context),
-              child: const Text('← Retake Image'),
+              label: const Text('Retake Image'),
             ),
           ),
         ],

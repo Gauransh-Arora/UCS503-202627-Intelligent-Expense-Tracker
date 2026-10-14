@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/analytics_model.dart';
@@ -40,14 +41,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       appBar: AppBar(
         title: const Text('Analytics'),
         actions: [
-          TextButton(
-            onPressed: () {},
-            child: const Row(
-              children: [
-                Text('Sep 2026'),
-                SizedBox(width: 4),
-                Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-              ],
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Text(
+                DateFormat('MMM yyyy').format(DateTime.now()),
+                style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.accent),
+              ),
             ),
           ),
         ],
@@ -64,11 +64,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           final summary = snapshot.data;
           if (summary == null) return const Center(child: Text('No data'));
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-            children: [
-          // ─── Total + MoM ────────────────────────────────────────────────
-          _TotalCard(summary: summary),
+          return RefreshIndicator(
+            onRefresh: () async {
+              setState(() {
+                _summaryFuture = ApiService.getAnalyticsSummary();
+              });
+              await _summaryFuture;
+            },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+              children: [
+            // ─── Total + MoM ────────────────────────────────────────────────
+            _TotalCard(summary: summary),
           const SizedBox(height: 24),
 
           // ─── Quick actions ───────────────────────────────────────────────
@@ -126,11 +133,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             return _MerchantRow(rank: i + 1, merchant: m);
           }),
         ],
-      );
-        },
       ),
     );
-  }
+  },
+),
+);
+}
 }
 
 // ─── Total Card ───────────────────────────────────────────────────────────────
@@ -143,6 +151,7 @@ class _TotalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = summary.monthOverMonthChange.abs().toStringAsFixed(1);
     final isUp = summary.isSpendingUp;
+    final prevMonth = DateFormat('MMM').format(DateTime(DateTime.now().year, DateTime.now().month - 1));
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -188,7 +197,7 @@ class _TotalCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '$pct% vs Aug',
+                      '$pct% vs $prevMonth',
                       style: TextStyle(
                         color: isUp ? AppColors.danger : AppColors.success,
                         fontWeight: FontWeight.w600,

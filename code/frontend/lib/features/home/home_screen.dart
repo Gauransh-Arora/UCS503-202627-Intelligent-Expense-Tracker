@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/mock_data.dart';
 import '../../widgets/expense_card.dart';
 import '../../widgets/section_header.dart';
 import '../expenses/expenses_screen.dart';
 import '../expenses/expense_detail_screen.dart';
 import '../ask_expenses/ask_expenses_screen.dart';
 import '../analytics/analytics_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../../services/api_service.dart';
 import '../../models/expense_model.dart';
 import '../../models/analytics_model.dart';
+import '../../models/user_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,14 +22,28 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<dynamic>> _dashboardDataFuture;
+  int _unreadCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _loadDashboardData();
+  }
+
+  void _loadDashboardData() {
     _dashboardDataFuture = Future.wait([
       ApiService.getAnalyticsSummary(),
-      ApiService.getTransactions(limit: 3),
+      ApiService.getTransactions(limit: 5),
+      ApiService.getCurrentUser().catchError((_) => const UserModel(
+            id: '',
+            name: 'User',
+            email: '',
+          )),
+      ApiService.detectUnusualSpending().catchError((_) => <String>[]),
     ]);
+    ApiService.getUnreadNotificationCount().then((count) {
+      if (mounted) setState(() => _unreadCount = count);
+    }).catchError((_) {});
   }
 
   String _greeting() {
@@ -44,144 +59,247 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: FutureBuilder<List<dynamic>>(
-        future: _dashboardDataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppColors.danger)));
-          }
-          
-          final summary = snapshot.data?[0] as AnalyticsSummary?;
-          final recentExpenses = snapshot.data?[1] as List<ExpenseModel>? ?? [];
+      body: RefreshIndicator(
+        onRefresh: () async {
+          setState(() {
+            _loadDashboardData();
+          });
+          await _dashboardDataFuture;
+        },
+        child: FutureBuilder<List<dynamic>>(
+          future: _dashboardDataFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (summary == null) {
-            return const Center(child: Text("No data"));
-          }
-
-          return CustomScrollView(
-            slivers: [
-              // ─── App bar ────────────────────────────────────────────────────
-          SliverAppBar(
-            expandedHeight: 0,
-            floating: true,
-            snap: true,
-            backgroundColor: AppColors.background,
-            title: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: AppColors.primary,
-                    size: 24,
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.textTertiary),
+                      const SizedBox(height: 16),
+                      Text('Unable to connect to server', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${snapshot.error}'.replaceAll('Exception: ', ''),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => setState(() => _loadDashboardData()),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${_greeting()}, ${MockData.currentUser.name.split(' ')[0]} 👋',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    Text(
-                      currMonth,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              IconButton(
-                icon: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.notifications_outlined,
-                    size: 20,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                onPressed: () {},
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
+              );
+            }
 
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ─── Spending Summary Card ──────────────────────────────
-                  _SpendingSummaryCard(summary: summary),
-                  const SizedBox(height: 24),
+            final summary = snapshot.data?[0] as AnalyticsSummary?;
+            final recentExpenses = snapshot.data?[1] as List<ExpenseModel>? ?? [];
+            final user = snapshot.data?[2] as UserModel? ?? const UserModel(id: '', name: 'User', email: '');
+            final anomalies = snapshot.data?[3] as List<dynamic>? ?? [];
 
-                  // ─── AI Insight ─────────────────────────────────────────
-                  _InsightCard(
-                    onAskTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AskExpensesScreen()),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+            if (summary == null) {
+              return const Center(child: Text("No data"));
+            }
 
-                  // ─── Category spending bars ─────────────────────────────
-                  SectionHeader(
-                    title: 'Spending by Category',
-                    actionLabel: 'Details',
-                    onAction: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ...summary.byCategory.map((cat) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _CategoryBar(category: cat),
-                      )),
-                  const SizedBox(height: 24),
+            final firstName = user.name.trim().isNotEmpty
+                ? user.name.trim().split(' ').first
+                : 'there';
 
-                  // ─── Recent Expenses ────────────────────────────────────
-                  SectionHeader(
-                    title: 'Recent Expenses',
-                    actionLabel: 'View All',
-                    onAction: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ExpensesScreen()),
-                    ),
+            return CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // ─── App bar ────────────────────────────────────────────────────
+                SliverAppBar(
+                  expandedHeight: 0,
+                  floating: true,
+                  snap: true,
+                  backgroundColor: AppColors.background,
+                  title: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet_rounded,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_greeting()}, $firstName',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            currMonth,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  ...recentExpenses.map((expense) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: ExpenseCard(
-                          expense: expense,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ExpenseDetailScreen(expense: expense),
+                  actions: [
+                    IconButton(
+                      icon: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceElevated,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.notifications_outlined,
+                              size: 20,
+                              color: AppColors.textSecondary,
                             ),
                           ),
+                          if (_unreadCount > 0)
+                            Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '$_unreadCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsScreen(),
+                          ),
+                        ).then((_) {
+                          ApiService.getUnreadNotificationCount().then((count) {
+                            if (mounted) setState(() => _unreadCount = count);
+                          }).catchError((_) {});
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ─── Spending Summary Card ──────────────────────────────
+                        _SpendingSummaryCard(summary: summary),
+                        const SizedBox(height: 24),
+
+                        // ─── AI Insight ─────────────────────────────────────────
+                        _InsightCard(
+                          anomalies: anomalies,
+                          onAskTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const AskExpensesScreen()),
+                          ),
                         ),
-                      )),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-        },
+                        const SizedBox(height: 24),
+
+                        // ─── Category spending bars ─────────────────────────────
+                        if (summary.byCategory.isNotEmpty) ...[
+                          SectionHeader(
+                            title: 'Spending by Category',
+                            actionLabel: 'Details',
+                            onAction: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ...summary.byCategory.map((cat) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _CategoryBar(category: cat),
+                              )),
+                          const SizedBox(height: 24),
+                        ],
+
+                        // ─── Recent Expenses ────────────────────────────────────
+                        SectionHeader(
+                          title: 'Recent Expenses',
+                          actionLabel: 'View All',
+                          onAction: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+                          ).then((_) => _loadDashboardData()),
+                        ),
+                        const SizedBox(height: 16),
+                        if (recentExpenses.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceCard,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              children: [
+                                const Icon(Icons.receipt_long_outlined, size: 36, color: AppColors.textTertiary),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'No expenses recorded yet',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Scan a receipt or add an expense to see it here.',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          ...recentExpenses.map((expense) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: ExpenseCard(
+                                  expense: expense,
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => ExpenseDetailScreen(expense: expense),
+                                    ),
+                                  ).then((_) => _loadDashboardData()),
+                                ),
+                              )),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -197,6 +315,7 @@ class _SpendingSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final pctChange = summary.monthOverMonthChange.abs().toStringAsFixed(1);
     final isUp = summary.isSpendingUp;
+    final monthName = DateFormat('MMMM').format(DateTime.now());
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -216,9 +335,9 @@ class _SpendingSummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'September Spending',
-                style: TextStyle(
+              Text(
+                '$monthName Spending',
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
@@ -339,17 +458,27 @@ class _SummaryMetric extends StatelessWidget {
 // ─── AI Insight Card ──────────────────────────────────────────────────────────
 
 class _InsightCard extends StatelessWidget {
+  final List<dynamic> anomalies;
   final VoidCallback onAskTap;
-  const _InsightCard({required this.onAskTap});
+  const _InsightCard({required this.anomalies, required this.onAskTap});
 
   @override
   Widget build(BuildContext context) {
+    final hasAnomaly = anomalies.isNotEmpty;
+    final title = hasAnomaly ? 'Spending Alert' : 'Spending on Track';
+    final subtitle = hasAnomaly && anomalies.first.toString().isNotEmpty
+        ? anomalies.first.toString()
+        : 'All category expenses are within your usual historical range this month.';
+    final cardColor = hasAnomaly ? AppColors.warningLight : AppColors.primaryLight;
+    final borderColor = hasAnomaly ? AppColors.warning : AppColors.primary;
+    final iconData = hasAnomaly ? Icons.warning_rounded : Icons.check_circle_outline_rounded;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.warningLight,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warning.withOpacity(0.4)),
+        border: Border.all(color: borderColor.withOpacity(0.4)),
       ),
       child: Row(
         children: [
@@ -357,11 +486,11 @@ class _InsightCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.2),
+              color: borderColor.withOpacity(0.18),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Center(
-              child: Icon(Icons.warning_rounded, size: 22, color: AppColors.warning),
+            child: Center(
+              child: Icon(iconData, size: 22, color: borderColor),
             ),
           ),
           const SizedBox(width: 14),
@@ -370,14 +499,15 @@ class _InsightCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Spending Alert',
+                  title,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.warning,
+                        color: borderColor,
+                        fontWeight: FontWeight.w700,
                       ),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Your food spending is 18% higher than last month.',
+                  subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textPrimary,
                       ),
@@ -390,13 +520,13 @@ class _InsightCard extends StatelessWidget {
             icon: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppColors.warning.withOpacity(0.15),
+                color: borderColor.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.chat_bubble_outline_rounded,
                 size: 18,
-                color: AppColors.warning,
+                color: borderColor,
               ),
             ),
           ),

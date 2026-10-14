@@ -12,6 +12,7 @@ import '../../features/recurring/recurring_screen.dart';
 import '../../features/wishlist/wishlist_screen.dart';
 import '../../features/ask_expenses/ask_expenses_screen.dart';
 import '../../features/split_expense/shared_expenses_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
 import '../../navigation/main_navigation.dart';
 
 class AppRouter {
@@ -92,6 +93,10 @@ class AppRouter {
       GoRoute(
         path: AppConstants.routeSharedExpenses,
         builder: (context, state) => const SharedExpensesScreen(),
+      ),
+      GoRoute(
+        path: AppConstants.routeNotifications,
+        builder: (context, state) => const NotificationsScreen(),
       ),
     ],
   );
