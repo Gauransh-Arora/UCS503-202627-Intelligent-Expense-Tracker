@@ -1,5 +1,6 @@
-"""Transaction Pydantic schemas."""
+"""Transaction Pydantic schemas with Decimal precision."""
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -11,8 +12,8 @@ from app.models.transaction import PaymentMethod, VerificationStatus
 class TransactionItemCreate(BaseModel):
     name: str
     quantity: int = 1
-    unit_price: Optional[float] = None
-    total_price: float
+    unit_price: Optional[Decimal] = None
+    total_price: Decimal
     category_id: Optional[UUID] = None
 
 
@@ -20,8 +21,8 @@ class TransactionItemResponse(BaseModel):
     id: UUID
     name: str
     quantity: int
-    unit_price: Optional[float]
-    total_price: float
+    unit_price: Optional[Decimal]
+    total_price: Decimal
     category_id: Optional[UUID]
 
     model_config = {"from_attributes": True}
@@ -29,7 +30,7 @@ class TransactionItemResponse(BaseModel):
 
 class TransactionCreate(BaseModel):
     merchant_name: str
-    amount: float
+    amount: Decimal
     currency: str = "INR"
     transaction_date: date
     payment_method: PaymentMethod = PaymentMethod.UPI
@@ -40,10 +41,10 @@ class TransactionCreate(BaseModel):
 
     @field_validator("amount")
     @classmethod
-    def amount_positive(cls, v: float) -> float:
-        if v <= 0:
+    def amount_positive(cls, v: Decimal) -> Decimal:
+        if v <= Decimal("0.00"):
             raise ValueError("Amount must be positive")
-        return v
+        return round(v, 2)
 
     @field_validator("merchant_name")
     @classmethod
@@ -55,7 +56,7 @@ class TransactionCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     merchant_name: Optional[str] = None
-    amount: Optional[float] = None
+    amount: Optional[Decimal] = None
     currency: Optional[str] = None
     transaction_date: Optional[date] = None
     payment_method: Optional[PaymentMethod] = None
@@ -68,7 +69,7 @@ class TransactionResponse(BaseModel):
     id: UUID
     user_id: UUID
     merchant_name: str
-    amount: float
+    amount: Decimal
     currency: str
     transaction_date: date
     payment_method: PaymentMethod
@@ -110,7 +111,7 @@ class TransactionDetailResponse(BaseModel):
     id: UUID
     user_id: UUID
     merchant_name: str
-    amount: float
+    amount: Decimal
     currency: str
     transaction_date: date
     payment_method: PaymentMethod

@@ -105,6 +105,7 @@ def delete_wishlist_item(
 
 
 @router.get("/{item_id}/readiness", response_model=ReadinessResponse)
+@router.post("/{item_id}/readiness", response_model=ReadinessResponse)
 def calculate_purchase_readiness(
     item_id: UUID,
     db: Session = Depends(get_db),

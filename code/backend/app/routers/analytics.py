@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.analytics import (
     AnalyticsSummary,
     CategoryBreakdown,
+    DrilldownResponse,
     ItemSpendingSummary,
     MerchantSummary,
     MonthlyComparison,
@@ -24,6 +25,7 @@ from app.services.analytics_service import (
     get_item_wise_spending as service_get_item_wise_spending,
     get_merchant_wise_spending as service_get_merchant_wise_spending,
     get_monthly_spending as service_get_monthly_spending,
+    get_spending_drilldown as service_get_spending_drilldown,
     get_spending_trends as service_get_spending_trends,
 )
 from app.utils.auth import get_current_user
@@ -148,3 +150,14 @@ def generate_spending_summary(
         month=month,
         year=year,
     )
+
+
+@router.get("/drilldown", response_model=DrilldownResponse)
+def get_spending_drilldown(
+    dimension: str = Query(..., pattern="^(category|merchant|item)$"),
+    value: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Drill down into a specific category, merchant, or item."""
+    return service_get_spending_drilldown(current_user.id, dimension, value, db)

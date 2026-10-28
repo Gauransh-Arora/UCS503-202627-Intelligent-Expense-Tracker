@@ -1,23 +1,46 @@
-import uuid
+import argparse
 import random
+import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from app.database import SessionLocal
 from app.models.transaction import Transaction, PaymentMethod, VerificationStatus
 from app.models.category import Category
+from app.models.user import User
+from app.utils.security import hash_password
 
-# The target user ID
-USER_ID = uuid.UUID("4007bdc8-d148-416b-a03d-2ed3cf7e03f1")
 
-def seed_data():
+def get_or_create_target_user(db, target_email: str | None = None) -> User:
+    if target_email:
+        user = db.query(User).filter(User.email == target_email).first()
+        if user:
+            return user
+    user = db.query(User).first()
+    if not user:
+        user = User(
+            name="Demo User",
+            email="demo@example.com",
+            password_hash=hash_password("DemoPassword123!"),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+
+def seed_data(email: str | None = None):
     db = SessionLocal()
     try:
+        user = get_or_create_target_user(db, email)
+        target_user_id = user.id
+
         # Get all categories
         categories = db.query(Category).all()
         if not categories:
             print("No categories found. Make sure categories are seeded first.")
             return
 
-        print(f"Generating mock transactions for user {USER_ID}...")
+        print(f"Generating mock transactions for user {user.email} ({target_user_id})...")
 
         # Mock merchants and their likely categories
         merchants = [
@@ -59,11 +82,11 @@ def seed_data():
             txn_date = now - timedelta(days=days_ago)
 
             txn = Transaction(
-                user_id=USER_ID,
+                user_id=target_user_id,
                 category_id=category.id,
                 merchant_name=merchant_name,
                 transaction_type="expense",
-                amount=amount,
+                amount=Decimal(str(amount)),
                 currency="INR",
                 transaction_date=txn_date.date(),
                 payment_method=random.choice(payment_methods),
@@ -85,4 +108,7 @@ def seed_data():
         db.close()
 
 if __name__ == "__main__":
-    seed_data()
+    parser = argparse.ArgumentParser(description="Seed mock expense transactions")
+    parser.add_argument("--email", type=str, help="Target user email (default: first user or demo@example.com)", default=None)
+    args = parser.parse_args()
+    seed_data(args.email)

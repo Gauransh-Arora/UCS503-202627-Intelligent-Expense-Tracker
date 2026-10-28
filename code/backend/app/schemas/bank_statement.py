@@ -66,3 +66,13 @@ class BankStatementSummary(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class BankStatementMergeRequest(BaseModel):
+    selected_indices: Optional[list[int]] = None  # None means merge all non-duplicate debits
+
+
+class BankStatementMergeResponse(BaseModel):
+    merged_count: int
+    skipped_count: int
+    created_transaction_ids: list[UUID]

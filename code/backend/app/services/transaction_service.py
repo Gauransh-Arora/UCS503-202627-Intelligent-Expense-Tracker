@@ -32,16 +32,48 @@ def create_transaction(
     db: Session,
 ) -> Transaction:
     """
-    Create a new expense transaction.
-    Auto-categorizes if no category is provided.
+    Create a new expense transaction or confirm an OCR draft.
+    - Idempotent: confirming an already confirmed document draft returns existing transaction.
+    - Learns user categorization preferences from explicit user selection.
     """
+    # 1. Idempotency guard for document drafts
+    if tx_in.document_id:
+        existing = (
+            db.query(Transaction)
+            .filter(
+                Transaction.user_id == user_id,
+                Transaction.document_id == tx_in.document_id,
+                Transaction.is_deleted == False,
+            )
+            .first()
+        )
+        if existing:
+            return existing
+
     category_id = tx_in.category_id
     auto_categorized = False
+
     if category_id is None:
         suggested = categorize_merchant(tx_in.merchant_name, user_id, db)
         if suggested:
             category_id = suggested
             auto_categorized = True
+    else:
+        # User explicitly chose or corrected category -> learn preference!
+        save_user_preference(tx_in.merchant_name, category_id, user_id, db)
+
+    verif_status = (
+        VerificationStatus.VERIFIED.value
+        if tx_in.document_id
+        else VerificationStatus.AUTO.value
+    )
+
+    doc_confidence = None
+    if tx_in.document_id:
+        doc = db.query(Document).filter(Document.id == tx_in.document_id).first()
+        if doc:
+            doc.processing_status = "verified"
+            doc_confidence = doc.ocr_confidence
 
     tx = Transaction(
         user_id=user_id,
@@ -54,7 +86,8 @@ def create_transaction(
         category_id=category_id,
         document_id=tx_in.document_id,
         auto_categorized=auto_categorized,
-        verification_status=VerificationStatus.AUTO.value,
+        verification_status=verif_status,
+        ocr_confidence=doc_confidence,
         is_verified=True,
     )
     db.add(tx)

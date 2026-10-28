@@ -38,6 +38,19 @@ class User(Base):
     friends = relationship("Friend", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     bank_statements = relationship("BankStatement", back_populates="user", cascade="all, delete-orphan")
+    budget_plans = relationship("BudgetPlan", back_populates="user", cascade="all, delete-orphan")
+
+    def authenticate(self, password: str) -> bool:
+        """Verify given plaintext password against stored password hash."""
+        from app.utils.security import verify_password
+        return verify_password(password, self.password_hash)
+
+    def update_profile(self, name: str | None = None, email: str | None = None) -> None:
+        """Update user profile information."""
+        if name:
+            self.name = name.strip()
+        if email:
+            self.email = email.lower().strip()
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email}>"

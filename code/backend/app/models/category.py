@@ -36,5 +36,9 @@ class Category(Base):
     preferences = relationship("UserCategoryPreference", back_populates="category")
     recurring_expenses = relationship("RecurringExpense", back_populates="category")
 
+    def rename(self, new_name: str) -> None:
+        """Rename category."""
+        self.name = new_name.strip()
+
     def __repr__(self) -> str:
         return f"<Category name={self.name}>"

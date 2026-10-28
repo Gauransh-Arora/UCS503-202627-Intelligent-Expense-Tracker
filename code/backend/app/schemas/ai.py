@@ -13,3 +13,7 @@ class NLQueryResponse(BaseModel):
     data: Optional[dict] = None         # Structured data (amounts, lists, etc.)
     query_type: Optional[str] = None    # "spending_by_category", "top_merchant", etc.
     period: Optional[str] = None        # "last_month", "this_year", etc.
+
+    @property
+    def success(self) -> bool:
+        return self.query_type != "unsupported"

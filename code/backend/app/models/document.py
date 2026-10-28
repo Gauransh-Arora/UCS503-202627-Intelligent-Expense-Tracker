@@ -54,5 +54,23 @@ class Document(Base):
     user = relationship("User", back_populates="documents")
     transactions = relationship("Transaction", back_populates="document")
 
+    def extract_or_parse(self) -> dict:
+        """Run OCR and extract candidate transaction draft fields."""
+        from app.services.ocr_service import run_ocr
+        from app.services.extraction_service import extract_transaction_data
+
+        if not self.file_url:
+            raise ValueError("No file URL associated with this document.")
+        raw_text = run_ocr(self.file_url)
+        self.ocr_text = raw_text
+        parsed = extract_transaction_data(raw_text)
+        self.ocr_confidence = parsed.get("confidence", 0.0)
+        self.processing_status = ProcessingStatus.PROCESSED.value
+        return parsed
+
+    def get_confidence(self) -> float:
+        """Return overall OCR confidence score (0.0 to 1.0)."""
+        return float(self.ocr_confidence or 0.0)
+
     def __repr__(self) -> str:
         return f"<Document id={self.id} type={self.document_type} status={self.processing_status}>"

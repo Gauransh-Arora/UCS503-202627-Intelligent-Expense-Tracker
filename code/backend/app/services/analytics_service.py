@@ -421,3 +421,60 @@ def get_dashboard_statistics(user_id: UUID, db: Session) -> AnalyticsSummary:
 
 # Alias
 get_analytics_summary = get_dashboard_statistics
+
+
+def get_spending_drilldown(
+    user_id: UUID,
+    dimension: str,
+    value: str,
+    db: Session,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+) -> dict:
+    """
+    Drill down into a specific category, merchant, or item to inspect transactions.
+    """
+    dim = dimension.lower().strip()
+    q = db.query(Transaction).filter(
+        Transaction.user_id == user_id,
+        Transaction.is_deleted == False,
+    )
+
+    if month:
+        q = q.filter(extract("month", Transaction.transaction_date) == month)
+    if year:
+        q = q.filter(extract("year", Transaction.transaction_date) == year)
+
+    if dim == "category":
+        cat = db.query(Category).filter(Category.name.ilike(value.strip())).first()
+        if cat:
+            q = q.filter(Transaction.category_id == cat.id)
+        else:
+            q = q.filter(Transaction.id == None)
+    elif dim == "merchant":
+        q = q.filter(Transaction.merchant_name.ilike(f"%{value.strip()}%"))
+    elif dim == "item":
+        q = q.join(TransactionItem, TransactionItem.transaction_id == Transaction.id).filter(
+            TransactionItem.name.ilike(f"%{value.strip()}%")
+        )
+
+    txns = q.order_by(Transaction.transaction_date.desc()).all()
+    total = sum(float(t.amount) for t in txns)
+
+    return {
+        "dimension": dim,
+        "value": value,
+        "total_spent": round(total, 2),
+        "transaction_count": len(txns),
+        "transactions": [
+            {
+                "id": str(t.id),
+                "merchant_name": t.merchant_name,
+                "amount": float(t.amount),
+                "date": str(t.transaction_date),
+                "payment_method": t.payment_method,
+                "category": t.category.name if t.category else "Uncategorized",
+            }
+            for t in txns
+        ],
+    }

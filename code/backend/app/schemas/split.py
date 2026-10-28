@@ -1,5 +1,6 @@
-"""Split Pydantic schemas."""
+"""Split Pydantic schemas with Decimal precision."""
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -10,17 +11,19 @@ from app.models.split import SplitType, SettlementStatus
 
 class ParticipantCreate(BaseModel):
     participant_name: str
-    amount_owed: float
-    percentage: Optional[float] = None
+    amount_owed: Decimal = Decimal("0.00")
+    percentage: Optional[Decimal] = None
     is_payer: bool = False
     participant_user_id: Optional[UUID] = None
+    friend_id: Optional[UUID] = None
 
 
 class ParticipantResponse(BaseModel):
     id: UUID
     participant_name: str
-    amount_owed: float
-    percentage: Optional[float]
+    amount_owed: Decimal
+    amount_settled: Decimal = Decimal("0.00")
+    percentage: Optional[Decimal] = None
     is_payer: bool
 
     model_config = {"from_attributes": True}
@@ -28,7 +31,7 @@ class ParticipantResponse(BaseModel):
 
 class SplitCreate(BaseModel):
     title: str
-    total_amount: float
+    total_amount: Decimal
     currency: str = "INR"
     split_type: SplitType = SplitType.EQUAL
     description: Optional[str] = None
@@ -36,10 +39,10 @@ class SplitCreate(BaseModel):
 
     @field_validator("total_amount")
     @classmethod
-    def amount_positive(cls, v: float) -> float:
-        if v <= 0:
+    def amount_positive(cls, v: Decimal) -> Decimal:
+        if v <= Decimal("0.00"):
             raise ValueError("Total amount must be positive")
-        return v
+        return round(v, 2)
 
     @field_validator("participants")
     @classmethod
@@ -52,7 +55,7 @@ class SplitCreate(BaseModel):
 class SplitResponse(BaseModel):
     id: UUID
     title: str
-    total_amount: float
+    total_amount: Decimal
     currency: str
     split_type: SplitType
     description: Optional[str]
@@ -66,14 +69,14 @@ class SettlementCreate(BaseModel):
     split_id: Optional[UUID] = None
     payer_name: str
     payee_name: str
-    amount: float
+    amount: Decimal
 
     @field_validator("amount")
     @classmethod
-    def amount_positive(cls, v: float) -> float:
-        if v <= 0:
+    def amount_positive(cls, v: Decimal) -> Decimal:
+        if v <= Decimal("0.00"):
             raise ValueError("Settlement amount must be positive")
-        return v
+        return round(v, 2)
 
 
 class SettlementResponse(BaseModel):

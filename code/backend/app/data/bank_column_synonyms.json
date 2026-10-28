@@ -1,0 +1,82 @@
+{
+  "date": [
+    "date",
+    "txn date",
+    "transaction date",
+    "trans date",
+    "val date",
+    "value date",
+    "posting date",
+    "booking date"
+  ],
+  "description": [
+    "description",
+    "narration",
+    "particulars",
+    "remarks",
+    "details",
+    "transaction particulars",
+    "transaction details",
+    "trans details",
+    "payee",
+    "merchant"
+  ],
+  "reference": [
+    "chq/ref no",
+    "chq / ref no.",
+    "cheque no",
+    "ref no",
+    "reference no",
+    "reference",
+    "utr",
+    "utr number",
+    "txn id",
+    "transaction id",
+    "ref / cheque no."
+  ],
+  "debit": [
+    "debit",
+    "debit amount",
+    "withdrawal",
+    "withdrawals",
+    "dr",
+    "dr amount",
+    "withdrawal amount",
+    "debit (inr)",
+    "spent"
+  ],
+  "credit": [
+    "credit",
+    "credit amount",
+    "deposit",
+    "deposits",
+    "cr",
+    "cr amount",
+    "deposit amount",
+    "credit (inr)",
+    "received"
+  ],
+  "amount": [
+    "amount",
+    "txn amount",
+    "transaction amount",
+    "net amount"
+  ],
+  "type": [
+    "type",
+    "dr/cr",
+    "cr/dr",
+    "txn type",
+    "transaction type"
+  ],
+  "balance": [
+    "balance",
+    "running balance",
+    "closing balance",
+    "available balance",
+    "bal (inr)",
+    "balance (inr)",
+    "acc balance",
+    "account balance"
+  ]
+}

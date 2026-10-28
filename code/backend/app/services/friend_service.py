@@ -1,6 +1,7 @@
 """
 Friend Service — manage contacts/friends local to user's account and per-contact debt ledgers.
 """
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
@@ -79,8 +80,8 @@ def get_friend_ledger(user_id: UUID, friend_id: UUID, db: Session) -> FriendLedg
     split_ids = [s.id for s in user_splits]
 
     ledger_entries: list[FriendLedgerItem] = []
-    total_owed_by_friend = 0.0
-    total_settled_by_friend = 0.0
+    total_owed_by_friend = Decimal("0.00")
+    total_settled_by_friend = Decimal("0.00")
 
     if split_ids:
         participants = (
@@ -97,14 +98,14 @@ def get_friend_ledger(user_id: UUID, friend_id: UUID, db: Session) -> FriendLedg
             date = split_obj.created_at if split_obj else p.created_at
 
             if not p.is_payer:
-                total_owed_by_friend += p.amount_owed
+                total_owed_by_friend += Decimal(str(p.amount_owed))
                 ledger_entries.append(
                     FriendLedgerItem(
                         id=p.id,
                         type="split",
                         date=date,
                         description=f"Share in '{split_title}'",
-                        amount=p.amount_owed,
+                        amount=float(p.amount_owed),
                         role="lent",  # user lent money to friend
                     )
                 )
@@ -121,20 +122,21 @@ def get_friend_ledger(user_id: UUID, friend_id: UUID, db: Session) -> FriendLedg
 
     for s in settlements:
         if s.payer_name.lower() == friend.name.lower():
-            total_settled_by_friend += s.amount
+            total_settled_by_friend += Decimal(str(s.amount))
             ledger_entries.append(
                 FriendLedgerItem(
                     id=s.id,
                     type="settlement",
                     date=s.settled_at or s.created_at,
                     description=f"Settlement from {s.payer_name}",
-                    amount=s.amount,
+                    amount=float(s.amount),
                     role="settled",
                 )
             )
 
     ledger_entries.sort(key=lambda x: x.date, reverse=True)
-    net = round(total_owed_by_friend - total_settled_by_friend, 2)
+    net_dec = (total_owed_by_friend - total_settled_by_friend).quantize(Decimal("0.01"))
+    net = float(net_dec)
     status_str = "owes_you" if net > 0 else ("you_owe" if net < 0 else "settled")
 
     return FriendLedgerResponse(

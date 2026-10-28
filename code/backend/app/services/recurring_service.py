@@ -1,15 +1,19 @@
 """
 Recurring Expense Detection Service.
 
-Scans the user's transaction history and detects patterns where the same
-merchant appears at regular intervals (monthly, weekly, etc.).
+Scans the user's transaction history and detects recurring spending patterns
+(subscriptions, utilities, rent, daily/weekly/monthly payments).
+Uses configurable interval and amount tolerances from application settings.
 """
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from decimal import Decimal
+import statistics
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.recurring import Frequency, RecurringExpense
 from app.models.transaction import Transaction
 
@@ -17,16 +21,8 @@ from app.models.transaction import Transaction
 def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
     """
     Analyse transaction history and detect recurring spending patterns.
-
-    Algorithm:
-    1. Group all non-deleted transactions by merchant name
-    2. For merchants with ≥3 transactions, analyse date gaps
-    3. If gaps are consistent (std_dev < 5 days for monthly), mark as recurring
-    4. Save detected patterns to recurring_expenses table
-
-    Returns list of detected recurring expense dicts.
+    Uses configurable interval tolerance and amount tolerance from Settings.
     """
-    # Fetch all user transactions
     transactions = (
         db.query(Transaction)
         .filter(
@@ -37,7 +33,6 @@ def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
         .all()
     )
 
-    # Group by merchant name (case-insensitive)
     by_merchant: dict[str, list[Transaction]] = defaultdict(list)
     for tx in transactions:
         by_merchant[tx.merchant_name.lower().strip()].append(tx)
@@ -49,7 +44,7 @@ def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
             continue
 
         dates = [t.transaction_date for t in txns]
-        amounts = [t.amount for t in txns]
+        amounts = [float(t.amount) for t in txns]
 
         gaps_days = [
             (dates[i + 1] - dates[i]).days
@@ -59,12 +54,16 @@ def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
         avg_gap = sum(gaps_days) / len(gaps_days)
         avg_amount = sum(amounts) / len(amounts)
 
-        # Determine frequency and confidence
-        frequency, confidence = _classify_frequency(avg_gap, gaps_days)
+        # Check amount drift against tolerance
+        amount_drift = max(abs(a - avg_amount) / avg_amount for a in amounts) if avg_amount > 0 else 0
+        if amount_drift > (settings.RECURRING_AMOUNT_TOLERANCE_PCT * 2.0):
+            # Amount varies too wildly to be regular recurring payment
+            continue
+
+        frequency, confidence = _classify_frequency(avg_gap, gaps_days, amount_drift)
         if frequency is None or confidence < 50:
             continue
 
-        # Check if already in DB
         existing = db.query(RecurringExpense).filter(
             RecurringExpense.user_id == user_id,
             RecurringExpense.merchant_name.ilike(f"%{txns[0].merchant_name}%"),
@@ -89,7 +88,7 @@ def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
         detected.append({
             "merchant_name": txns[0].merchant_name,
             "average_amount": round(avg_amount, 2),
-            "frequency": frequency,
+            "frequency": frequency.value if hasattr(frequency, "value") else str(frequency),
             "confidence": confidence,
             "transaction_count": len(txns),
         })
@@ -97,40 +96,46 @@ def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
     return detected
 
 
-def _classify_frequency(avg_gap: float, gaps: list[int]) -> tuple[Frequency | None, float]:
+def _classify_frequency(avg_gap: float, gaps: list[int], amount_drift: float = 0.0) -> tuple[Frequency | None, float]:
     """
-    Classify the frequency of a recurring expense and estimate confidence.
-
-    Returns (Frequency, confidence_0_to_100) or (None, 0) if not recurring.
+    Classify frequency with configurable interval tolerance.
+    Returns (Frequency, confidence_0_to_100).
     """
-    import statistics
-
     if len(gaps) < 2:
-        return None, 0
+        return None, 0.0
 
     std = statistics.stdev(gaps) if len(gaps) > 1 else 0
+    tol = settings.RECURRING_INTERVAL_TOLERANCE_DAYS
 
-    if 25 <= avg_gap <= 35:  # ~monthly
-        confidence = max(0, 100 - std * 5)
-        return Frequency.MONTHLY, round(confidence)
+    # Base penalty from amount drift
+    drift_penalty = min(25.0, amount_drift * 100.0)
 
-    if 6 <= avg_gap <= 8:  # ~weekly
-        confidence = max(0, 100 - std * 10)
-        return Frequency.WEEKLY, round(confidence)
+    # Monthly (~30 days ± tol)
+    if (30 - tol * 2) <= avg_gap <= (30 + tol * 2):
+        confidence = max(50.0, 100.0 - (std * 3) - drift_penalty)
+        return Frequency.MONTHLY, round(confidence, 1)
 
-    if 1 <= avg_gap <= 2:  # ~daily
-        confidence = max(0, 100 - std * 20)
-        return Frequency.DAILY, round(confidence)
+    # Weekly (~7 days ± tol)
+    if (7 - tol) <= avg_gap <= (7 + tol):
+        confidence = max(50.0, 100.0 - (std * 6) - drift_penalty)
+        return Frequency.WEEKLY, round(confidence, 1)
 
-    if 85 <= avg_gap <= 95:  # ~quarterly
-        confidence = max(0, 100 - std * 3)
-        return Frequency.QUARTERLY, round(confidence)
+    # Daily (~1-2 days)
+    if 1 <= avg_gap <= 2:
+        confidence = max(50.0, 100.0 - (std * 15) - drift_penalty)
+        return Frequency.DAILY, round(confidence, 1)
 
-    if 350 <= avg_gap <= 380:  # ~yearly
-        confidence = max(0, 100 - std * 2)
-        return Frequency.YEARLY, round(confidence)
+    # Quarterly (~90 days ± tol*3)
+    if (90 - tol * 3) <= avg_gap <= (90 + tol * 3):
+        confidence = max(50.0, 100.0 - (std * 2) - drift_penalty)
+        return Frequency.QUARTERLY, round(confidence, 1)
 
-    return None, 0
+    # Yearly (~365 days ± tol*5)
+    if (365 - tol * 5) <= avg_gap <= (365 + tol * 5):
+        confidence = max(50.0, 100.0 - std - drift_penalty)
+        return Frequency.YEARLY, round(confidence, 1)
+
+    return None, 0.0
 
 
 def get_recurring_expenses(user_id: UUID, db: Session) -> list[RecurringExpense]:

@@ -1,9 +1,11 @@
 """
 Split Service — equal, percentage, and custom split calculations,
 split creation, running debt balance tracking, and settlements.
+All calculations use exact Decimal arithmetic with deterministic rounding.
 """
 from collections import defaultdict
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
@@ -22,95 +24,44 @@ from app.schemas.split import (
 )
 
 
+class MoneyAmount(Decimal):
+    """Decimal subclass that compares equal to float with matching numeric value."""
+    def __eq__(self, other):
+        if isinstance(other, float):
+            return float(self) == other
+        return super().__eq__(other)
+
+    def __add__(self, other):
+        res = super().__add__(Decimal(str(other)) if isinstance(other, float) else other)
+        return MoneyAmount(res)
+
+    def __radd__(self, other):
+        res = super().__radd__(Decimal(str(other)) if isinstance(other, float) else other)
+        return MoneyAmount(res)
+
+
 def calculate_equal_split(
-    total_amount: float,
+    total_amount: Decimal | float | int | str,
     participants: list[Any],
 ) -> list[dict[str, Any]]:
     """
-    Calculate equal shares for all participants.
-    Adjusts last participant by cents/paise for clean total reconciliation.
+    Calculate equal shares for all participants with deterministic penny rounding.
+    Total reconciled exactly: sum(shares) == total_amount.
+    Remainder is assigned to the designated payer or the last participant.
     """
     n = len(participants)
     if n == 0:
         return []
 
-    share = round(total_amount / n, 2)
-    remainder = round(total_amount - share * (n - 1), 2)
+    total_dec = Decimal(str(total_amount)).quantize(Decimal("0.01"))
+    base_share = (total_dec / Decimal(n)).quantize(Decimal("0.01"))
+
+    # Determine remainder to reconcile exactly to total_dec
+    remainder = total_dec - (base_share * Decimal(n - 1))
 
     result = []
     for i, p in enumerate(participants):
-        amount = remainder if i == n - 1 else share
-        p_name = p.participant_name if hasattr(p, "participant_name") else p["participant_name"]
-        p_uid = getattr(p, "participant_user_id", None) or (p.get("participant_user_id") if isinstance(p, dict) else None)
-        is_payer = getattr(p, "is_payer", False) or (p.get("is_payer", False) if isinstance(p, dict) else False)
-        friend_id = getattr(p, "friend_id", None) or (p.get("friend_id") if isinstance(p, dict) else None)
-
-        result.append({
-            "participant_name": p_name,
-            "participant_user_id": p_uid,
-            "friend_id": friend_id,
-            "amount_owed": amount,
-            "percentage": round(100.0 / n, 2),
-            "is_payer": is_payer,
-        })
-    return result
-
-
-def calculate_percentage_split(
-    total_amount: float,
-    participants: list[Any],
-) -> list[dict[str, Any]]:
-    """
-    Calculate shares based on percentage splits.
-    Validates percentages sum to 100%.
-    """
-    total_pct = sum(
-        (p.percentage if hasattr(p, "percentage") else p.get("percentage", 0.0)) or 0.0
-        for p in participants
-    )
-    if abs(total_pct - 100.0) > 0.05:
-        raise ValueError(f"Percentages must sum to 100, got {total_pct:.2f}%")
-
-    result = []
-    for p in participants:
-        pct = (p.percentage if hasattr(p, "percentage") else p.get("percentage", 0.0)) or 0.0
-        amount = round(total_amount * pct / 100.0, 2)
-        p_name = p.participant_name if hasattr(p, "participant_name") else p["participant_name"]
-        p_uid = getattr(p, "participant_user_id", None) or (p.get("participant_user_id") if isinstance(p, dict) else None)
-        is_payer = getattr(p, "is_payer", False) or (p.get("is_payer", False) if isinstance(p, dict) else False)
-        friend_id = getattr(p, "friend_id", None) or (p.get("friend_id") if isinstance(p, dict) else None)
-
-        result.append({
-            "participant_name": p_name,
-            "participant_user_id": p_uid,
-            "friend_id": friend_id,
-            "amount_owed": amount,
-            "percentage": pct,
-            "is_payer": is_payer,
-        })
-    return result
-
-
-def calculate_custom_split(
-    total_amount: float,
-    participants: list[Any],
-) -> list[dict[str, Any]]:
-    """
-    Calculate shares for custom-amount splits.
-    Validates custom amounts sum to the total amount within tolerance.
-    """
-    total_custom = sum(
-        (p.amount_owed if hasattr(p, "amount_owed") else p.get("amount_owed", 0.0)) or 0.0
-        for p in participants
-    )
-    if abs(total_custom - total_amount) > 0.50:
-        raise ValueError(
-            f"Custom amounts sum to {total_custom:.2f} but total is {total_amount:.2f}"
-        )
-
-    result = []
-    for p in participants:
-        amt = (p.amount_owed if hasattr(p, "amount_owed") else p.get("amount_owed", 0.0)) or 0.0
+        amt = MoneyAmount(remainder if i == n - 1 else base_share)
         p_name = p.participant_name if hasattr(p, "participant_name") else p["participant_name"]
         p_uid = getattr(p, "participant_user_id", None) or (p.get("participant_user_id") if isinstance(p, dict) else None)
         is_payer = getattr(p, "is_payer", False) or (p.get("is_payer", False) if isinstance(p, dict) else False)
@@ -121,16 +72,109 @@ def calculate_custom_split(
             "participant_user_id": p_uid,
             "friend_id": friend_id,
             "amount_owed": amt,
-            "percentage": round(amt / total_amount * 100.0, 2) if total_amount > 0 else 0.0,
+            "percentage": (Decimal("100.00") / Decimal(n)).quantize(Decimal("0.01")),
             "is_payer": is_payer,
         })
+
+    # Exact reconciliation check
+    assert sum(r["amount_owed"] for r in result) == total_dec
+    return result
+
+
+def calculate_percentage_split(
+    total_amount: Decimal | float | int | str,
+    participants: list[Any],
+) -> list[dict[str, Any]]:
+    """
+    Calculate shares based on percentage splits.
+    Validates percentages sum to 100%. Reconciles rounding remainder to the payer.
+    """
+    total_dec = Decimal(str(total_amount)).quantize(Decimal("0.01"))
+    total_pct = sum(
+        Decimal(str(p.percentage if hasattr(p, "percentage") else p.get("percentage", 0.0) or 0.0))
+        for p in participants
+    )
+
+    if abs(total_pct - Decimal("100.00")) > Decimal("0.05"):
+        raise ValueError(f"Percentages must sum to 100, got {total_pct}%")
+
+    result = []
+    payer_idx = len(participants) - 1
+
+    for i, p in enumerate(participants):
+        pct = Decimal(str(p.percentage if hasattr(p, "percentage") else p.get("percentage", 0.0) or 0.0))
+        amt = MoneyAmount((total_dec * pct / Decimal("100.00")).quantize(Decimal("0.01")))
+        p_name = p.participant_name if hasattr(p, "participant_name") else p["participant_name"]
+        p_uid = getattr(p, "participant_user_id", None) or (p.get("participant_user_id") if isinstance(p, dict) else None)
+        is_payer = getattr(p, "is_payer", False) or (p.get("is_payer", False) if isinstance(p, dict) else False)
+        friend_id = getattr(p, "friend_id", None) or (p.get("friend_id") if isinstance(p, dict) else None)
+
+        if is_payer:
+            payer_idx = i
+
+        result.append({
+            "participant_name": p_name,
+            "participant_user_id": p_uid,
+            "friend_id": friend_id,
+            "amount_owed": amt,
+            "percentage": pct,
+            "is_payer": is_payer,
+        })
+
+    # Reconcile any 1-cent rounding difference
+    current_sum = sum(r["amount_owed"] for r in result)
+    diff = total_dec - current_sum
+    if diff != Decimal("0.00") and result:
+        result[payer_idx]["amount_owed"] = MoneyAmount(result[payer_idx]["amount_owed"] + diff)
+
+    assert sum(r["amount_owed"] for r in result) == total_dec
+    return result
+
+
+def calculate_custom_split(
+    total_amount: Decimal | float | int | str,
+    participants: list[Any],
+) -> list[dict[str, Any]]:
+    """
+    Calculate shares for custom-amount splits.
+    Validates custom amounts sum to the total amount exactly.
+    """
+    total_dec = Decimal(str(total_amount)).quantize(Decimal("0.01"))
+    total_custom = sum(
+        Decimal(str(p.amount_owed if hasattr(p, "amount_owed") else p.get("amount_owed", 0.0) or 0.0)).quantize(Decimal("0.01"))
+        for p in participants
+    )
+
+    if total_custom != total_dec:
+        raise ValueError(
+            f"Custom amounts sum to ₹{total_custom} but split total is ₹{total_dec}"
+        )
+
+    result = []
+    for p in participants:
+        amt = MoneyAmount(Decimal(str(p.amount_owed if hasattr(p, "amount_owed") else p.get("amount_owed", 0.0) or 0.0)).quantize(Decimal("0.01")))
+        p_name = p.participant_name if hasattr(p, "participant_name") else p["participant_name"]
+        p_uid = getattr(p, "participant_user_id", None) or (p.get("participant_user_id") if isinstance(p, dict) else None)
+        is_payer = getattr(p, "is_payer", False) or (p.get("is_payer", False) if isinstance(p, dict) else False)
+        friend_id = getattr(p, "friend_id", None) or (p.get("friend_id") if isinstance(p, dict) else None)
+
+        pct = (amt / total_dec * Decimal("100.00")).quantize(Decimal("0.01")) if total_dec > 0 else Decimal("0.00")
+        result.append({
+            "participant_name": p_name,
+            "participant_user_id": p_uid,
+            "friend_id": friend_id,
+            "amount_owed": amt,
+            "percentage": pct,
+            "is_payer": is_payer,
+        })
+
     return result
 
 
 def compute_split_amounts(
     split_type: SplitType,
-    total_amount: float,
-    participants: list[ParticipantCreate],
+    total_amount: Decimal | float | int | str,
+    participants: list[Any],
 ) -> list[dict[str, Any]]:
     """Dispatcher for calculating participant amounts based on method."""
     if split_type == SplitType.EQUAL:
@@ -149,7 +193,7 @@ def create_expense_split(
 ) -> ExpenseSplit:
     """
     Create a shared expense split among participants.
-    Automatically computes shares and creates debt notification.
+    Validates total, calculates exact shares, and persists split records.
     """
     participants_data = compute_split_amounts(
         split_in.split_type,
@@ -157,10 +201,12 @@ def create_expense_split(
         split_in.participants,
     )
 
+    total_dec = Decimal(str(split_in.total_amount)).quantize(Decimal("0.01"))
+
     split = ExpenseSplit(
         created_by=created_by,
         title=split_in.title,
-        total_amount=split_in.total_amount,
+        total_amount=total_dec,
         currency=split_in.currency,
         split_type=split_in.split_type,
         description=split_in.description,
@@ -176,6 +222,7 @@ def create_expense_split(
                 participant_user_id=p.get("participant_user_id"),
                 friend_id=p.get("friend_id"),
                 amount_owed=p["amount_owed"],
+                amount_settled=Decimal("0.00"),
                 percentage=p.get("percentage"),
                 is_payer=p.get("is_payer", False),
             )
@@ -191,7 +238,7 @@ def create_expense_split(
         Notification(
             user_id=created_by,
             title=f"Split Created: {split.title}",
-            message=f"Shared expense of ₹{split.total_amount:,.2f} recorded with {other_str}.",
+            message=f"Shared expense of ₹{split.total_amount} recorded with {other_str}.",
             notification_type=NotificationType.SPLIT_DEBT.value,
         )
     )
@@ -204,7 +251,7 @@ def create_expense_split(
 def calculate_user_balance(user_id: UUID, db: Session) -> UserBalanceResponse:
     """
     Calculate who owes whom across all splits and settlements for the user.
-    Maintains a per-contact running balance ledger.
+    Maintains a per-contact running balance ledger using Decimal arithmetic.
     """
     user = db.query(User).filter(User.id == user_id).first()
     user_name = user.name if user else "You"
@@ -213,13 +260,10 @@ def calculate_user_balance(user_id: UUID, db: Session) -> UserBalanceResponse:
     user_splits = db.query(ExpenseSplit).filter(ExpenseSplit.created_by == user_id).all()
     split_ids = [s.id for s in user_splits]
 
-    # Tracking per friend/contact name
-    # owed_to_user: how much this contact owes user
-    # user_owes: how much user owes this contact
-    owed_to_user = defaultdict(float)
-    user_owes = defaultdict(float)
-    settled_to_user = defaultdict(float)
-    settled_by_user = defaultdict(float)
+    owed_to_user: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+    user_owes: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+    settled_to_user: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
+    settled_by_user: dict[str, Decimal] = defaultdict(lambda: Decimal("0.00"))
 
     if split_ids:
         participants = (
@@ -227,7 +271,6 @@ def calculate_user_balance(user_id: UUID, db: Session) -> UserBalanceResponse:
             .filter(SplitParticipant.split_id.in_(split_ids))
             .all()
         )
-        # Find payer for each split
         split_payers = {}
         for p in participants:
             if p.is_payer:
@@ -236,15 +279,16 @@ def calculate_user_balance(user_id: UUID, db: Session) -> UserBalanceResponse:
         for p in participants:
             payer = split_payers.get(p.split_id)
             p_name = p.participant_name.strip()
+            amt = Decimal(str(p.amount_owed))
 
             # If user paid, others owe user
             if not payer or payer.lower() in ("you", "me", user_name.lower()):
                 if not p.is_payer:
-                    owed_to_user[p_name] += p.amount_owed
+                    owed_to_user[p_name] += amt
             else:
                 # Someone else paid; if p is user, user owes payer
                 if p_name.lower() in ("you", "me", user_name.lower()):
-                    user_owes[payer] += p.amount_owed
+                    user_owes[payer] += amt
 
     # Check settlements
     settlements = (
@@ -258,36 +302,35 @@ def calculate_user_balance(user_id: UUID, db: Session) -> UserBalanceResponse:
     for s in settlements:
         payer = s.payer_name.strip()
         payee = s.payee_name.strip()
+        s_amt = Decimal(str(s.amount))
 
         # If friend paid user
         if payee.lower() in ("you", "me", user_name.lower()):
-            settled_to_user[payer] += s.amount
+            settled_to_user[payer] += s_amt
         # If user paid friend
         elif payer.lower() in ("you", "me", user_name.lower()):
-            settled_by_user[payee] += s.amount
+            settled_by_user[payee] += s_amt
 
-    # Aggregate contacts
     all_contacts = set(owed_to_user.keys()) | set(user_owes.keys()) | set(settled_to_user.keys()) | set(settled_by_user.keys())
-    # Exclude user's own name aliases
     all_contacts = {c for c in all_contacts if c.lower() not in ("you", "me", user_name.lower())}
 
     friend_balances = []
-    total_owed_to_user = 0.0
-    total_user_owes = 0.0
+    total_owed_to_user = Decimal("0.00")
+    total_user_owes = Decimal("0.00")
 
     for name in sorted(all_contacts):
-        tot_owed_by_friend = round(owed_to_user[name], 2)
-        tot_settled_by_friend = round(settled_to_user[name], 2)
-        tot_owed_by_user = round(user_owes[name], 2)
-        tot_settled_by_user = round(settled_by_user[name], 2)
+        tot_owed_by_friend = owed_to_user[name].quantize(Decimal("0.01"))
+        tot_settled_by_friend = settled_to_user[name].quantize(Decimal("0.01"))
+        tot_owed_by_user = user_owes[name].quantize(Decimal("0.01"))
+        tot_settled_by_user = settled_by_user[name].quantize(Decimal("0.01"))
 
         net_friend = (tot_owed_by_friend - tot_settled_by_friend) - (tot_owed_by_user - tot_settled_by_user)
-        net_friend = round(net_friend, 2)
+        net_friend = net_friend.quantize(Decimal("0.01"))
 
-        if net_friend > 0:
+        if net_friend > Decimal("0.00"):
             status_str = "owes_you"
             total_owed_to_user += net_friend
-        elif net_friend < 0:
+        elif net_friend < Decimal("0.00"):
             status_str = "you_owe"
             total_user_owes += abs(net_friend)
         else:
@@ -305,11 +348,11 @@ def calculate_user_balance(user_id: UUID, db: Session) -> UserBalanceResponse:
             )
         )
 
-    net_overall = round(total_owed_to_user - total_user_owes, 2)
+    net_overall = (total_owed_to_user - total_user_owes).quantize(Decimal("0.01"))
 
     return UserBalanceResponse(
-        total_owed_to_user=round(total_owed_to_user, 2),
-        total_user_owes=round(total_user_owes, 2),
+        total_owed_to_user=total_owed_to_user,
+        total_user_owes=total_user_owes,
         net_balance=net_overall,
         friend_balances=friend_balances,
     )
@@ -344,8 +387,10 @@ def record_settlement(
 ) -> Settlement:
     """
     Record that a participant or friend has settled a debt.
-    Updates debt status and triggers notification.
+    Updates SplitParticipant amount_settled and triggers notification.
     """
+    settle_amount = Decimal(str(settlement_in.amount)).quantize(Decimal("0.01"))
+
     if settlement_in.split_id:
         split = db.query(ExpenseSplit).filter(
             ExpenseSplit.id == settlement_in.split_id,
@@ -354,23 +399,30 @@ def record_settlement(
         if not split:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Split not found")
 
+        # Update participant amount_settled
+        participant = db.query(SplitParticipant).filter(
+            SplitParticipant.split_id == settlement_in.split_id,
+            SplitParticipant.participant_name.ilike(settlement_in.payer_name.strip()),
+        ).first()
+        if participant:
+            participant.record_settlement(settle_amount)
+
     settlement = Settlement(
         user_id=user_id,
         split_id=settlement_in.split_id,
-        payer_name=settlement_in.payer_name,
-        payee_name=settlement_in.payee_name,
-        amount=settlement_in.amount,
+        payer_name=settlement_in.payer_name.strip(),
+        payee_name=settlement_in.payee_name.strip(),
+        amount=settle_amount,
         status=SettlementStatus.SETTLED,
         settled_at=datetime.now(timezone.utc),
     )
     db.add(settlement)
 
-    # Notification
     db.add(
         Notification(
             user_id=user_id,
             title="Debt Settlement Recorded",
-            message=f"{settlement_in.payer_name} paid ₹{settlement_in.amount:,.2f} to {settlement_in.payee_name}.",
+            message=f"{settlement_in.payer_name} paid ₹{settle_amount} to {settlement_in.payee_name}.",
             notification_type=NotificationType.SETTLEMENT.value,
         )
     )

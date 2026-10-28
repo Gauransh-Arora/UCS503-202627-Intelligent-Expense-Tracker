@@ -3,6 +3,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
+from decimal import Decimal
 from sqlalchemy import (
     Column,
     DateTime,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     JSON,
+    Numeric,
     String,
     Text,
     Uuid,
@@ -51,8 +53,8 @@ class BankStatement(Base):
     status = Column(String(30), default=StatementStatus.UPLOADED.value, nullable=False)
     raw_text = Column(Text, nullable=True)
     total_transactions = Column(Integer, default=0, nullable=False)
-    total_debits = Column(Float, default=0.0, nullable=False)
-    total_credits = Column(Float, default=0.0, nullable=False)
+    total_debits = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
+    total_credits = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
 
     # Parsed rows stored as JSON list — each row: {date, description, debit, credit, balance}
     parsed_rows = Column(JSON, nullable=True)

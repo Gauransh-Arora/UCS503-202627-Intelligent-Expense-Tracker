@@ -10,6 +10,7 @@ from app.models.preference import UserCategoryPreference
 from app.models.friend import Friend
 from app.models.notification import Notification, NotificationType
 from app.models.bank_statement import BankStatement, StatementStatus
+from app.models.budget_plan import BudgetPlan
 
 __all__ = [
     "User",
@@ -21,6 +22,7 @@ __all__ = [
     "SplitParticipant",
     "Settlement",
     "WishlistItem",
+    "BudgetPlan",
     "RecurringExpense",
     "UserCategoryPreference",
     "Friend",

@@ -27,6 +27,7 @@ from app.routers import (
     analytics,
     auth,
     bank_statements,
+    budgets,
     categories,
     documents,
     friends,
@@ -121,6 +122,7 @@ app.include_router(intelligence.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)
 app.include_router(bank_statements.router)
+app.include_router(budgets.router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

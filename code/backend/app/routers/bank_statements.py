@@ -9,6 +9,8 @@ Endpoints:
   DELETE /bank-statements/{id}           — delete statement + file
 """
 import uuid as _uuid
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -17,8 +19,12 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models.bank_statement import BankStatement, StatementStatus
+from app.models.category import Category
+from app.models.transaction import Transaction, TransactionStatus
 from app.models.user import User
 from app.schemas.bank_statement import (
+    BankStatementMergeRequest,
+    BankStatementMergeResponse,
     BankStatementResponse,
     BankStatementSummary,
     BankStatementUploadResponse,
@@ -114,7 +120,7 @@ def parse_statement(
     db.commit()
 
     try:
-        result = parse_bank_statement(stmt.file_url)
+        result = parse_bank_statement(stmt.file_url, user_id=current_user.id, db=db)
 
         stmt.raw_text = result["raw_text"]
         stmt.bank_name = result.get("bank_name")
@@ -225,3 +231,112 @@ def delete_statement(
 
     db.delete(stmt)
     db.commit()
+
+
+# ── Merge into Transactions ───────────────────────────────────────────────────
+
+@router.post(
+    "/{statement_id}/merge",
+    response_model=BankStatementMergeResponse,
+    summary="Merge verified statement entries into confirmed transactions",
+)
+def merge_statement_entries(
+    statement_id: _uuid.UUID,
+    payload: BankStatementMergeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Merge verified entries from a parsed statement into the user's confirmed transactions.
+    Only debit entries (expenses) that are verified (and not duplicate, unless explicitly selected)
+    are merged into history.
+    """
+    stmt = db.query(BankStatement).filter(
+        BankStatement.id == statement_id,
+        BankStatement.user_id == current_user.id,
+    ).first()
+    if not stmt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found")
+
+    if not stmt.parsed_rows:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Statement has no parsed rows to merge. Parse it first.",
+        )
+
+    # Cache categories for fast lookup
+    categories = db.query(Category).all()
+    cat_by_name = {c.name.lower(): c for c in categories}
+    default_cat = next((c for c in categories if c.is_default), categories[0] if categories else None)
+    if not default_cat:
+        # Create a default category if none exists
+        default_cat = Category(name="Others", icon="help_outline", is_default=True)
+        db.add(default_cat)
+        db.commit()
+        db.refresh(default_cat)
+        cat_by_name["others"] = default_cat
+
+    created_ids = []
+    skipped = 0
+
+    indices_to_process = (
+        payload.selected_indices
+        if payload.selected_indices is not None
+        else list(range(len(stmt.parsed_rows)))
+    )
+
+    for idx in indices_to_process:
+        if idx < 0 or idx >= len(stmt.parsed_rows):
+            skipped += 1
+            continue
+        row = stmt.parsed_rows[idx]
+
+        debit = row.get("debit")
+        # Only debits (expenses) are merged into expense transactions
+        if debit is None or debit <= 0:
+            skipped += 1
+            continue
+
+        # If merging all automatically, skip duplicates
+        if payload.selected_indices is None and row.get("is_duplicate"):
+            skipped += 1
+            continue
+
+        date_val = None
+        date_str = row.get("date")
+        if date_str:
+            try:
+                date_val = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        if not date_val:
+            skipped += 1
+            continue
+
+        # Find matching category
+        cat_name = (row.get("category") or "Others").lower()
+        matched_cat = cat_by_name.get(cat_name, default_cat)
+
+        merchant_name = row.get("merchant") or row.get("description", "Unknown")[:100]
+
+        txn = Transaction(
+            user_id=current_user.id,
+            category_id=matched_cat.id,
+            amount=Decimal(str(round(debit, 2))),
+            date=date_val,
+            merchant=merchant_name[:100],
+            notes=row.get("description", "")[:500],
+            status=TransactionStatus.CONFIRMED.value,
+        )
+        db.add(txn)
+        db.flush()
+        created_ids.append(txn.id)
+
+    db.commit()
+
+    return BankStatementMergeResponse(
+        merged_count=len(created_ids),
+        skipped_count=skipped,
+        created_transaction_ids=created_ids,
+    )

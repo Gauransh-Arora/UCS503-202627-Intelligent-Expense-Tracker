@@ -84,3 +84,11 @@ class SpendingSummaryResponse(BaseModel):
     top_category: Optional[str] = None
     top_merchant: Optional[str] = None
     key_insights: list[str] = []
+
+
+class DrilldownResponse(BaseModel):
+    dimension: str
+    value: str
+    total_spent: float
+    transaction_count: int
+    transactions: list[dict] = []
