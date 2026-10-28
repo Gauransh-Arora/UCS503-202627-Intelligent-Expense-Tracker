@@ -1,0 +1,58 @@
+{
+  "upi_gpay.png": {
+    "type": "upi_screenshot",
+    "merchant": "Blue Tokai Coffee",
+    "amount": 450.0,
+    "date": "2026-10-15",
+    "status": "success",
+    "reference": "628994819201"
+  },
+  "upi_phonepe.png": {
+    "type": "upi_screenshot",
+    "merchant": "Zomato Limited",
+    "amount": 349.0,
+    "date": "2026-10-12",
+    "status": "success",
+    "reference": "TXN9928419204"
+  },
+  "receipt_supermarket.png": {
+    "type": "receipt",
+    "merchant": "Fresh Choice Mart",
+    "amount": 336.0,
+    "tax_amount": 16.0,
+    "date": "2026-10-18",
+    "item_count": 4
+  },
+  "receipt_restaurant.png": {
+    "type": "receipt",
+    "merchant": "Bella Italia Cafe",
+    "amount": 924.0,
+    "tax_amount": 44.0,
+    "date": "2026-10-20",
+    "item_count": 3
+  },
+  "statement_hdfc.csv": {
+    "type": "bank_statement_csv",
+    "total_debits": 2248.5,
+    "total_credits": 65000.0,
+    "transaction_count": 4
+  },
+  "statement_sbi.csv": {
+    "type": "bank_statement_csv",
+    "total_debits": 620.0,
+    "total_credits": 1000.0,
+    "transaction_count": 3
+  },
+  "statement_icici.csv": {
+    "type": "bank_statement_csv",
+    "total_debits": 2039.0,
+    "total_credits": 499.0,
+    "transaction_count": 3
+  },
+  "statement_axis.pdf": {
+    "type": "bank_statement_pdf",
+    "total_debits": 2449.0,
+    "total_credits": 50000.0,
+    "transaction_count": 4
+  }
+}
