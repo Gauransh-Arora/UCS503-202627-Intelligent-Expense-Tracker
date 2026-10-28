@@ -8,6 +8,8 @@ class BankStatementRow {
   final double? credit;
   final double? balance;
   final String? category;
+  final bool isDuplicate;
+  final String? duplicateReason;
 
   const BankStatementRow({
     required this.date,
@@ -16,6 +18,8 @@ class BankStatementRow {
     this.credit,
     this.balance,
     this.category,
+    this.isDuplicate = false,
+    this.duplicateReason,
   });
 
   factory BankStatementRow.fromJson(Map<String, dynamic> json) =>
@@ -26,6 +30,8 @@ class BankStatementRow {
         credit: (json['credit'] as num?)?.toDouble(),
         balance: (json['balance'] as num?)?.toDouble(),
         category: json['category'] as String?,
+        isDuplicate: json['is_duplicate'] as bool? ?? false,
+        duplicateReason: json['duplicate_reason'] as String?,
       );
 
   bool get isDebit => (debit ?? 0) > 0;

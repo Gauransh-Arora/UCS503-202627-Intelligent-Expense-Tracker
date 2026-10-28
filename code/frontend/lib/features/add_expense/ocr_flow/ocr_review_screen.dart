@@ -78,7 +78,10 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
         'currency': 'INR',
         'transaction_date': dateStr,
         'payment_method': 'upi',
-        'description': 'Scanned receipt via Tesseract OCR',
+        'category_name': _selectedCategory,
+        if (widget.ocrData['document_id'] != null)
+          'document_id': widget.ocrData['document_id'],
+        'description': 'Verified receipt via OCR',
         'items': itemsPayload,
       };
 
@@ -103,6 +106,20 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _discardDraft() async {
+    final docId = widget.ocrData['document_id'];
+    if (docId != null) {
+      try {
+        await ApiService.deleteDocument(docId.toString());
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Draft discarded')),
+    );
+    Navigator.of(context).pop();
   }
 
   @override
@@ -315,9 +332,9 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
           const SizedBox(height: 12),
           Center(
             child: TextButton.icon(
-              icon: const Icon(Icons.arrow_back_rounded, size: 16),
-              onPressed: () => Navigator.pop(context),
-              label: const Text('Retake Image'),
+              icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
+              onPressed: _discardDraft,
+              label: const Text('Discard Draft', style: TextStyle(color: AppColors.danger)),
             ),
           ),
         ],

@@ -545,6 +545,33 @@ class _BankStatementDetailScreenState
     }
   }
 
+  bool _isMerging = false;
+
+  Future<void> _mergeEntries() async {
+    setState(() => _isMerging = true);
+    try {
+      final res = await ApiService.mergeBankStatement(widget.statementId);
+      final merged = res['merged_count'] ?? 0;
+      final skipped = res['skipped_count'] ?? 0;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Merged $merged verified transactions into history! ($skipped skipped)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Merge failed: $e'), backgroundColor: AppColors.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isMerging = false);
+    }
+  }
+
   List<BankStatementRow> get _filteredRows {
     if (_detail == null) return [];
     var rows = _detail!.rows;
@@ -648,6 +675,26 @@ class _BankStatementDetailScreenState
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 0,
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white24,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: _isMerging ? null : _mergeEntries,
+            icon: _isMerging
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.merge_type_rounded, size: 18),
+            label: const Text('Merge', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsets.fromLTRB(60, 0, 20, 16),
         title: Column(
@@ -957,6 +1004,24 @@ class _TransactionRow extends StatelessWidget {
                     fontSize: 11,
                     color: catColor,
                     fontWeight: FontWeight.w600),
+              ),
+            ],
+            if (row.isDuplicate) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Duplicate',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ],

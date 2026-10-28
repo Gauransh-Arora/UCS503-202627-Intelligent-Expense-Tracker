@@ -14,7 +14,7 @@ import '../models/user_model.dart';
 import '../models/category_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://172.16.213.72:8000';
+  static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000');
   static const String _tokenKey = 'jwt_token';
 
   // ─── Token Management ────────────────────────────────────────────────────────
@@ -129,6 +129,16 @@ class ApiService {
       return json.decode(response.body) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to process document');
+    }
+  }
+
+  static Future<void> deleteDocument(String documentId) async {
+    final uri = Uri.parse('$baseUrl/documents/$documentId');
+    final headers = await _authHeaders();
+    final response = await http.delete(uri, headers: headers);
+
+    if (response.statusCode != 204 && response.statusCode != 200) {
+      throw Exception('Failed to delete document: ${response.body}');
     }
   }
 
@@ -319,6 +329,63 @@ class ApiService {
 
     if (response.statusCode != 204) {
       throw Exception('Delete failed: ${response.body}');
+    }
+  }
+
+  /// Merges verified entries from a bank statement into confirmed transactions.
+  static Future<Map<String, dynamic>> mergeBankStatement(
+    String statementId, {
+    List<int>? selectedIndices,
+  }) async {
+    final uri = Uri.parse('$baseUrl/bank-statements/$statementId/merge');
+    final headers = await _authHeaders(jsonContent: true);
+    final body = json.encode({
+      if (selectedIndices != null) 'selected_indices': selectedIndices,
+    });
+
+    final response = await http.post(uri, headers: headers, body: body);
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to merge statement: ${response.body}');
+    }
+  }
+
+  // ─── Budgets ─────────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>?> getBudget({int? month, int? year}) async {
+    final q = <String>[];
+    if (month != null) q.add('month=$month');
+    if (year != null) q.add('year=$year');
+    final queryStr = q.isNotEmpty ? '?${q.join('&')}' : '';
+    final uri = Uri.parse('$baseUrl/budgets/$queryStr');
+    final headers = await _authHeaders();
+    final response = await http.get(uri, headers: headers);
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> setBudget({
+    required int month,
+    required int year,
+    required double spendingLimit,
+    required double savingsGoal,
+  }) async {
+    final uri = Uri.parse('$baseUrl/budgets/');
+    final headers = await _authHeaders(jsonContent: true);
+    final body = json.encode({
+      'month': month,
+      'year': year,
+      'spending_limit': spendingLimit,
+      'savings_goal': savingsGoal,
+    });
+    final response = await http.post(uri, headers: headers, body: body);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to save budget: ${response.body}');
     }
   }
 
