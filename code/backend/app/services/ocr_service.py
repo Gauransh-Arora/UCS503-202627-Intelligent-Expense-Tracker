@@ -1,11 +1,18 @@
 """
-OCR Service — converts image/PDF files to raw text using Tesseract.
+OCR Service — converts image/PDF files to raw text using PaddleOCR (with Tesseract fallback).
 
 The pipeline intentionally returns only raw text.
 Structured extraction is handled by extraction_service.py.
 """
+import logging
 import subprocess
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+# PaddleOCR singleton
+_PADDLE_OCR = None
+_PADDLE_INITIALIZED = False
 
 try:
     import pytesseract
@@ -15,29 +22,38 @@ except ImportError:
     _TESSERACT_AVAILABLE = False
 
 
+def _get_paddle_ocr():
+    """Lazily load PaddleOCR engine singleton."""
+    global _PADDLE_OCR, _PADDLE_INITIALIZED
+    if not _PADDLE_INITIALIZED:
+        try:
+            from paddleocr import PaddleOCR
+            _PADDLE_OCR = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+            logger.info("PaddleOCR successfully initialized")
+        except Exception as e:
+            logger.warning(f"PaddleOCR failed to initialize: {e}")
+            _PADDLE_OCR = None
+        _PADDLE_INITIALIZED = True
+    return _PADDLE_OCR
+
+
 def run_ocr(file_path: str) -> str:
     """
     Run OCR on an image file and return the raw extracted text.
+    Uses PaddleOCR as primary high-accuracy engine, falling back to Tesseract.
 
     Args:
-        file_path: Absolute path to the image file.
+        file_path: Absolute or relative path to the image file.
 
     Returns:
-        Raw OCR text string.
+        Raw OCR text string (newline-separated).
 
     Raises:
-        RuntimeError: If Tesseract is not installed or OCR fails.
+        FileNotFoundError: If the image file doesn't exist.
+        RuntimeError: If both OCR engines fail or are unavailable.
     """
-    if not _TESSERACT_AVAILABLE:
-        raise RuntimeError(
-            "pytesseract or Pillow is not installed. "
-            "Install with: uv add pytesseract pillow\n"
-            "Also install Tesseract: brew install tesseract"
-        )
-
     path = Path(file_path).resolve()
     if not path.exists():
-        # Also try relative to project root
         alt_path = Path.cwd() / file_path
         if alt_path.exists():
             path = alt_path
@@ -48,21 +64,46 @@ def run_ocr(file_path: str) -> str:
     if path.suffix.lower() == ".pdf":
         return _ocr_pdf(path)
 
-    image = Image.open(path)
-    # Pre-processing: convert to grayscale or RGB
-    if image.mode not in ("RGB", "L"):
-        image = image.convert("RGB")
+    # 1. Primary: PaddleOCR
+    paddle_engine = _get_paddle_ocr()
+    if paddle_engine is not None:
+        try:
+            results = paddle_engine.ocr(str(path), cls=True)
+            lines = []
+            if results and results[0]:
+                for item in results[0]:
+                    if item and len(item) > 1 and item[1]:
+                        text = item[1][0]
+                        if text and text.strip():
+                            lines.append(text.strip())
+            extracted = "\n".join(lines).strip()
+            if extracted:
+                return extracted
+        except Exception as e:
+            logger.warning(f"PaddleOCR inference failed on {path.name}: {e}. Falling back to Tesseract.")
 
-    # Try PSM 6 first (uniform block of text, standard for receipts)
-    text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 6", lang="eng")
-    if not text.strip() or len(text.strip()) < 10:
-        # Fallback to PSM 4 (single column of variable text) or default
-        text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 4", lang="eng")
-    if not text.strip():
-        # Final fallback: default page segmentation
-        text = pytesseract.image_to_string(image, config=r"--oem 3", lang="eng")
+    # 2. Fallback: Tesseract
+    if _TESSERACT_AVAILABLE:
+        try:
+            image = Image.open(path)
+            if image.mode not in ("RGB", "L"):
+                image = image.convert("RGB")
 
-    return text.strip()
+            # Try PSM 6 first (receipts / uniform blocks)
+            text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 6", lang="eng")
+            if not text.strip() or len(text.strip()) < 10:
+                text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 4", lang="eng")
+            if not text.strip():
+                text = pytesseract.image_to_string(image, config=r"--oem 3", lang="eng")
+
+            if text.strip():
+                return text.strip()
+        except Exception as e:
+            logger.warning(f"Tesseract inference failed on {path.name}: {e}")
+
+    raise RuntimeError(
+        f"Failed to extract text from {path.name}. Both PaddleOCR and Tesseract could not process the image."
+    )
 
 
 def _ocr_pdf(path: Path) -> str:

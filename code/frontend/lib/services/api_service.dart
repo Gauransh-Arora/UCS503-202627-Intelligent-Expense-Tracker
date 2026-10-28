@@ -14,7 +14,7 @@ import '../models/user_model.dart';
 import '../models/category_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.244.167.140:8000';
+  static const String baseUrl = 'http://172.16.213.72:8000';
   static const String _tokenKey = 'jwt_token';
 
   // ─── Token Management ────────────────────────────────────────────────────────

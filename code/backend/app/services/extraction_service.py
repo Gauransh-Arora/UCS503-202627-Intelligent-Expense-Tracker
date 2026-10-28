@@ -12,9 +12,9 @@ from datetime import datetime
 from typing import Any
 
 # ── Currency-prefixed amount (only these are real amounts, not IDs) ───────────
-# Must have ₹ / Rs. / INR prefix to be considered an amount
+# Must have ₹ / Rs. / INR / R prefix (rupee symbol often recognized as 'R' in OCR)
 _CURRENCY_AMOUNT_PATTERN = re.compile(
-    r"(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)",
+    r"(?:₹|Rs\.?|INR|(?:\b|^)R)\s*([\d,]+(?:\.\d{1,2})?)",
     re.IGNORECASE,
 )
 
@@ -29,10 +29,10 @@ _TOTAL_PATTERN = re.compile(
 )
 
 # Date patterns: DD/MM/YYYY, DD-MM-YYYY, DD Mon YYYY, YYYY-MM-DD
-# Also handles ordinal: 15th Sep 26 or 15 Sep 2026
+# Also handles ordinal: 15th Sep 26 or 15 Sep 2026 or without spaces (10September 2026)
 _DATE_PATTERNS = [
     re.compile(r"\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})\b"),
-    re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(\d{2,4})\b", re.IGNORECASE),
+    re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s*(\d{2,4})\b", re.IGNORECASE),
     re.compile(r"\b(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})\b"),
 ]
 
@@ -154,12 +154,17 @@ def _extract_upi(raw_text: str, lines: list[str], result: dict) -> None:
     if banking_match:
         result["merchant_name"] = banking_match.group(1).strip()
     else:
-        # Fallback: "To UPI ID" recipient line
+        # Fallback: "To UPI ID" or "To:" or "Paid to" recipient line
         to_match = re.search(
-            r"to\s+upi\s*id[:\s]*\n?([^\n]+)", raw_text, re.IGNORECASE
+            r"(?:to\s+upi\s*id|to:|paid\s+to|\bto\b)\s*[:\s]*\n?([a-zA-Z0-9\s&'.-]+)",
+            raw_text,
+            re.IGNORECASE,
         )
         if to_match:
-            result["merchant_name"] = to_match.group(1).strip()
+            candidate = to_match.group(1).strip().splitlines()[0]
+            candidate = re.sub(r"\.+$", "", candidate).strip()
+            if len(candidate) >= 3 and candidate.lower() not in ("upi", "gpay", "phonepe", "paytm"):
+                result["merchant_name"] = candidate
 
     # ── Date: handle ordinal formats like "15th Sep 26" ──────────────────────
     result["date"] = _extract_date(raw_text)
