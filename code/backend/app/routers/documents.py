@@ -14,7 +14,11 @@ from app.models.document import Document, DocumentType, ProcessingStatus
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.document import DocumentResponse, ExtractedItem, OCRResult
-from app.services.categorization_service import categorize_merchant
+from app.services.categorization_service import (
+    categorize_merchant,
+    categorize_transaction,
+    find_or_create_category,
+)
 from app.services.extraction_service import extract_transaction_data
 from app.services.ocr_service import run_ocr
 from app.utils.auth import get_current_user
@@ -139,6 +143,18 @@ def process_document(
                 if cat:
                     category_id = cat.id
                     category_name = cat.name
+
+        if not category_id:
+            guessed_name, _ = categorize_transaction(
+                merchant_name=extracted.get("merchant_name") or "",
+                description=raw_text[:200],
+                user_id=current_user.id,
+                db=db,
+            )
+            cat = find_or_create_category(guessed_name, db)
+            if cat:
+                category_id = cat.id
+                category_name = cat.name
 
         doc.processing_status = ProcessingStatus.PROCESSED.value
         doc.ocr_confidence = extracted.get("confidence", 0.0)

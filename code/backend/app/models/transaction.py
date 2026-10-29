@@ -98,6 +98,11 @@ class Transaction(Base):
     items = relationship("TransactionItem", back_populates="transaction", cascade="all, delete-orphan")
     split_participants = relationship("SplitParticipant", back_populates="transaction")
 
+    @property
+    def category_name(self) -> str | None:
+        """Name of the associated category, if available."""
+        return self.category.name if self.category else None
+
     def validate_required(self) -> bool:
         """Validate required transaction fields."""
         if not self.merchant_name or not self.merchant_name.strip():

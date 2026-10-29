@@ -32,6 +32,14 @@ class TransactionItemResponse(BaseModel):
         return float(v) if v is not None else None
 
 
+class CategoryMiniResponse(BaseModel):
+    id: UUID
+    name: str
+    icon: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class TransactionCreate(BaseModel):
     merchant_name: str
     amount: Decimal
@@ -40,6 +48,7 @@ class TransactionCreate(BaseModel):
     payment_method: PaymentMethod = PaymentMethod.UPI
     description: Optional[str] = None
     category_id: Optional[UUID] = None
+    category_name: Optional[str] = None
     document_id: Optional[UUID] = None
     items: list[TransactionItemCreate] = []
 
@@ -66,6 +75,7 @@ class TransactionUpdate(BaseModel):
     payment_method: Optional[PaymentMethod] = None
     description: Optional[str] = None
     category_id: Optional[UUID] = None
+    category_name: Optional[str] = None
     verification_status: Optional[VerificationStatus] = None
 
 
@@ -77,12 +87,14 @@ class TransactionResponse(BaseModel):
     currency: str
     transaction_date: date
     payment_method: PaymentMethod
-    description: Optional[str]
-    category_id: Optional[UUID]
-    document_id: Optional[UUID]
+    description: Optional[str] = None
+    category_id: Optional[UUID] = None
+    category_name: Optional[str] = None
+    category: Optional[CategoryMiniResponse] = None
+    document_id: Optional[UUID] = None
     verification_status: VerificationStatus
-    ocr_confidence: Optional[float]
-    auto_categorized: bool
+    ocr_confidence: Optional[float] = None
+    auto_categorized: bool = False
     items: list[TransactionItemResponse] = []
     created_at: datetime
     updated_at: datetime
@@ -92,14 +104,6 @@ class TransactionResponse(BaseModel):
     @field_serializer("amount", when_used="json")
     def serialize_amount(self, v: Decimal) -> float:
         return float(v)
-
-
-class CategoryMiniResponse(BaseModel):
-    id: UUID
-    name: str
-    icon: Optional[str] = None
-
-    model_config = {"from_attributes": True}
 
 
 class SourceDocumentMiniResponse(BaseModel):
@@ -128,7 +132,8 @@ class TransactionDetailResponse(BaseModel):
     verification_status: VerificationStatus
     ocr_confidence: Optional[float]
     auto_categorized: bool
-    category_id: Optional[UUID]
+    category_id: Optional[UUID] = None
+    category_name: Optional[str] = None
     category: Optional[CategoryMiniResponse] = None
     source_document: Optional[SourceDocumentMiniResponse] = None
     items: list[TransactionItemResponse] = []

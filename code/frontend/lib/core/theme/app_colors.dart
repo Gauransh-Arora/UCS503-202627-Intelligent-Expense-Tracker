@@ -37,12 +37,15 @@ class AppColors {
 
   // Category colors
   static const Color catFood = Color(0xFFFF6B6B);
+  static const Color catGroceries = Color(0xFF10B981);
   static const Color catTravel = Color(0xFF4ECDC4);
   static const Color catShopping = Color(0xFFFFBE0B);
   static const Color catBills = Color(0xFF8338EC);
   static const Color catHealth = Color(0xFF06D6A0);
   static const Color catEntertainment = Color(0xFFFF006E);
   static const Color catEducation = Color(0xFF3A86FF);
+  static const Color catRent = Color(0xFFF97316);
+  static const Color catSubscriptions = Color(0xFF6366F1);
   static const Color catOther = Color(0xFF8B8B8B);
 
   // Gradient
@@ -69,8 +72,12 @@ class AppColors {
       case 'food':
       case 'food & dining':
         return catFood;
+      case 'groceries':
+      case 'grocery':
+        return catGroceries;
       case 'travel':
       case 'transport':
+      case 'transportation':
         return catTravel;
       case 'shopping':
         return catShopping;
@@ -78,11 +85,19 @@ class AppColors {
       case 'utilities':
         return catBills;
       case 'health':
+      case 'healthcare':
+      case 'medical':
         return catHealth;
       case 'entertainment':
         return catEntertainment;
       case 'education':
         return catEducation;
+      case 'rent':
+      case 'housing':
+        return catRent;
+      case 'subscriptions':
+      case 'subscription':
+        return catSubscriptions;
       default:
         return catOther;
     }
@@ -93,8 +108,12 @@ class AppColors {
       case 'food':
       case 'food & dining':
         return Icons.fastfood_rounded;
+      case 'groceries':
+      case 'grocery':
+        return Icons.shopping_cart_rounded;
       case 'travel':
       case 'transport':
+      case 'transportation':
         return Icons.directions_car_rounded;
       case 'shopping':
         return Icons.shopping_bag_rounded;
@@ -102,11 +121,19 @@ class AppColors {
       case 'utilities':
         return Icons.lightbulb_rounded;
       case 'health':
+      case 'healthcare':
+      case 'medical':
         return Icons.local_pharmacy_rounded;
       case 'entertainment':
         return Icons.movie_rounded;
       case 'education':
         return Icons.school_rounded;
+      case 'rent':
+      case 'housing':
+        return Icons.home_rounded;
+      case 'subscriptions':
+      case 'subscription':
+        return Icons.subscriptions_rounded;
       default:
         return Icons.monetization_on_rounded;
     }

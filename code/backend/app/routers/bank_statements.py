@@ -30,6 +30,7 @@ from app.schemas.bank_statement import (
     BankStatementUploadResponse,
 )
 from app.services.bank_statement_service import parse_bank_statement
+from app.services.categorization_service import find_or_create_category
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/bank-statements", tags=["Bank Statements"])
@@ -315,8 +316,8 @@ def merge_statement_entries(
             continue
 
         # Find matching category
-        cat_name = (row.get("category") or "Others").lower()
-        matched_cat = cat_by_name.get(cat_name, default_cat)
+        cat_hint = row.get("category") or row.get("merchant") or "Others"
+        matched_cat = find_or_create_category(cat_hint, db)
 
         merchant_name = row.get("merchant") or row.get("description", "Unknown")[:100]
 

@@ -268,6 +268,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
           'transaction_date': tx.date.isNotEmpty ? tx.date : DateFormat('yyyy-MM-dd').format(DateTime.now()),
           'payment_method': 'bank',
           'description': 'Imported from ${_fileName ?? "bank statement"}',
+          'category_name': tx.category,
           if (tx.categoryId != null) 'category_id': tx.categoryId,
         });
         imported++;

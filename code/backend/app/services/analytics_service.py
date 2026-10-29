@@ -473,7 +473,7 @@ def get_spending_drilldown(
                 "amount": float(t.amount),
                 "date": str(t.transaction_date),
                 "payment_method": t.payment_method,
-                "category": t.category.name if t.category else "Uncategorized",
+                "category": t.category.name if t.category else (t.category_name or "Other"),
             }
             for t in txns
         ],

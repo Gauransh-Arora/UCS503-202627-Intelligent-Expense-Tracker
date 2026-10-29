@@ -56,7 +56,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     }
 
     if (_selectedCategory != null) {
-      list = list.where((e) => e.category == _selectedCategory).toList();
+      list = list
+          .where((e) =>
+              e.category.toLowerCase() == _selectedCategory!.toLowerCase())
+          .toList();
     }
 
     switch (_sortBy) {

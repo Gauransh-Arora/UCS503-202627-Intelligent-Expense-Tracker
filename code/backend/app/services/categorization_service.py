@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.category import Category
@@ -179,10 +180,98 @@ def learn_user_category_preference(
     db: Session,
 ) -> UserCategoryPreference:
     """Save user category preference by category name."""
-    cat = db.query(Category).filter(Category.name.ilike(category_name.strip())).first()
-    if not cat:
-        cat = Category(name=category_name.strip(), icon="category", is_default=False)
-        db.add(cat)
-        db.commit()
-        db.refresh(cat)
+    cat = find_or_create_category(category_name, db)
     return save_user_preference(merchant_name, cat.id, user_id, db)
+
+
+def find_or_create_category(
+    category_name_or_keyword: str | None,
+    db: Session,
+) -> Category:
+    """
+    Intelligently resolve a category by name, alias, keyword, or create it if new.
+    Always returns a valid Category object.
+    """
+    all_cats = db.query(Category).all()
+    if not all_cats:
+        # Fallback create default categories if DB was somehow empty
+        from app.models.category import DEFAULT_CATEGORIES
+        for name, icon in DEFAULT_CATEGORIES:
+            db.add(Category(name=name, icon=icon, is_default=True))
+        db.commit()
+        all_cats = db.query(Category).all()
+
+    default_cat = (
+        next((c for c in all_cats if c.name.lower() in ("other", "others")), None)
+        or all_cats[0]
+    )
+
+    if not category_name_or_keyword or not str(category_name_or_keyword).strip():
+        return default_cat
+
+    clean = str(category_name_or_keyword).strip().lower()
+
+    # 1. Exact match (case-insensitive)
+    for c in all_cats:
+        if c.name.lower() == clean:
+            return c
+
+    # 2. Known common UI aliases and synonyms
+    alias_map = {
+        "food & dining": "Food",
+        "food and dining": "Food",
+        "dining": "Food",
+        "restaurant": "Food",
+        "cafe": "Food",
+        "health": "Healthcare",
+        "health & fitness": "Healthcare",
+        "medical": "Healthcare",
+        "pharmacy": "Healthcare",
+        "travel": "Travel",
+        "transport": "Transport",
+        "transportation": "Transport",
+        "cab": "Transport",
+        "commute": "Transport",
+        "shopping": "Shopping",
+        "grocery": "Groceries",
+        "groceries": "Groceries",
+        "supermarket": "Groceries",
+        "bill": "Bills",
+        "bills & utilities": "Bills",
+        "utilities": "Bills",
+        "electricity": "Bills",
+        "entertainment": "Entertainment",
+        "movies": "Entertainment",
+        "education": "Education",
+        "tuition": "Education",
+        "rent": "Rent",
+        "housing": "Rent",
+        "subscription": "Subscriptions",
+        "subscriptions": "Subscriptions",
+        "other": "Other",
+        "others": "Other",
+        "uncategorized": "Other",
+    }
+
+    target = alias_map.get(clean)
+    if target:
+        for c in all_cats:
+            if c.name.lower() == target.lower():
+                return c
+
+    # 3. Substring / contains match
+    for c in all_cats:
+        c_low = c.name.lower()
+        if c_low in clean or clean in c_low:
+            return c
+
+    # 4. If nothing matched, create category so user-entered custom category works dynamically
+    new_cat = Category(
+        name=category_name_or_keyword.strip().title(),
+        icon="📦",
+        is_default=False,
+    )
+    db.add(new_cat)
+    db.commit()
+    db.refresh(new_cat)
+    return new_cat

@@ -46,6 +46,7 @@ class ExpenseModel {
   final double amount;
   final DateTime date;
   final String category;
+  final String? categoryId;
   final String paymentMethod;
   final List<ExpenseItemModel> items;
   final String? source; // 'manual', 'ocr_receipt', 'ocr_upi', 'bank_statement'
@@ -59,6 +60,7 @@ class ExpenseModel {
     required this.amount,
     required this.date,
     required this.category,
+    this.categoryId,
     required this.paymentMethod,
     this.items = const [],
     this.source = 'manual',
@@ -66,6 +68,24 @@ class ExpenseModel {
     this.isRecurring = false,
     this.splitId,
   });
+
+  static String parseCategory(dynamic category, [dynamic categoryName]) {
+    if (categoryName != null) {
+      final name = categoryName.toString().trim();
+      if (name.isNotEmpty && name != 'null') return name;
+    }
+    if (category is Map) {
+      final name = category['name']?.toString()?.trim();
+      if (name != null && name.isNotEmpty && name != 'null') return name;
+    }
+    if (category != null) {
+      final str = category.toString().trim();
+      if (str.isNotEmpty && str != 'null' && !str.startsWith('{') && !str.startsWith('Instance of')) {
+        return str;
+      }
+    }
+    return 'Uncategorized';
+  }
 
   String get formattedAmount {
     final formatter = NumberFormat.currency(
@@ -95,6 +115,7 @@ class ExpenseModel {
         'amount': amount,
         'date': date.toIso8601String(),
         'category': category,
+        if (categoryId != null) 'category_id': categoryId,
         'paymentMethod': paymentMethod,
         'items': items.map((e) => e.toJson()).toList(),
         'source': source,
@@ -108,7 +129,8 @@ class ExpenseModel {
         merchant: json['merchant']?.toString() ?? json['merchant_name']?.toString() ?? 'Unknown Merchant',
         amount: asDouble(json['amount']),
         date: DateTime.tryParse(json['date']?.toString() ?? json['transaction_date']?.toString() ?? '') ?? DateTime.now(),
-        category: json['category']?.toString() ?? 'Uncategorized',
+        category: parseCategory(json['category'], json['category_name']),
+        categoryId: json['category_id']?.toString() ?? (json['category'] is Map ? json['category']['id']?.toString() : null),
         paymentMethod: json['paymentMethod']?.toString() ?? json['payment_method']?.toString() ?? 'UPI',
         items: (json['items'] as List? ?? [])
             .map((e) => ExpenseItemModel.fromJson(e as Map<String, dynamic>))
@@ -124,7 +146,8 @@ class ExpenseModel {
         merchant: json['merchant_name']?.toString() ?? json['merchant']?.toString() ?? 'Unknown Merchant',
         amount: asDouble(json['amount']),
         date: DateTime.tryParse(json['transaction_date']?.toString() ?? json['date']?.toString() ?? '') ?? DateTime.now(),
-        category: json['category']?.toString() ?? (json['category_name']?.toString() ?? 'Uncategorized'),
+        category: parseCategory(json['category'], json['category_name']),
+        categoryId: json['category_id']?.toString() ?? (json['category'] is Map ? json['category']['id']?.toString() : null),
         paymentMethod: json['payment_method']?.toString() ?? 'Unknown',
         items: (json['items'] as List? ?? [])
             .map((e) => ExpenseItemModel.fromJsonBackend(e as Map<String, dynamic>))
@@ -139,6 +162,7 @@ class ExpenseModel {
     double? amount,
     DateTime? date,
     String? category,
+    String? categoryId,
     String? paymentMethod,
     List<ExpenseItemModel>? items,
     String? source,
@@ -150,6 +174,7 @@ class ExpenseModel {
       amount: amount ?? this.amount,
       date: date ?? this.date,
       category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       items: items ?? this.items,
       source: source ?? this.source,

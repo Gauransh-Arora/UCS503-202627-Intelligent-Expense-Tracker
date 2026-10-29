@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/category_model.dart';
 import '../../models/expense_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
@@ -38,6 +39,7 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
   String _selectedCategory = 'Food & Dining';
   String _selectedPaymentMethod = 'UPI';
   bool _isSaving = false;
+  List<CategoryModel> _backendCategories = [];
   List<String> _categoryOptions = List<String>.from(AppConstants.categories);
 
   final List<Map<String, dynamic>> _items = [];
@@ -143,9 +145,13 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
     ApiService.getCategories().then((cats) {
       if (cats.isNotEmpty && mounted) {
         setState(() {
+          _backendCategories = cats;
           _categoryOptions = cats.map((c) => c.name).toList();
           if (!_categoryOptions.contains(_selectedCategory) && _categoryOptions.isNotEmpty) {
-            _selectedCategory = _categoryOptions.first;
+            final match = cats.where((c) => c.name.toLowerCase() == _selectedCategory.toLowerCase()).firstOrNull;
+            if (match != null) {
+              _selectedCategory = match.name;
+            }
           }
         });
       }
@@ -178,6 +184,14 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
                 ((i['quantity'] as num?)?.toInt() ?? 1),
           }).toList();
 
+      CategoryModel? matchedCat;
+      for (final c in _backendCategories) {
+        if (c.name.toLowerCase() == _selectedCategory.toLowerCase()) {
+          matchedCat = c;
+          break;
+        }
+      }
+
       if (widget.editExpense != null) {
         final payload = <String, dynamic>{
           'merchant_name': _merchantCtrl.text.trim(),
@@ -185,6 +199,8 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
           'currency': 'INR',
           'transaction_date': dateStr,
           'payment_method': paymentMethod,
+          'category_name': _selectedCategory,
+          if (matchedCat != null) 'category_id': matchedCat.id,
           'description': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
         };
         await ApiService.updateTransaction(widget.editExpense!.id, payload);
@@ -195,6 +211,8 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
           'currency': 'INR',
           'transaction_date': dateStr,
           'payment_method': paymentMethod,
+          'category_name': _selectedCategory,
+          if (matchedCat != null) 'category_id': matchedCat.id,
           'description': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
           'items': itemsPayload,
         };

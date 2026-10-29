@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import extract
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.category import Category
 from app.models.document import Document
@@ -18,7 +18,11 @@ from app.schemas.transaction import (
     TransactionResponse,
     TransactionUpdate,
 )
-from app.services.categorization_service import categorize_merchant, save_user_preference
+from app.services.categorization_service import (
+    categorize_merchant,
+    find_or_create_category,
+    save_user_preference,
+)
 
 
 def get_categories(db: Session) -> list[Category]:
@@ -53,10 +57,20 @@ def create_transaction(
     category_id = tx_in.category_id
     auto_categorized = False
 
+    if category_id is None and tx_in.category_name:
+        matched_cat = find_or_create_category(tx_in.category_name, db)
+        if matched_cat:
+            category_id = matched_cat.id
+            save_user_preference(tx_in.merchant_name, category_id, user_id, db)
+
     if category_id is None:
         suggested = categorize_merchant(tx_in.merchant_name, user_id, db)
         if suggested:
             category_id = suggested
+            auto_categorized = True
+        else:
+            default_cat = find_or_create_category("Other", db)
+            category_id = default_cat.id
             auto_categorized = True
     else:
         # User explicitly chose or corrected category -> learn preference!
@@ -147,12 +161,33 @@ def get_transactions(
     if merchant:
         q = q.filter(Transaction.merchant_name.ilike(f"%{merchant}%"))
 
-    return (
-        q.order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc())
+    txns = (
+        q.options(
+            joinedload(Transaction.category),
+            joinedload(Transaction.items),
+        )
+        .order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc())
         .offset(offset)
         .limit(limit)
         .all()
     )
+
+    # Heal any existing legacy transactions in database that have category_id == None
+    has_fixes = False
+    for t in txns:
+        if t.category_id is None:
+            suggested = categorize_merchant(t.merchant_name, user_id, db)
+            if not suggested:
+                other_cat = find_or_create_category("Other", db)
+                suggested = other_cat.id if other_cat else None
+            if suggested:
+                t.category_id = suggested
+                t.auto_categorized = True
+                has_fixes = True
+    if has_fixes:
+        db.commit()
+
+    return txns
 
 
 def update_transaction(
@@ -175,6 +210,11 @@ def update_transaction(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 
     update_data = tx_update.model_dump(exclude_unset=True)
+
+    if "category_name" in update_data and update_data["category_name"] and "category_id" not in update_data:
+        matched_cat = find_or_create_category(update_data.pop("category_name"), db)
+        if matched_cat:
+            update_data["category_id"] = matched_cat.id
 
     if "category_id" in update_data and update_data["category_id"] != tx.category_id:
         if update_data["category_id"] is not None:
@@ -275,6 +315,7 @@ def get_transaction_details(
         ocr_confidence=tx.ocr_confidence,
         auto_categorized=tx.auto_categorized,
         category_id=tx.category_id,
+        category_name=tx.category.name if tx.category else None,
         category=category_info,
         source_document=doc_info,
         items=[
