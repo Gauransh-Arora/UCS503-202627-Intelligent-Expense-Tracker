@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../core/utils/num_parser.dart';
 
 class ExpenseItemModel {
   final String id;
@@ -24,18 +25,18 @@ class ExpenseItemModel {
 
   factory ExpenseItemModel.fromJson(Map<String, dynamic> json) =>
       ExpenseItemModel(
-        id: json['id'],
-        name: json['name'],
-        quantity: json['quantity'] ?? 1,
-        price: (json['price'] as num).toDouble(),
+        id: json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? json['item_name']?.toString() ?? 'Item',
+        quantity: asInt(json['quantity'], 1),
+        price: asDouble(json['price'] ?? json['unit_price'] ?? json['total_price']),
       );
 
   factory ExpenseItemModel.fromJsonBackend(Map<String, dynamic> json) =>
       ExpenseItemModel(
-        id: json['id'],
-        name: json['item_name'],
-        quantity: json['quantity'] ?? 1,
-        price: (json['unit_price'] as num).toDouble(),
+        id: json['id']?.toString() ?? '',
+        name: json['item_name']?.toString() ?? json['name']?.toString() ?? 'Item',
+        quantity: asInt(json['quantity'], 1),
+        price: asDouble(json['unit_price'] ?? json['total_price']),
       );
 }
 
@@ -103,34 +104,34 @@ class ExpenseModel {
       };
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json) => ExpenseModel(
-        id: json['id'],
-        merchant: json['merchant'],
-        amount: (json['amount'] as num).toDouble(),
-        date: DateTime.parse(json['date']),
-        category: json['category'],
-        paymentMethod: json['paymentMethod'],
+        id: json['id']?.toString() ?? '',
+        merchant: json['merchant']?.toString() ?? json['merchant_name']?.toString() ?? 'Unknown Merchant',
+        amount: asDouble(json['amount']),
+        date: DateTime.tryParse(json['date']?.toString() ?? json['transaction_date']?.toString() ?? '') ?? DateTime.now(),
+        category: json['category']?.toString() ?? 'Uncategorized',
+        paymentMethod: json['paymentMethod']?.toString() ?? json['payment_method']?.toString() ?? 'UPI',
         items: (json['items'] as List? ?? [])
-            .map((e) => ExpenseItemModel.fromJson(e))
+            .map((e) => ExpenseItemModel.fromJson(e as Map<String, dynamic>))
             .toList(),
-        source: json['source'],
-        notes: json['notes'],
-        isRecurring: json['isRecurring'] ?? false,
-        splitId: json['splitId'],
+        source: json['source']?.toString(),
+        notes: json['notes']?.toString() ?? json['description']?.toString(),
+        isRecurring: json['isRecurring'] == true || json['is_recurring'] == true,
+        splitId: json['splitId']?.toString(),
       );
 
   factory ExpenseModel.fromJsonBackend(Map<String, dynamic> json) => ExpenseModel(
-        id: json['id'],
-        merchant: json['merchant_name'] ?? 'Unknown Merchant',
-        amount: (json['amount'] as num).toDouble(),
-        date: DateTime.parse(json['transaction_date']),
-        category: 'Uncategorized', // The backend currently returns category_id. We map it statically or ignore for now, UI can handle defaults.
-        paymentMethod: json['payment_method'] ?? 'Unknown',
+        id: json['id']?.toString() ?? '',
+        merchant: json['merchant_name']?.toString() ?? json['merchant']?.toString() ?? 'Unknown Merchant',
+        amount: asDouble(json['amount']),
+        date: DateTime.tryParse(json['transaction_date']?.toString() ?? json['date']?.toString() ?? '') ?? DateTime.now(),
+        category: json['category']?.toString() ?? (json['category_name']?.toString() ?? 'Uncategorized'),
+        paymentMethod: json['payment_method']?.toString() ?? 'Unknown',
         items: (json['items'] as List? ?? [])
-            .map((e) => ExpenseItemModel.fromJsonBackend(e))
+            .map((e) => ExpenseItemModel.fromJsonBackend(e as Map<String, dynamic>))
             .toList(),
-        source: 'manual', // backend doesn't explicitly return source yet
-        notes: json['description'],
-        isRecurring: false,
+        source: json['source']?.toString() ?? 'manual',
+        notes: json['description']?.toString() ?? json['notes']?.toString(),
+        isRecurring: json['is_recurring'] == true || json['isRecurring'] == true,
       );
 
   ExpenseModel copyWith({

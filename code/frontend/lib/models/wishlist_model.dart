@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import '../core/utils/num_parser.dart';
 
 class WishlistItemModel {
   final String id;
@@ -75,15 +76,15 @@ class WishlistItemModel {
     return WishlistItemModel(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      expectedPrice: (json['expected_price'] as num?)?.toDouble() ?? 0.0,
+      expectedPrice: asDouble(json['expected_price'] ?? json['price']),
       currency: json['currency'] as String? ?? 'INR',
       description: json['description'] as String?,
       priority: json['priority'] as String? ?? 'medium',
       url: json['url'] as String?,
-      purchaseReadiness: (json['purchase_readiness'] as num?)?.toDouble(),
-      estimatedMonths: (json['estimated_months'] as num?)?.toDouble(),
+      purchaseReadiness: asDoubleOrNull(json['purchase_readiness']),
+      estimatedMonths: asDoubleOrNull(json['estimated_months']),
       verdict: json['verdict'] as String?,
-      discretionaryBudget: (json['discretionary_budget'] as num?)?.toDouble(),
+      discretionaryBudget: asDoubleOrNull(json['discretionary_budget']),
       isPurchased: json['is_purchased'] as bool? ?? false,
       addedAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
@@ -129,11 +130,11 @@ class ReadinessResponseModel {
     return ReadinessResponseModel(
       wishlistItemId: json['wishlist_item_id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      expectedPrice: (json['expected_price'] as num?)?.toDouble() ?? 0.0,
-      purchaseReadiness: (json['purchase_readiness'] as num?)?.toDouble() ?? 0.0,
-      estimatedMonths: (json['estimated_months'] as num?)?.toDouble(),
-      monthlyDiscretionary: (json['monthly_discretionary'] as num?)?.toDouble() ?? 0.0,
-      avgMonthlySpending: (json['avg_monthly_spending'] as num?)?.toDouble() ?? 0.0,
+      expectedPrice: asDouble(json['expected_price']),
+      purchaseReadiness: asDouble(json['purchase_readiness']),
+      estimatedMonths: asDoubleOrNull(json['estimated_months']),
+      monthlyDiscretionary: asDouble(json['monthly_discretionary']),
+      avgMonthlySpending: asDouble(json['avg_monthly_spending']),
       verdict: json['verdict'] as String? ?? 'Possible',
       analysisNotes: (json['analysis_notes'] as List? ?? []).map((e) => e.toString()).toList(),
     );
@@ -157,10 +158,10 @@ class DiscretionaryBudgetModel {
 
   factory DiscretionaryBudgetModel.fromJson(Map<String, dynamic> json) {
     return DiscretionaryBudgetModel(
-      monthlyDiscretionary: (json['monthly_discretionary'] as num?)?.toDouble() ?? 0.0,
-      avgMonthlySpending: (json['avg_monthly_spending'] as num?)?.toDouble() ?? 0.0,
-      monthlyRecurring: (json['monthly_recurring'] as num?)?.toDouble() ?? 0.0,
-      savingsReserve: (json['savings_reserve'] as num?)?.toDouble() ?? 0.0,
+      monthlyDiscretionary: asDouble(json['monthly_discretionary']),
+      avgMonthlySpending: asDouble(json['avg_monthly_spending']),
+      monthlyRecurring: asDouble(json['monthly_recurring']),
+      savingsReserve: asDouble(json['savings_reserve']),
       analysisNotes: (json['analysis_notes'] as List? ?? []).map((e) => e.toString()).toList(),
     );
   }

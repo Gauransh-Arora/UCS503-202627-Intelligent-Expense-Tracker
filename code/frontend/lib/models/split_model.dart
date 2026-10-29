@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../core/utils/num_parser.dart';
 
 class SplitParticipant {
   final String userId;
@@ -133,11 +134,11 @@ class FriendBalanceItemModel {
     return FriendBalanceItemModel(
       friendName: json['friend_name'] as String? ?? 'Contact',
       friendId: json['friend_id'] as String?,
-      netBalance: (json['net_balance'] as num?)?.toDouble() ?? 0.0,
-      totalOwedByFriend: (json['total_owed_by_friend'] as num?)?.toDouble() ?? 0.0,
-      totalSettledByFriend: (json['total_settled_by_friend'] as num?)?.toDouble() ?? 0.0,
-      totalOwedByUser: (json['total_owed_by_user'] as num?)?.toDouble() ?? 0.0,
-      totalSettledByUser: (json['total_settled_by_user'] as num?)?.toDouble() ?? 0.0,
+      netBalance: asDouble(json['net_balance']),
+      totalOwedByFriend: asDouble(json['total_owed_by_friend']),
+      totalSettledByFriend: asDouble(json['total_settled_by_friend']),
+      totalOwedByUser: asDouble(json['total_owed_by_user']),
+      totalSettledByUser: asDouble(json['total_settled_by_user']),
       status: json['status'] as String? ?? 'settled',
     );
   }
@@ -164,9 +165,9 @@ class UserBalanceModel {
   factory UserBalanceModel.fromJson(Map<String, dynamic> json) {
     final list = json['friend_balances'] as List? ?? [];
     return UserBalanceModel(
-      totalOwedToUser: (json['total_owed_to_user'] as num?)?.toDouble() ?? 0.0,
-      totalUserOwes: (json['total_user_owes'] as num?)?.toDouble() ?? 0.0,
-      netBalance: (json['net_balance'] as num?)?.toDouble() ?? 0.0,
+      totalOwedToUser: asDouble(json['total_owed_to_user']),
+      totalUserOwes: asDouble(json['total_user_owes']),
+      netBalance: asDouble(json['net_balance']),
       friendBalances: list
           .map((e) => FriendBalanceItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -199,7 +200,7 @@ class FriendLedgerItemModel {
           ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
           : DateTime.now(),
       description: json['description'] as String? ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: asDouble(json['amount']),
       role: json['role'] as String? ?? '',
     );
   }
@@ -227,7 +228,7 @@ class FriendLedgerModel {
     final list = json['ledger_entries'] as List? ?? [];
     return FriendLedgerModel(
       friend: FriendModel.fromJson(json['friend'] as Map<String, dynamic>? ?? {}),
-      currentBalance: (json['current_balance'] as num?)?.toDouble() ?? 0.0,
+      currentBalance: asDouble(json['current_balance']),
       status: json['status'] as String? ?? 'settled',
       ledgerEntries: list
           .map((e) => FriendLedgerItemModel.fromJson(e as Map<String, dynamic>))
@@ -263,7 +264,7 @@ class SettlementItemModel {
       splitId: json['split_id'] as String?,
       payerName: json['payer_name'] as String? ?? '',
       payeeName: json['payee_name'] as String? ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: asDouble(json['amount']),
       status: json['status'] as String? ?? 'settled',
       settledAt: json['settled_at'] != null ? DateTime.tryParse(json['settled_at'].toString()) : null,
       createdAt: json['created_at'] != null
@@ -304,7 +305,7 @@ class SplitItemModel {
     return SplitItemModel(
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? 'Expense Split',
-      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: asDouble(json['total_amount']),
       currency: json['currency'] as String? ?? 'INR',
       splitType: json['split_type'] as String? ?? 'equal',
       description: json['description'] as String?,
@@ -337,8 +338,8 @@ class ParticipantItemModel {
     return ParticipantItemModel(
       id: json['id'] as String? ?? '',
       participantName: json['participant_name'] as String? ?? '',
-      amountOwed: (json['amount_owed'] as num?)?.toDouble() ?? 0.0,
-      percentage: (json['percentage'] as num?)?.toDouble(),
+      amountOwed: asDouble(json['amount_owed']),
+      percentage: asDoubleOrNull(json['percentage']),
       isPayer: json['is_payer'] as bool? ?? false,
     );
   }

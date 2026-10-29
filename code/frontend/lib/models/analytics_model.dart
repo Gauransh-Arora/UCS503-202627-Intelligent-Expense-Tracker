@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../core/utils/num_parser.dart';
 
 class CategorySpending {
   final String category;
@@ -17,9 +18,9 @@ class CategorySpending {
   }
 
   factory CategorySpending.fromJsonBackend(Map<String, dynamic> json) => CategorySpending(
-        category: json['category_name'] ?? 'Unknown',
-        amount: (json['total_amount'] as num).toDouble(),
-        percentage: (json['percentage'] as num).toDouble(),
+        category: json['category_name']?.toString() ?? 'Unknown',
+        amount: asDouble(json['total_amount']),
+        percentage: asDouble(json['percentage']),
       );
 }
 
@@ -30,8 +31,8 @@ class MonthlySpending {
   const MonthlySpending({required this.month, required this.amount});
 
   factory MonthlySpending.fromJsonBackend(Map<String, dynamic> json) => MonthlySpending(
-        month: json['month'],
-        amount: (json['total_amount'] as num).toDouble(),
+        month: json['month']?.toString() ?? '',
+        amount: asDouble(json['total_amount']),
       );
 }
 
@@ -54,9 +55,9 @@ class MerchantSpending {
   }
 
   factory MerchantSpending.fromJsonBackend(Map<String, dynamic> json) => MerchantSpending(
-        merchant: json['merchant_name'],
-        amount: (json['total_amount'] as num).toDouble(),
-        transactionCount: json['transaction_count'] ?? 1,
+        merchant: json['merchant_name']?.toString() ?? 'Unknown',
+        amount: asDouble(json['total_amount']),
+        transactionCount: asInt(json['transaction_count'], 1),
         category: 'Unknown',
       );
 }
@@ -109,7 +110,9 @@ class AnalyticsSummary {
   double get remaining => income - totalSpending;
 
   double get monthOverMonthChange =>
-      ((totalSpending - previousMonthSpending) / previousMonthSpending) * 100;
+      previousMonthSpending > 0
+          ? ((totalSpending - previousMonthSpending) / previousMonthSpending) * 100
+          : 0.0;
 
   bool get isSpendingUp => totalSpending > previousMonthSpending;
 
@@ -130,9 +133,9 @@ class AnalyticsSummary {
 
   factory AnalyticsSummary.fromJsonBackend(Map<String, dynamic> json) {
     return AnalyticsSummary(
-      totalSpending: (json['current_month_spending'] as num?)?.toDouble() ?? 0.0,
-      previousMonthSpending: (json['previous_month_spending'] as num?)?.toDouble() ?? 0.0,
-      income: (json['income'] as num?)?.toDouble() ?? 60000.0,
+      totalSpending: asDouble(json['current_month_spending']),
+      previousMonthSpending: asDouble(json['previous_month_spending']),
+      income: asDouble(json['income'], 60000.0),
       byCategory: (json['top_categories'] as List? ?? [])
           .map((e) => CategorySpending.fromJsonBackend(e as Map<String, dynamic>))
           .toList(),
@@ -175,13 +178,13 @@ class MonthlyComparison {
     final list = json['category_comparison'] as List? ?? [];
     return MonthlyComparison(
       currentMonth: json['current_month']?.toString() ?? '',
-      currentTotal: (json['current_total'] as num?)?.toDouble() ?? 0.0,
-      currentCount: json['current_count'] as int? ?? 0,
+      currentTotal: asDouble(json['current_total']),
+      currentCount: asInt(json['current_count']),
       previousMonth: json['previous_month']?.toString() ?? '',
-      previousTotal: (json['previous_total'] as num?)?.toDouble() ?? 0.0,
-      previousCount: json['previous_count'] as int? ?? 0,
-      differenceAmount: (json['difference_amount'] as num?)?.toDouble() ?? 0.0,
-      percentageChange: (json['percentage_change'] as num?)?.toDouble() ?? 0.0,
+      previousTotal: asDouble(json['previous_total']),
+      previousCount: asInt(json['previous_count']),
+      differenceAmount: asDouble(json['difference_amount']),
+      percentageChange: asDouble(json['percentage_change']),
       verdict: json['verdict'] as String? ?? 'Normal spending pattern',
       categoryComparison: list
           .map((e) => CategoryComparisonItem.fromJson(e as Map<String, dynamic>))
@@ -207,10 +210,10 @@ class CategoryComparisonItem {
 
   factory CategoryComparisonItem.fromJson(Map<String, dynamic> json) => CategoryComparisonItem(
         categoryName: json['category_name'] as String? ?? 'General',
-        currentAmount: (json['current_amount'] as num?)?.toDouble() ?? 0.0,
-        previousAmount: (json['previous_amount'] as num?)?.toDouble() ?? 0.0,
-        differenceAmount: (json['difference_amount'] as num?)?.toDouble() ?? 0.0,
-        percentageChange: (json['percentage_change'] as num?)?.toDouble() ?? 0.0,
+        currentAmount: asDouble(json['current_amount']),
+        previousAmount: asDouble(json['previous_amount']),
+        differenceAmount: asDouble(json['difference_amount']),
+        percentageChange: asDouble(json['percentage_change']),
       );
 }
 
@@ -236,8 +239,8 @@ class SpendingSummaryResponse {
   factory SpendingSummaryResponse.fromJson(Map<String, dynamic> json) => SpendingSummaryResponse(
         summaryText: json['summary_text'] as String? ?? '',
         period: json['period'] as String? ?? '',
-        totalSpent: (json['total_spent'] as num?)?.toDouble() ?? 0.0,
-        transactionCount: json['transaction_count'] as int? ?? 0,
+        totalSpent: asDouble(json['total_spent']),
+        transactionCount: asInt(json['transaction_count']),
         topCategory: json['top_category'] as String?,
         topMerchant: json['top_merchant'] as String?,
         keyInsights: (json['key_insights'] as List? ?? []).map((e) => e.toString()).toList(),
@@ -259,9 +262,9 @@ class SpendingTrend {
 
   factory SpendingTrend.fromJson(Map<String, dynamic> json) => SpendingTrend(
         month: json['month'] as String? ?? '',
-        year: json['year'] as int? ?? DateTime.now().year,
-        totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
-        transactionCount: json['transaction_count'] as int? ?? 0,
+        year: asInt(json['year'], DateTime.now().year),
+        totalAmount: asDouble(json['total_amount']),
+        transactionCount: asInt(json['transaction_count']),
       );
 }
 
@@ -280,9 +283,9 @@ class ItemSpendingSummary {
 
   factory ItemSpendingSummary.fromJson(Map<String, dynamic> json) => ItemSpendingSummary(
         itemName: json['item_name'] as String? ?? '',
-        totalSpent: (json['total_spent'] as num?)?.toDouble() ?? 0.0,
-        totalQuantity: json['total_quantity'] as int? ?? 1,
-        transactionCount: json['transaction_count'] as int? ?? 1,
+        totalSpent: asDouble(json['total_spent']),
+        totalQuantity: asInt(json['total_quantity'], 1),
+        transactionCount: asInt(json['transaction_count'], 1),
       );
 }
 

@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 from app.models.transaction import PaymentMethod, VerificationStatus
 
@@ -26,6 +26,10 @@ class TransactionItemResponse(BaseModel):
     category_id: Optional[UUID]
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("unit_price", "total_price", when_used="json")
+    def serialize_prices(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None
 
 
 class TransactionCreate(BaseModel):
@@ -84,6 +88,10 @@ class TransactionResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("amount", when_used="json")
+    def serialize_amount(self, v: Decimal) -> float:
+        return float(v)
 
 
 class CategoryMiniResponse(BaseModel):

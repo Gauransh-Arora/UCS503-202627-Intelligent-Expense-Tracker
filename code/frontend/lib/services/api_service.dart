@@ -14,7 +14,7 @@ import '../models/user_model.dart';
 import '../models/category_model.dart';
 
 class ApiService {
-  static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://127.0.0.1:8000');
+  static const String baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.34.235.140:8000');
   static const String _tokenKey = 'jwt_token';
 
   // ─── Token Management ────────────────────────────────────────────────────────

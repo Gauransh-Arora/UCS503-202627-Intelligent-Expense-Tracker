@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 
 class WishlistCreate(BaseModel):
@@ -66,6 +66,14 @@ class WishlistResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_serializer("expected_price", when_used="json")
+    def serialize_price(self, v: Decimal) -> float:
+        return float(v)
+
+    @field_serializer("discretionary_budget", when_used="json")
+    def serialize_budget(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None
+
 
 class ReadinessResponse(BaseModel):
     wishlist_item_id: UUID
@@ -80,6 +88,14 @@ class ReadinessResponse(BaseModel):
     verdict: str                       # Exactly: "Comfortable", "Possible", "Not Recommended Currently"
     analysis_notes: list[str] = []
 
+    @field_serializer("expected_price", "monthly_discretionary", "avg_monthly_spending", when_used="json")
+    def serialize_decimals(self, v: Decimal) -> float:
+        return float(v)
+
+    @field_serializer("spending_limit", "savings_goal", when_used="json")
+    def serialize_optional_decimals(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None
+
 
 class DiscretionaryBudgetInfo(BaseModel):
     monthly_discretionary: Decimal
@@ -89,6 +105,14 @@ class DiscretionaryBudgetInfo(BaseModel):
     spending_limit: Optional[Decimal] = None
     savings_goal: Optional[Decimal] = None
     analysis_notes: list[str] = []
+
+    @field_serializer("monthly_discretionary", "avg_monthly_spending", "monthly_recurring", "savings_reserve", when_used="json")
+    def serialize_decimals(self, v: Decimal) -> float:
+        return float(v)
+
+    @field_serializer("spending_limit", "savings_goal", when_used="json")
+    def serialize_optional_decimals(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None
 
 
 class SubscriptionResponse(BaseModel):
@@ -100,3 +124,7 @@ class SubscriptionResponse(BaseModel):
     category_name: Optional[str] = None
     typical_day: Optional[int] = None
     status: str = "active"
+
+    @field_serializer("monthly_amount", "annual_amount", when_used="json")
+    def serialize_amounts(self, v: Decimal) -> float:
+        return float(v)

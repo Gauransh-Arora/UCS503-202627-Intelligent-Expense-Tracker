@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 
 class BudgetPlanCreate(BaseModel):
@@ -69,3 +69,11 @@ class BudgetPlanResponse(BaseModel):
         return v
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("spending_limit", "savings_goal", when_used="json")
+    def serialize_limits(self, v: Decimal) -> float:
+        return float(v)
+
+    @field_serializer("current_spending", "available_budget", when_used="json")
+    def serialize_optionals(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None

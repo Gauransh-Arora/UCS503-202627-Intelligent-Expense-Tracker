@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 
 from app.models.split import SplitType, SettlementStatus
 
@@ -27,6 +27,14 @@ class ParticipantResponse(BaseModel):
     is_payer: bool
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("amount_owed", "amount_settled", when_used="json")
+    def serialize_amounts(self, v: Decimal) -> float:
+        return float(v)
+
+    @field_serializer("percentage", when_used="json")
+    def serialize_percentage(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None
 
 
 class SplitCreate(BaseModel):
@@ -63,6 +71,10 @@ class SplitResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("total_amount", when_used="json")
+    def serialize_total(self, v: Decimal) -> float:
+        return float(v)
 
 
 class SettlementCreate(BaseModel):
