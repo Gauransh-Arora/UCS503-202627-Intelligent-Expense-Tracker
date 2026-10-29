@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/num_parser.dart';
 import '../../../widgets/primary_button.dart';
 import '../../../models/expense_model.dart';
 import '../../../services/api_service.dart';
@@ -34,7 +35,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
     // Parse date if available
     _selectedDate = data['date'] ?? 'Unknown Date';
     _selectedCategory = data['category_suggestion'] ?? 'Food & Dining';
-    _confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
+    _confidence = asDouble(data['confidence'], 0.0);
     
     _items = List<Map<String, dynamic>>.from(data['items'] ?? []);
   }
@@ -61,13 +62,9 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
 
       final itemsPayload = _items.map((i) => {
             'name': i['name'] ?? 'Item',
-            'quantity': (i['quantity'] as num?)?.toInt() ?? 1,
-            'unit_price': (i['unit_price'] as num?)?.toDouble() ??
-                (i['price'] as num?)?.toDouble() ??
-                0.0,
-            'total_price': (i['total_price'] as num?)?.toDouble() ??
-                (i['price'] as num?)?.toDouble() ??
-                0.0,
+            'quantity': asInt(i['quantity'], 1),
+            'unit_price': asDouble(i['unit_price'] ?? i['price']),
+            'total_price': asDouble(i['total_price'] ?? i['price']),
           }).toList();
 
       final payload = <String, dynamic>{
@@ -293,7 +290,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                               style: Theme.of(context).textTheme.bodyMedium),
                         ),
                         Text(
-                          '₹${(item['total_price'] as num).toDouble().toStringAsFixed(0)}',
+                          '₹${asDouble(item['total_price']).toStringAsFixed(0)}',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -309,7 +306,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                     const Text('Total',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     Text(
-                      '₹${_items.fold<double>(0, (s, i) => s + (i['total_price'] as num).toDouble()).toStringAsFixed(0)}',
+                      '₹${_items.fold<double>(0, (s, i) => s + asDouble(i['total_price'])).toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         color: AppColors.danger,

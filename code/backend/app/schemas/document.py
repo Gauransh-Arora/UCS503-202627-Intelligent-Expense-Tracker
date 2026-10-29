@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 
 class DocumentResponse(BaseModel):
@@ -28,6 +28,10 @@ class ExtractedItem(BaseModel):
     unit_price: Decimal
     total_price: Decimal
 
+    @field_serializer("unit_price", "total_price", when_used="json")
+    def serialize_prices(self, v: Decimal) -> float:
+        return float(v)
+
 
 class OCRResult(BaseModel):
     """Structured data extracted from OCR raw text with per-field confidence."""
@@ -46,3 +50,7 @@ class OCRResult(BaseModel):
     confidence: float = 0.0   # 0.0–1.0 overall
     field_confidences: dict[str, float] = {}
     validation_flags: list[str] = []
+
+    @field_serializer("amount", "tax_amount", when_used="json")
+    def serialize_amounts(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None

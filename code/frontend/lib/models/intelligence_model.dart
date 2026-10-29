@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../core/utils/num_parser.dart';
 
 class SubscriptionResponseModel {
   final String merchantName;
@@ -34,12 +35,12 @@ class SubscriptionResponseModel {
   factory SubscriptionResponseModel.fromJson(Map<String, dynamic> json) {
     return SubscriptionResponseModel(
       merchantName: json['merchant_name'] as String? ?? 'Subscription',
-      monthlyAmount: (json['monthly_amount'] as num?)?.toDouble() ?? 0.0,
-      annualAmount: (json['annual_amount'] as num?)?.toDouble() ?? 0.0,
+      monthlyAmount: asDouble(json['monthly_amount']),
+      annualAmount: asDouble(json['annual_amount']),
       frequency: json['frequency'] as String? ?? 'monthly',
-      confidence: (json['confidence'] as num?)?.toDouble() ?? 1.0,
+      confidence: asDouble(json['confidence'], 1.0),
       categoryName: json['category_name'] as String?,
-      typicalDay: json['typical_day'] as int?,
+      typicalDay: asIntOrNull(json['typical_day']),
       status: json['status'] as String? ?? 'active',
     );
   }
@@ -70,13 +71,13 @@ class DetectedRecurringModel {
   factory DetectedRecurringModel.fromJson(Map<String, dynamic> json) {
     return DetectedRecurringModel(
       merchantName: json['merchant_name'] as String? ?? json['merchant'] as String? ?? 'Recurring',
-      amount: (json['amount'] as num?)?.toDouble() ?? (json['typical_amount'] as num?)?.toDouble() ?? 0.0,
+      amount: asDouble(json['amount'] ?? json['typical_amount']),
       frequency: json['frequency'] as String? ?? 'monthly',
       category: json['category'] as String? ?? json['category_name'] as String?,
       nextExpected: json['next_expected_date'] != null
           ? DateTime.tryParse(json['next_expected_date'].toString())
           : (json['next_expected'] != null ? DateTime.tryParse(json['next_expected'].toString()) : null),
-      count: json['occurrences'] as int? ?? json['count'] as int? ?? 1,
+      count: asInt(json['occurrences'] ?? json['count'], 1),
     );
   }
 }

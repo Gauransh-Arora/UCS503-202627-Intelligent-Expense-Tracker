@@ -30,3 +30,14 @@ int asInt(dynamic val, [int defaultVal = 0]) {
   }
   return defaultVal;
 }
+
+int? asIntOrNull(dynamic val) {
+  if (val == null) return null;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) {
+    final cleaned = val.replaceAll(',', '').trim();
+    return int.tryParse(cleaned) ?? (double.tryParse(cleaned)?.toInt());
+  }
+  return null;
+}

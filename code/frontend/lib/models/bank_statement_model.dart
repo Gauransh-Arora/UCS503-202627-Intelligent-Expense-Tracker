@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../core/utils/num_parser.dart';
 
 /// A single parsed row from a bank statement.
 class BankStatementRow {
@@ -26,9 +27,9 @@ class BankStatementRow {
       BankStatementRow(
         date: json['date'] as String? ?? '',
         description: json['description'] as String? ?? '',
-        debit: (json['debit'] as num?)?.toDouble(),
-        credit: (json['credit'] as num?)?.toDouble(),
-        balance: (json['balance'] as num?)?.toDouble(),
+        debit: asDoubleOrNull(json['debit']),
+        credit: asDoubleOrNull(json['credit']),
+        balance: asDoubleOrNull(json['balance']),
         category: json['category'] as String?,
         isDuplicate: json['is_duplicate'] as bool? ?? false,
         duplicateReason: json['duplicate_reason'] as String?,
@@ -91,9 +92,9 @@ class BankStatementSummary {
         periodFrom: json['statement_period_from'] as String?,
         periodTo: json['statement_period_to'] as String?,
         status: json['status'] as String? ?? 'unknown',
-        totalTransactions: json['total_transactions'] as int? ?? 0,
-        totalDebits: (json['total_debits'] as num?)?.toDouble() ?? 0,
-        totalCredits: (json['total_credits'] as num?)?.toDouble() ?? 0,
+        totalTransactions: asInt(json['total_transactions']),
+        totalDebits: asDouble(json['total_debits']),
+        totalCredits: asDouble(json['total_credits']),
         createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
             DateTime.now(),
       );
@@ -146,9 +147,9 @@ class BankStatementDetail extends BankStatementSummary {
       periodFrom: json['statement_period_from'] as String?,
       periodTo: json['statement_period_to'] as String?,
       status: json['status'] as String? ?? 'unknown',
-      totalTransactions: json['total_transactions'] as int? ?? 0,
-      totalDebits: (json['total_debits'] as num?)?.toDouble() ?? 0,
-      totalCredits: (json['total_credits'] as num?)?.toDouble() ?? 0,
+      totalTransactions: asInt(json['total_transactions']),
+      totalDebits: asDouble(json['total_debits']),
+      totalCredits: asDouble(json['total_credits']),
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.now(),
       rows: rawRows

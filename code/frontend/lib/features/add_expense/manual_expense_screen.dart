@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/num_parser.dart';
 import '../../models/category_model.dart';
 import '../../models/expense_model.dart';
 import '../../services/api_service.dart';
@@ -178,10 +179,9 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
 
       final itemsPayload = _items.map((i) => {
             'name': i['name'],
-            'quantity': (i['quantity'] as num?)?.toInt() ?? 1,
-            'unit_price': (i['price'] as num?)?.toDouble() ?? 0.0,
-            'total_price': ((i['price'] as num?)?.toDouble() ?? 0.0) *
-                ((i['quantity'] as num?)?.toInt() ?? 1),
+            'quantity': asInt(i['quantity'], 1),
+            'unit_price': asDouble(i['price']),
+            'total_price': asDouble(i['price']) * asInt(i['quantity'], 1),
           }).toList();
 
       CategoryModel? matchedCat;

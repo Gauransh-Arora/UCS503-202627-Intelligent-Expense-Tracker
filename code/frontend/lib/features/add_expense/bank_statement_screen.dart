@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/num_parser.dart';
 import '../../models/category_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
@@ -175,16 +176,16 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       _bankName = parsed['bank_name'] as String?;
       _periodFrom = parsed['statement_period_from'] as String?;
       _periodTo = parsed['statement_period_to'] as String?;
-      _totalDebits = (parsed['total_debits'] as num?)?.toDouble() ?? 0.0;
-      _totalCredits = (parsed['total_credits'] as num?)?.toDouble() ?? 0.0;
+      _totalDebits = asDouble(parsed['total_debits']);
+      _totalCredits = asDouble(parsed['total_credits']);
 
       final rawRows = parsed['parsed_rows'] as List<dynamic>? ?? [];
       final List<_StatementItem> items = [];
 
       for (final r in rawRows) {
         final row = r as Map<String, dynamic>;
-        final debit = (row['debit'] as num?)?.toDouble();
-        final credit = (row['credit'] as num?)?.toDouble();
+        final debit = asDoubleOrNull(row['debit']);
+        final credit = asDoubleOrNull(row['credit']);
         final isDebit = (debit != null && debit > 0);
         final amount = isDebit ? debit : (credit ?? 0.0);
         final desc = row['description'] as String? ?? '';
