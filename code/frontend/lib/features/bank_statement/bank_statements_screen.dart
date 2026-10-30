@@ -513,6 +513,7 @@ class _BankStatementDetailScreenState
   String _searchQuery = '';
   String? _selectedCategory;
   final _searchCtrl = TextEditingController();
+  bool _isImporting = false;
 
   @override
   void initState() {
@@ -544,6 +545,76 @@ class _BankStatementDetailScreenState
       });
     }
   }
+
+  Future<void> _importRows() async {
+    final d = _detail;
+    if (d == null) return;
+
+    // Confirm before importing
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Import as Transactions',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          'This will add ${d.totalTransactions} debit rows from '
+          '"${d.displayName}" to your expense history.\n\n'
+          'Note: importing the same statement twice may create duplicates.',
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isImporting = true);
+    try {
+      final result =
+          await ApiService.importBankStatementRows(widget.statementId);
+      final imported = result['imported'] as int? ?? 0;
+      final skipped = result['skipped'] as int? ?? 0;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✅ Imported $imported transactions ($skipped rows skipped).',
+          ),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Import failed: ${e.toString().replaceAll("Exception: ", "")}',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
+  }
+
 
   List<BankStatementRow> get _filteredRows {
     if (_detail == null) return [];
@@ -610,6 +681,22 @@ class _BankStatementDetailScreenState
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      floatingActionButton: (d.status == 'parsed' && d.totalTransactions > 0)
+          ? FloatingActionButton.extended(
+              onPressed: _isImporting ? null : _importRows,
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              icon: _isImporting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_rounded),
+              label: Text(_isImporting ? 'Importing…' : 'Import as Transactions'),
+            )
+          : null,
       body: CustomScrollView(
         slivers: [
           _buildDetailAppBar(d),
@@ -618,7 +705,7 @@ class _BankStatementDetailScreenState
             SliverToBoxAdapter(child: _buildCategoryBreakdown(sortedCats, d)),
           SliverToBoxAdapter(child: _buildFilters()),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
             sliver: filtered.isEmpty
                 ? const SliverToBoxAdapter(
                     child: Padding(

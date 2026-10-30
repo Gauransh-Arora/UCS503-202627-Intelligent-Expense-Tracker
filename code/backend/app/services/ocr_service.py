@@ -89,10 +89,12 @@ def run_ocr(file_path: str) -> str:
             if image.mode not in ("RGB", "L"):
                 image = image.convert("RGB")
 
-            # Try PSM 6 first (receipts / uniform blocks)
-            text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 6", lang="eng")
+            # Try PSM 3 first (fully automatic page segmentation - handles receipts and UPI screens best)
+            text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 3", lang="eng")
             if not text.strip() or len(text.strip()) < 10:
                 text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 4", lang="eng")
+            if not text.strip():
+                text = pytesseract.image_to_string(image, config=r"--oem 3 --psm 6", lang="eng")
             if not text.strip():
                 text = pytesseract.image_to_string(image, config=r"--oem 3", lang="eng")
 

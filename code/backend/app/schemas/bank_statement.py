@@ -66,3 +66,19 @@ class BankStatementSummary(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class BankStatementImportResponse(BaseModel):
+    """Returned after importing parsed rows as transactions."""
+    imported: int
+    skipped: int
+    total_rows: int
+    message: str = ""
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.message:
+            object.__setattr__(
+                self,
+                "message",
+                f"Imported {self.imported} transactions ({self.skipped} rows skipped).",
+            )

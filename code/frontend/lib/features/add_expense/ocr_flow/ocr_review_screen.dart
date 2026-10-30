@@ -4,6 +4,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/primary_button.dart';
 import '../../../models/expense_model.dart';
+import '../../../models/category_model.dart';
 import '../../../services/api_service.dart';
 
 class OcrReviewScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
   late String _selectedCategory;
   bool _isConfirming = false;
   late double _confidence;
+  List<CategoryModel> _categories = [];
 
   late final List<Map<String, dynamic>> _items;
 
@@ -37,6 +39,19 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
     _confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
     
     _items = List<Map<String, dynamic>>.from(data['items'] ?? []);
+
+    ApiService.getCategories().then((cats) {
+      if (mounted && cats.isNotEmpty) {
+        setState(() {
+          _categories = cats;
+          final match = cats.firstWhere(
+            (c) => c.name.toLowerCase() == _selectedCategory.toLowerCase(),
+            orElse: () => cats.first,
+          );
+          _selectedCategory = match.name;
+        });
+      }
+    }).catchError((_) {});
   }
 
   @override
@@ -70,6 +85,14 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                 0.0,
           }).toList();
 
+      String? matchedCategoryId;
+      try {
+        final match = _categories.firstWhere(
+          (c) => c.name.toLowerCase() == _selectedCategory.toLowerCase(),
+        );
+        matchedCategoryId = match.id;
+      } catch (_) {}
+
       final payload = <String, dynamic>{
         'merchant_name': _merchantCtrl.text.trim().isNotEmpty
             ? _merchantCtrl.text.trim()
@@ -78,7 +101,10 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
         'currency': 'INR',
         'transaction_date': dateStr,
         'payment_method': 'upi',
-        'description': 'Scanned receipt via Tesseract OCR',
+        'description': 'Scanned receipt via OCR',
+        if (matchedCategoryId != null) 'category_id': matchedCategoryId,
+        if (widget.ocrData['document_id'] != null)
+          'document_id': widget.ocrData['document_id'],
         'items': itemsPayload,
       };
 
@@ -152,7 +178,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                       Text(
                         isHighConfidence
                             ? 'High Confidence (${(_confidence * 100).toStringAsFixed(0)}%)'
-                            : 'Some fields may be incorrect',
+                            : 'Review Recommended (${(_confidence * 100).toStringAsFixed(0)}% Confidence)',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
@@ -164,8 +190,8 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                       const SizedBox(height: 3),
                       Text(
                         isHighConfidence
-                            ? 'Please verify the details below and confirm.'
-                            : 'Please review highlighted fields carefully.',
+                            ? 'Details extracted automatically. Please verify below and confirm.'
+                            : 'Some fields may need adjustment. Please verify and confirm.',
                         style: TextStyle(
                           fontSize: 12,
                           color: isHighConfidence
@@ -235,14 +261,26 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                   child: DropdownButton<String>(
                     isExpanded: true,
                     underline: const SizedBox(),
-                    items: AppConstants.categories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
+                    items: (_categories.isNotEmpty
+                            ? _categories.map((c) => c.name).toSet().toList()
+                            : AppConstants.categories)
+                        .map((c) => DropdownMenuItem(
+                            value: c,
+                            child: Text(c,
+                                style: const TextStyle(fontSize: 13),
+                                overflow: TextOverflow.ellipsis)))
                         .toList(),
-                    // Fallback to first category if the suggested one isn't in the list
-                    onChanged: (v) => setState(() => _selectedCategory = v!),
-                    value: AppConstants.categories.contains(_selectedCategory) 
-                        ? _selectedCategory 
-                        : AppConstants.categories.first,
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedCategory = v);
+                    },
+                    value: (_categories.isNotEmpty
+                                ? _categories.map((c) => c.name).toList()
+                                : AppConstants.categories)
+                            .contains(_selectedCategory)
+                        ? _selectedCategory
+                        : (_categories.isNotEmpty
+                            ? _categories.first.name
+                            : AppConstants.categories.first),
                   ),
                 ),
               ),

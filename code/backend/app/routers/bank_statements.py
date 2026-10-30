@@ -1,17 +1,20 @@
 """
-Bank Statements router — upload, parse, list, detail, delete.
+Bank Statements router — upload, parse, import, list, detail, delete.
 
 Endpoints:
   POST   /bank-statements/upload         — upload PDF or CSV
   POST   /bank-statements/{id}/parse     — trigger parsing
+  POST   /bank-statements/{id}/import    — import parsed rows as transactions
   GET    /bank-statements/               — list user's statements (summary)
   GET    /bank-statements/{id}           — full detail with parsed rows
   DELETE /bank-statements/{id}           — delete statement + file
 """
 import uuid as _uuid
+from datetime import date
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -19,6 +22,7 @@ from app.database import get_db
 from app.models.bank_statement import BankStatement, StatementStatus
 from app.models.user import User
 from app.schemas.bank_statement import (
+    BankStatementImportResponse,
     BankStatementResponse,
     BankStatementSummary,
     BankStatementUploadResponse,
@@ -146,6 +150,98 @@ def parse_statement(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Parsing failed: {exc}",
         )
+
+
+# ── Import rows as transactions ───────────────────────────────────────────────
+
+@router.post(
+    "/{statement_id}/import",
+    response_model=BankStatementImportResponse,
+    summary="Import parsed bank-statement rows as expense transactions",
+)
+def import_statement_rows(
+    statement_id: _uuid.UUID,
+    import_credits: bool = Body(False, embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Convert parsed rows of a bank statement into Transaction records.
+
+    By default only debit rows are imported (expenses).
+    Pass `import_credits=true` to also import credit rows.
+
+    Returns the number of transactions created.
+    Already-parsed rows that were previously imported are skipped
+    if a transaction with the same date, merchant and amount exists.
+    """
+    stmt = db.query(BankStatement).filter(
+        BankStatement.id == statement_id,
+        BankStatement.user_id == current_user.id,
+    ).first()
+    if not stmt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found")
+    if stmt.status != StatementStatus.PARSED.value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Statement must be parsed before importing (current status: {stmt.status})",
+        )
+
+    rows: list[dict] = stmt.parsed_rows or []
+    if not rows:
+        return BankStatementImportResponse(imported=0, skipped=0, total_rows=0)
+
+    from app.models.category import Category
+    from app.models.transaction import Transaction, VerificationStatus
+    from app.services.categorization_service import categorize_merchant
+
+    imported = 0
+    skipped = 0
+
+    for row in rows:
+        amount: Optional[float] = row.get("debit") if not import_credits else (
+            row.get("debit") or row.get("credit")
+        )
+        if not amount or amount <= 0:
+            skipped += 1
+            continue
+
+        description = (row.get("description") or "").strip() or "Bank Statement Import"
+        raw_date = row.get("date", "")
+        try:
+            tx_date = date.fromisoformat(raw_date)
+        except (ValueError, TypeError):
+            tx_date = date.today()
+
+        # Auto-categorize
+        category_id = categorize_merchant(description, current_user.id, db)
+        if category_id is None and row.get("category"):
+            cat = db.query(Category).filter(Category.name == row["category"]).first()
+            if cat:
+                category_id = cat.id
+
+        tx = Transaction(
+            user_id=current_user.id,
+            merchant_name=description[:255],
+            amount=amount,
+            currency="INR",
+            transaction_date=tx_date,
+            payment_method="bank",
+            description=f"Imported from bank statement: {stmt.original_filename}",
+            category_id=category_id,
+            auto_categorized=category_id is not None,
+            verification_status=VerificationStatus.AUTO.value,
+            is_verified=True,
+        )
+        db.add(tx)
+        imported += 1
+
+    db.commit()
+    return BankStatementImportResponse(
+        imported=imported,
+        skipped=skipped,
+        total_rows=len(rows),
+    )
 
 
 # ── List ───────────────────────────────────────────────────────────────────────

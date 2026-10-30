@@ -322,6 +322,32 @@ class ApiService {
     }
   }
 
+  /// Imports parsed rows from a bank statement as expense transactions.
+  /// Returns a map with keys: imported, skipped, total_rows, message.
+  static Future<Map<String, dynamic>> importBankStatementRows(
+    String statementId, {
+    bool importCredits = false,
+  }) async {
+    final uri =
+        Uri.parse('$baseUrl/bank-statements/$statementId/import');
+    final token = await getToken();
+
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: json.encode({'import_credits': importCredits}),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Import failed: ${response.body}');
+    }
+  }
+
   static Future<List<CategorySpending>> getCategoryWiseSpending({int? month, int? year}) async {
     final queryParams = <String, String>{};
     if (month != null) queryParams['month'] = month.toString();
