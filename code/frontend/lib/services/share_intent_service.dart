@@ -1,39 +1,58 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
+
 import '../core/routing/app_router.dart';
 
 class ShareIntentService {
   static StreamSubscription? _intentDataStreamSubscription;
+  static bool isReady = false;
+  static String? _pendingFile;
+  static String? _pendingText;
+  static String? _lastHandledPayload;
+  static DateTime? _lastHandledTime;
+
+  static bool get hasPendingShare =>
+      _pendingFile != null || _pendingText != null;
 
   static void init() {
+    isReady = false;
     // ── Listen while app is running in memory ──────────────────────────────
-    _intentDataStreamSubscription =
-        ReceiveSharingIntent.instance.getMediaStream().listen(
-      (List<SharedMediaFile> value) {
-        if (value.isNotEmpty) {
-          final file = value.first;
-          if (file.type == SharedMediaType.text) {
-            _handleSharedText(file.path); // 'path' carries the text for type=text
-          } else {
-            _handleSharedFile(file.path);
-          }
-        }
-      },
-      onError: (err) {
-        debugPrint("ShareIntentService getMediaStream error: $err");
-      },
-    );
+    _intentDataStreamSubscription?.cancel();
+    _intentDataStreamSubscription = ReceiveSharingIntent.instance
+        .getMediaStream()
+        .listen(
+          (List<SharedMediaFile> value) {
+            if (value.isNotEmpty) {
+              final file = value.first;
+              if (file.path.isNotEmpty && !_shouldIgnoreDuplicate(file.path)) {
+                if (file.type == SharedMediaType.text) {
+                  _handleSharedText(
+                    file.path,
+                  ); // 'path' carries the text for type=text
+                } else {
+                  _handleSharedFile(file.path);
+                }
+              }
+            }
+          },
+          onError: (err) {
+            debugPrint("ShareIntentService getMediaStream error: $err");
+          },
+        );
 
     // ── Handle cold-start share ────────────────────────────────────────────
     ReceiveSharingIntent.instance.getInitialMedia().then(
       (List<SharedMediaFile> value) {
         if (value.isNotEmpty) {
           final file = value.first;
-          if (file.type == SharedMediaType.text) {
-            _handleSharedText(file.path);
-          } else {
-            _handleSharedFile(file.path);
+          if (file.path.isNotEmpty && !_shouldIgnoreDuplicate(file.path)) {
+            if (file.type == SharedMediaType.text) {
+              _handleSharedText(file.path);
+            } else {
+              _handleSharedFile(file.path);
+            }
           }
         }
         ReceiveSharingIntent.instance.reset();
@@ -44,19 +63,29 @@ class ShareIntentService {
     );
   }
 
-  static bool isReady = false;
-  static String? _pendingFile;
-  static String? _pendingText;
+  static bool _shouldIgnoreDuplicate(String payload) {
+    final now = DateTime.now();
+    if (_lastHandledPayload == payload &&
+        _lastHandledTime != null &&
+        now.difference(_lastHandledTime!) < const Duration(seconds: 2)) {
+      return true;
+    }
+    _lastHandledPayload = payload;
+    _lastHandledTime = now;
+    return false;
+  }
 
   static void onAppReady() {
     isReady = true;
     if (_pendingFile != null) {
-      _handleSharedFile(_pendingFile!);
+      final file = _pendingFile!;
       _pendingFile = null;
+      _handleSharedFile(file);
     }
     if (_pendingText != null) {
-      _handleSharedText(_pendingText!);
+      final text = _pendingText!;
       _pendingText = null;
+      _handleSharedText(text);
     }
   }
 
@@ -68,10 +97,7 @@ class ShareIntentService {
     }
     AppRouter.router.push(
       '/image-preview',
-      extra: {
-        'source': 'shared',
-        'filePath': filePath,
-      },
+      extra: {'source': 'shared', 'filePath': filePath},
     );
   }
 
@@ -138,14 +164,13 @@ class ShareIntentService {
       note = 'UPI Txn: ${txnMatch.group(1)}';
     }
 
-    return {
-      'amount': amount,
-      'merchant': merchant,
-      'note': note,
-    };
+    return {'amount': amount, 'merchant': merchant, 'note': note};
   }
 
   static void dispose() {
     _intentDataStreamSubscription?.cancel();
+    isReady = false;
+    _pendingFile = null;
+    _pendingText = null;
   }
 }

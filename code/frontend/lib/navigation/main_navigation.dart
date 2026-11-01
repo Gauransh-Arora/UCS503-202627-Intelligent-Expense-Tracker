@@ -16,6 +16,19 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  final Set<int> _activatedTabs = {0};
+
+  int get _actualTabIndex => _currentIndex == 2
+      ? 0
+      : (_currentIndex > 2 ? _currentIndex - 1 : _currentIndex);
+
+  void _onTabTapped(int index) {
+    final actual = index == 2 ? 0 : (index > 2 ? index - 1 : index);
+    setState(() {
+      _currentIndex = index;
+      _activatedTabs.add(actual);
+    });
+  }
 
   void _openAddExpense() async {
     await showModalBottomSheet(
@@ -30,14 +43,18 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex == 2
-            ? 0
-            : (_currentIndex > 2 ? _currentIndex - 1 : _currentIndex),
-        children: const [
-          HomeScreen(),
-          ExpensesScreen(),
-          AnalyticsScreen(),
-          ProfileScreen(),
+        index: _actualTabIndex,
+        children: [
+          const HomeScreen(),
+          _activatedTabs.contains(1)
+              ? const ExpensesScreen()
+              : const SizedBox.shrink(),
+          _activatedTabs.contains(2)
+              ? const AnalyticsScreen()
+              : const SizedBox.shrink(),
+          _activatedTabs.contains(3)
+              ? const ProfileScreen()
+              : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -62,14 +79,14 @@ class _MainNavigationState extends State<MainNavigation> {
                   activeIcon: Icons.home_rounded,
                   label: 'Home',
                   isActive: _currentIndex == 0,
-                  onTap: () => setState(() => _currentIndex = 0),
+                  onTap: () => _onTabTapped(0),
                 ),
                 _NavItem(
                   icon: Icons.receipt_long_outlined,
                   activeIcon: Icons.receipt_long_rounded,
                   label: 'Expenses',
                   isActive: _currentIndex == 1,
-                  onTap: () => setState(() => _currentIndex = 1),
+                  onTap: () => _onTabTapped(1),
                 ),
                 // Central FAB
                 Expanded(
@@ -104,14 +121,14 @@ class _MainNavigationState extends State<MainNavigation> {
                   activeIcon: Icons.bar_chart_rounded,
                   label: 'Analytics',
                   isActive: _currentIndex == 3,
-                  onTap: () => setState(() => _currentIndex = 3),
+                  onTap: () => _onTabTapped(3),
                 ),
                 _NavItem(
                   icon: Icons.person_outline_rounded,
                   activeIcon: Icons.person_rounded,
                   label: 'Profile',
                   isActive: _currentIndex == 4,
-                  onTap: () => setState(() => _currentIndex = 4),
+                  onTap: () => _onTabTapped(4),
                 ),
               ],
             ),

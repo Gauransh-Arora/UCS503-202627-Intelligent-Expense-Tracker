@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../navigation/main_navigation.dart';
 import '../auth/register_screen.dart';
@@ -29,13 +30,22 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _fadeIn = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.easeOut)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0, 0.6, curve: Curves.easeOut),
+      ),
     );
     _scaleUp = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.easeOutBack)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0, 0.6, curve: Curves.easeOutBack),
+      ),
     );
     _slideUp = Tween<double>(begin: 30, end: 0).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0.3, 0.9, curve: Curves.easeOut)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.3, 0.9, curve: Curves.easeOut),
+      ),
     );
 
     _controller.forward();
@@ -48,21 +58,31 @@ class _SplashScreenState extends State<SplashScreen>
       Future.delayed(const Duration(milliseconds: 1200)),
       ApiService.getToken(),
     ]);
-    
+
     final token = results[1] as String?;
-    
+
     if (!mounted) return;
-    
+
     if (token != null && token.isNotEmpty) {
+      final hasShare = ShareIntentService.hasPendingShare;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => const MainNavigation(),
-          transitionDuration: const Duration(milliseconds: 500),
+          transitionDuration: hasShare
+              ? Duration.zero
+              : const Duration(milliseconds: 500),
           transitionsBuilder: (_, animation, __, child) =>
               FadeTransition(opacity: animation, child: child),
         ),
       );
-      Future.delayed(const Duration(milliseconds: 550), () => ShareIntentService.onAppReady());
+      if (hasShare) {
+        ShareIntentService.onAppReady();
+      } else {
+        Future.delayed(
+          const Duration(milliseconds: 550),
+          () => ShareIntentService.onAppReady(),
+        );
+      }
     } else {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
@@ -85,9 +105,7 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.primary,
-        ),
+        decoration: const BoxDecoration(color: AppColors.primary),
         child: SafeArea(
           child: Center(
             child: AnimatedBuilder(
@@ -198,14 +216,22 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    
+
     try {
       await ApiService.login(_emailCtrl.text, _passwordCtrl.text);
       if (!mounted) return;
+      final hasShare = ShareIntentService.hasPendingShare;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavigation()),
       );
-      Future.delayed(const Duration(milliseconds: 500), () => ShareIntentService.onAppReady());
+      if (hasShare) {
+        ShareIntentService.onAppReady();
+      } else {
+        Future.delayed(
+          const Duration(milliseconds: 500),
+          () => ShareIntentService.onAppReady(),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -254,9 +280,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Sign in to your account to continue',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                    style: Theme.of(context).textTheme.bodyLarge
+                        ?.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 40),
 
@@ -268,8 +293,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'Email address',
                       prefixIcon: Icon(Icons.mail_outline_rounded),
                     ),
-                    validator: (v) =>
-                        v == null || !v.contains('@') ? 'Enter a valid email' : null,
+                    validator: (v) => v == null || !v.contains('@')
+                        ? 'Enter a valid email'
+                        : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -281,11 +307,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined),
-                        onPressed: () =>
-                            setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                     validator: (v) => v == null || v.length < 6
@@ -319,9 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
                           'or',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: AppColors.textTertiary),
                         ),
                       ),
@@ -341,7 +368,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const RegisterScreen(),
+                            ),
                           ),
                           child: const Text('Create Account'),
                         ),
