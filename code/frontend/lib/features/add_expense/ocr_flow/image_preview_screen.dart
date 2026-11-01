@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../widgets/primary_button.dart';
 import 'processing_screen.dart';
 
 class ImagePreviewScreen extends StatelessWidget {
@@ -13,18 +16,13 @@ class ImagePreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Review Image',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Review Image'),
       ),
       body: Column(
         children: [
@@ -33,127 +31,81 @@ class ImagePreviewScreen extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white24),
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+                border: Border.all(color: AppColors.border, width: 1),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (filePath != null)
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(filePath!),
-                          fit: BoxFit.cover,
-                          width: double.infinity,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTokens.radiusLarge - 1),
+                child: filePath != null
+                    ? Image.file(
+                        File(filePath!),
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.receipt_long_outlined,
+                              color: AppColors.textTertiary,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Document preview unavailable',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontSans,
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    )
-                  else ...[
-                    const Icon(
-                      Icons.receipt_long_rounded,
-                      color: Colors.white70,
-                      size: 80,
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Receipt Preview',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    'Source: ${source == 'camera' ? 'Camera' : 'Gallery'}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 13),
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_rounded,
-                          color: Colors.greenAccent,
-                          size: 14,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Image looks clear',
-                          style: TextStyle(
-                            color: Colors.greenAccent,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
 
           // Bottom actions
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-            color: Colors.black,
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white54),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Text('Retake'),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (filePath != null) {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ProcessingScreen(filePath: filePath!),
-                          ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Text(
-                      'Continue →',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceCard,
+              border: Border(
+                top: BorderSide(color: AppColors.border, width: 1),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SecondaryButton(
+                      label: 'Retake',
+                      onPressed: () => Navigator.pop(context),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: PrimaryButton(
+                      label: 'Extract details',
+                      onPressed: () {
+                        if (filePath != null) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProcessingScreen(filePath: filePath!),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

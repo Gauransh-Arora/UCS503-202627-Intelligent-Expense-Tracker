@@ -2,7 +2,8 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'Expense Tracker';
-  static const String appTagline = 'Track smarter. Spend better.';
+  static const String appTagline = 'Personal finance and expense intelligence';
+  static const String assetLogo = 'assets/logo.png';
 
   // Route names
   static const String routeSplash = '/';

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.models.category import Category
 from app.models.transaction import Transaction, TransactionItem
+from app.models.user import User
 from app.schemas.analytics import (
     AnalyticsSummary,
     CategoryBreakdown,
@@ -421,12 +422,16 @@ def get_dashboard_statistics(
     total_txn = _base_query(user_id, db).count()
     alerts = detect_unusual_spending(user_id, db)
 
+    user = db.query(User).filter(User.id == user_id).first()
+    income_val = float(user.monthly_income or 60000.0) if user and user.monthly_income is not None else 60000.0
+
     return AnalyticsSummary(
         current_month_spending=round(curr_total, 2),
         previous_month_spending=round(prev_total, 2),
         month_over_month_change_pct=change_pct,
         avg_monthly_spending=avg_monthly,
         total_transactions=total_txn,
+        income=round(income_val, 2),
         top_categories=get_category_wise_spending(user_id, db, month=curr_month, year=curr_year)[:5],
         top_merchants=get_merchant_wise_spending(user_id, db, limit=5, month=curr_month, year=curr_year),
         spending_trend=trend,

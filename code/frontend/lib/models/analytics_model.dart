@@ -139,7 +139,7 @@ class AnalyticsSummary {
       byCategory: (json['top_categories'] as List? ?? [])
           .map((e) => CategorySpending.fromJsonBackend(e as Map<String, dynamic>))
           .toList(),
-      monthlyTrend: (json['spending_trend'] as List? ?? [])
+      monthlyTrend: (json['spending_trend'] as List? ?? json['monthly_trend'] as List? ?? [])
           .map((e) => MonthlySpending.fromJsonBackend(e as Map<String, dynamic>))
           .toList(),
       topMerchants: (json['top_merchants'] as List? ?? [])

@@ -59,6 +59,22 @@ def test_auth_endpoints(client):
     me_res = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me_res.status_code == 200
     assert me_res.json()["name"] == "Bob Jones"
+    assert me_res.json()["monthly_income"] == 60000.0
+
+    # Test update profile endpoint
+    patch_res = client.patch(
+        "/auth/me",
+        json={"monthly_income": 75000.0, "name": "Bob J."},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["monthly_income"] == 75000.0
+    assert patch_res.json()["name"] == "Bob J."
+
+    # Verify dashboard reflects new income
+    dash_res = client.get("/analytics/dashboard", headers={"Authorization": f"Bearer {token}"})
+    assert dash_res.status_code == 200
+    assert dash_res.json()["income"] == 75000.0
 
 
 def test_get_categories(db_session, client, auth_headers):

@@ -39,7 +39,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   receive_sharing_intent: ^1.9.0
   http: ^1.6.0
-
+  lucide_icons_flutter: ^4.0.1
+  flutter_local_notifications: ^22.3.3
+  flutter_svg: ^2.3.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -49,11 +51,23 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/
     - assets/images/
 
   fonts:
-    - family: Nunito
+    - family: DMSans
       fonts:
-        - asset: assets/font/Nunito/Nunito-VariableFont_wght.ttf
-        - asset: assets/font/Nunito/Nunito-Italic-VariableFont_wght.ttf
-          style: italic
+        - asset: assets/font/DMSans/DMSans-Regular.ttf
+          weight: 400
+        - asset: assets/font/DMSans/DMSans-Medium.ttf
+          weight: 500
+        - asset: assets/font/DMSans/DMSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/font/DMSans/DMSans-Bold.ttf
+          weight: 700
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/font/JetBrainsMono/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/font/JetBrainsMono/JetBrainsMono-Bold.ttf
+          weight: 700

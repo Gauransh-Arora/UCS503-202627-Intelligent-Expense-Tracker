@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_theme.dart';
+import '../core/theme/app_tokens.dart';
 
 class CategoryChip extends StatelessWidget {
   final String category;
@@ -18,31 +21,39 @@ class CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AppColors.categoryColor(category);
-    final icon = AppColors.categoryIcon(category);
 
     return FilterChip(
       selected: isSelected,
       onSelected: onSelected,
+      showCheckmark: false,
       avatar: showEmoji
-          ? Icon(icon, size: 14, color: color)
+          ? Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white : color,
+                shape: BoxShape.circle,
+              ),
+            )
           : null,
       label: Text(category),
       labelStyle: TextStyle(
-        fontSize: 13,
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+        fontFamily: AppTheme.fontSans,
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
         color: isSelected ? Colors.white : AppColors.textPrimary,
       ),
-      selectedColor: color,
-      backgroundColor: AppColors.surfaceElevated,
-      checkmarkColor: Colors.white,
+      selectedColor: AppColors.primary,
+      backgroundColor: AppColors.surfaceCard,
       side: BorderSide(
-        color: isSelected ? color : AppColors.border,
-        width: 1,
+        color: isSelected ? AppColors.buttonDepth : AppColors.border,
+        width: AppTokens.cardBorderWidth,
       ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 }

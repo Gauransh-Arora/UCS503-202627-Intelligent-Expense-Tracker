@@ -3,7 +3,7 @@ Bank Statements router — upload, parse, list, detail, delete, merge.
 
 Endpoints:
   POST   /bank-statements/upload              — upload PDF or CSV (instant)
-  POST   /bank-statements/{id}/parse          — trigger async parse (HTTP 202)
+  POST   /bank-statements/{id}/parse          — parse statement (sync or async)
   GET    /bank-statements/{id}/parse-progress — SSE stream of parse progress %
   GET    /bank-statements/                    — list user's statements (summary)
   GET    /bank-statements/{id}               — full detail with parsed rows
@@ -15,9 +15,10 @@ import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from typing import Optional, Union
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -48,7 +49,6 @@ _ALLOWED_MIME = {
 }
 
 # In-memory parse progress store: statement_id → 0.0–1.0
-# (Good enough for a single-process server; swap for Redis in production)
 _parse_progress: dict[str, float] = {}
 
 
@@ -77,7 +77,6 @@ async def upload_bank_statement(
             detail=f"Unsupported file type '{ext}'. Upload a PDF or CSV.",
         )
 
-    # Save to disk
     upload_dir = Path(settings.UPLOAD_DIR) / "statements" / str(current_user.id)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -101,15 +100,9 @@ async def upload_bank_statement(
 
 # ── Background parse task ──────────────────────────────────────────────────────
 
-def _run_parse_in_background(statement_id: str, file_url: str, user_id: str) -> None:
-    """
-    Runs in a FastAPI BackgroundTask (separate thread).
-    Opens its own DB session so the request session is already closed.
-    Updates _parse_progress[statement_id] as it goes so the SSE endpoint
-    can stream live percentages to the frontend.
-    """
+def _run_parse_in_background(statement_id: _uuid.UUID, file_url: str, user_id: _uuid.UUID) -> None:
     sid = str(statement_id)
-    _parse_progress[sid] = 0.05          # signal "started"
+    _parse_progress[sid] = 0.05
 
     db: Session = SessionLocal()
     try:
@@ -119,29 +112,27 @@ def _run_parse_in_background(statement_id: str, file_url: str, user_id: str) -> 
 
         stmt.status = StatementStatus.PARSING.value
         db.commit()
-        _parse_progress[sid] = 0.10      # file opened
+        _parse_progress[sid] = 0.10
 
-        # ── Parse (the heavy work) ────────────────────────────────────────────
         result = parse_bank_statement(file_url, user_id=user_id, db=db)
-        _parse_progress[sid] = 0.75      # parsing done
+        _parse_progress[sid] = 0.75
 
-        # ── Persist results ───────────────────────────────────────────────────
-        stmt.raw_text             = result["raw_text"]
-        stmt.bank_name            = result.get("bank_name")
-        stmt.account_number       = result.get("account_number")
-        stmt.statement_period_from = result.get("period_from")
-        stmt.statement_period_to   = result.get("period_to")
-        stmt.parsed_rows          = result["rows"]
-        stmt.total_transactions   = len(result["rows"])
-        stmt.total_debits         = result["total_debits"]
-        stmt.total_credits        = result["total_credits"]
-        stmt.status               = StatementStatus.PARSED.value
-        stmt.error_message        = None
-        _parse_progress[sid] = 0.90      # about to commit
+        stmt.raw_text              = result["raw_text"]
+        stmt.bank_name             = result.get("bank_name")
+        stmt.account_number        = result.get("account_number")
+        stmt.statement_period_from  = result.get("period_from")
+        stmt.statement_period_to    = result.get("period_to")
+        stmt.parsed_rows           = result["rows"]
+        stmt.total_transactions    = len(result["rows"])
+        stmt.total_debits          = result["total_debits"]
+        stmt.total_credits         = result["total_credits"]
+        stmt.status                = StatementStatus.PARSED.value
+        stmt.error_message         = None
+        _parse_progress[sid] = 0.90
 
         db.commit()
         db.refresh(stmt)
-        _parse_progress[sid] = 1.0       # done ✓
+        _parse_progress[sid] = 1.0
 
     except Exception as exc:
         import traceback
@@ -155,29 +146,28 @@ def _run_parse_in_background(statement_id: str, file_url: str, user_id: str) -> 
                 db.commit()
         except Exception:
             pass
-        _parse_progress[sid] = -1.0     # signal failure
+        _parse_progress[sid] = -1.0
     finally:
         db.close()
 
 
-# ── Parse (async, returns 202 immediately) ─────────────────────────────────────
+# ── Parse (supports synchronous 200 default, or background 202 via query param) ─
 
 @router.post(
     "/{statement_id}/parse",
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Trigger async parsing of a bank statement (returns immediately)",
-    response_model=dict,
+    summary="Parse a bank statement (returns BankStatementResponse or 202 if background=True)",
 )
 def parse_statement(
     statement_id: _uuid.UUID,
-    background_tasks: BackgroundTasks,
+    background: bool = Query(False, description="If True, runs in background and returns HTTP 202"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Kick off parsing in the background and return HTTP 202 immediately.
-    Poll GET /bank-statements/{id} for status, or stream progress via
-    GET /bank-statements/{id}/parse-progress (SSE).
+    Trigger parsing of the uploaded statement file.
+    - Default (background=False): Synchronously parses and returns BankStatementResponse (HTTP 200).
+    - Asynchronous (background=True): Dispatches to background, returns HTTP 202 with progress stream URL.
     """
     stmt = db.query(BankStatement).filter(
         BankStatement.id == statement_id,
@@ -186,26 +176,68 @@ def parse_statement(
     if not stmt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found")
 
+    # If already parsed, return the parsed response immediately
+    if stmt.status == StatementStatus.PARSED.value and stmt.parsed_rows is not None:
+        return BankStatementResponse.model_validate(stmt)
+
     if stmt.status == StatementStatus.PARSING.value:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already parsing")
 
-    # Reset progress and enqueue
     sid = str(statement_id)
-    _parse_progress[sid] = 0.0
 
-    background_tasks.add_task(
-        _run_parse_in_background,
-        statement_id=statement_id,
-        file_url=stmt.file_url,
-        user_id=current_user.id,
-    )
+    if background:
+        _parse_progress[sid] = 0.0
+        background_tasks.add_task(
+            _run_parse_in_background,
+            statement_id=statement_id,
+            file_url=stmt.file_url,
+            user_id=current_user.id,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content={
+                "message": "Parsing started in background",
+                "statement_id": sid,
+                "status": "parsing",
+                "progress_stream_url": f"/bank-statements/{sid}/parse-progress",
+            },
+        )
 
-    return {
-        "message": "Parsing started in background",
-        "statement_id": sid,
-        "status": "parsing",
-        "progress_stream_url": f"/bank-statements/{sid}/parse-progress",
-    }
+    # Synchronous parse execution (default, preserving full API contract & tests)
+    stmt.status = StatementStatus.PARSING.value
+    db.commit()
+
+    try:
+        result = parse_bank_statement(stmt.file_url, user_id=current_user.id, db=db)
+
+        stmt.raw_text              = result["raw_text"]
+        stmt.bank_name             = result.get("bank_name")
+        stmt.account_number        = result.get("account_number")
+        stmt.statement_period_from  = result.get("period_from")
+        stmt.statement_period_to    = result.get("period_to")
+        stmt.parsed_rows           = result["rows"]
+        stmt.total_transactions    = len(result["rows"])
+        stmt.total_debits          = result["total_debits"]
+        stmt.total_credits         = result["total_credits"]
+        stmt.status                = StatementStatus.PARSED.value
+        stmt.error_message         = None
+
+        db.commit()
+        db.refresh(stmt)
+        return BankStatementResponse.model_validate(stmt)
+
+    except Exception as exc:
+        try:
+            db.rollback()
+            stmt.status = StatementStatus.FAILED.value
+            stmt.error_message = str(exc)[:500]
+            db.commit()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Parsing failed: {exc}",
+        )
 
 
 # ── SSE Progress Stream ────────────────────────────────────────────────────────
@@ -219,17 +251,6 @@ async def parse_progress_stream(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Server-Sent Events stream.  The frontend can connect here while parsing
-    is in progress and receive live progress updates every 300 ms until done.
-
-    Each event is:
-        data: {"progress": 0.65, "status": "parsing"}\\n\\n
-    Final events:
-        data: {"progress": 1.0,  "status": "parsed"}\\n\\n
-        data: {"progress": -1.0, "status": "failed"}\\n\\n
-    """
-    # Verify ownership
     stmt = db.query(BankStatement).filter(
         BankStatement.id == statement_id,
         BankStatement.user_id == current_user.id,
@@ -243,7 +264,6 @@ async def parse_progress_stream(
         import json
         while True:
             progress = _parse_progress.get(sid, 0.0)
-
             if progress < 0:
                 yield f"data: {json.dumps({'progress': -1.0, 'status': 'failed'})}\n\n"
                 break
@@ -252,7 +272,6 @@ async def parse_progress_stream(
                 break
             else:
                 yield f"data: {json.dumps({'progress': round(progress, 2), 'status': 'parsing'})}\n\n"
-
             await asyncio.sleep(0.3)
 
     return StreamingResponse(
@@ -260,7 +279,7 @@ async def parse_progress_stream(
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",      # nginx: disable buffering
+            "X-Accel-Buffering": "no",
         },
     )
 
@@ -337,7 +356,7 @@ def delete_statement(
         if file_path.exists():
             file_path.unlink()
     except Exception:
-        pass  # Don't block deletion if file is already gone
+        pass
 
     _parse_progress.pop(str(statement_id), None)
     db.delete(stmt)
@@ -360,12 +379,6 @@ def merge_statement_entries(
     """
     Merge verified entries from a parsed statement into the user's confirmed
     transactions using a single bulk INSERT instead of per-row ORM flushes.
-
-    OPTIMISATION vs. old approach
-    ──────────────────────────────
-    Old:  for row in rows: db.add(txn); db.flush()   → N round-trips
-    New:  db.bulk_insert_mappings(Transaction, [...]) → 1 round-trip
-    Result: ~2× faster on SQLite, even larger gains on PostgreSQL.
     """
     stmt = db.query(BankStatement).filter(
         BankStatement.id == statement_id,
@@ -380,7 +393,7 @@ def merge_statement_entries(
             detail="Statement has no parsed rows to merge. Parse it first.",
         )
 
-    # ── Build category lookup dict (single DB query, no N+1) ─────────────────
+    # Cache categories for fast lookup (single query)
     all_categories = db.query(Category).all()
     cat_by_name_lower: dict[str, Category] = {c.name.lower(): c for c in all_categories}
 
@@ -395,30 +408,25 @@ def merge_statement_entries(
         db.refresh(default_cat)
         cat_by_name_lower["others"] = default_cat
 
-    # ── Category resolution — done once per unique category name ─────────────
     _cat_id_cache: dict[str, _uuid.UUID] = {}
 
     def resolve_category_id(hint: str) -> _uuid.UUID:
         key = (hint or "").strip().lower()
         if key in _cat_id_cache:
             return _cat_id_cache[key]
-        # Fast dict lookup first (avoids DB call for already-loaded cats)
         cat = cat_by_name_lower.get(key)
         if cat:
             _cat_id_cache[key] = cat.id
             return cat.id
-        # Partial substring match
         for name_low, c in cat_by_name_lower.items():
             if key in name_low or name_low in key:
                 _cat_id_cache[key] = c.id
                 return c.id
-        # Fallback: let find_or_create handle it (DB write only for truly new cats)
         cat = find_or_create_category(hint, db)
         cat_by_name_lower[cat.name.lower()] = cat
         _cat_id_cache[key] = cat.id
         return cat.id
 
-    # ── Build mappings list (no ORM objects created) ──────────────────────────
     indices_to_process = (
         payload.selected_indices
         if payload.selected_indices is not None
@@ -438,12 +446,10 @@ def merge_statement_entries(
         row = stmt.parsed_rows[idx]
         debit = row.get("debit")
 
-        # Only expense (debit) rows
         if debit is None or debit <= 0:
             skipped += 1
             continue
 
-        # Auto-merge skips flagged duplicates; manual selection allows them
         if payload.selected_indices is None and row.get("is_duplicate"):
             skipped += 1
             continue
@@ -458,10 +464,10 @@ def merge_statement_entries(
             skipped += 1
             continue
 
-        cat_hint  = row.get("category") or row.get("merchant") or "Others"
-        cat_id    = resolve_category_id(cat_hint)
-        merch     = (row.get("merchant") or row.get("description", "Unknown"))[:100]
-        new_id    = _uuid.uuid4()
+        cat_hint = row.get("category") or row.get("merchant") or "Others"
+        cat_id   = resolve_category_id(cat_hint)
+        merch    = (row.get("merchant") or row.get("description", "Unknown"))[:100]
+        new_id   = _uuid.uuid4()
 
         mappings.append({
             "id":                  new_id,
@@ -483,7 +489,6 @@ def merge_statement_entries(
         })
         created_ids.append(new_id)
 
-    # ── Single bulk INSERT — the key optimisation ─────────────────────────────
     if mappings:
         db.bulk_insert_mappings(Transaction, mappings)
         db.commit()

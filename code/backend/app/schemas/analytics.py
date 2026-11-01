@@ -41,6 +41,7 @@ class AnalyticsSummary(BaseModel):
     month_over_month_change_pct: float
     avg_monthly_spending: float
     total_transactions: int
+    income: float = 60000.0
     top_categories: list[CategoryBreakdown] = []
     top_merchants: list[MerchantSummary] = []
     spending_trend: list[SpendingTrend] = []

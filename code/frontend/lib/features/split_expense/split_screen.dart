@@ -1,11 +1,15 @@
+
 import 'package:flutter/material.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../models/expense_model.dart';
 import '../../models/split_model.dart';
 import '../../models/user_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/user_avatar.dart';
 
 class SplitScreen extends StatefulWidget {
   final ExpenseModel expense;
@@ -34,7 +38,9 @@ class _SplitScreenState extends State<SplitScreen> {
     try {
       final results = await Future.wait([
         ApiService.getFriends().catchError((_) => <FriendModel>[]),
-        ApiService.getCurrentUser().catchError((_) => const UserModel(id: 'me', name: 'You', email: '')),
+        ApiService.getCurrentUser().catchError(
+          (_) => const UserModel(id: 'me', name: 'You', email: ''),
+        ),
       ]);
       if (!mounted) return;
       setState(() {
@@ -127,10 +133,14 @@ class _SplitScreenState extends State<SplitScreen> {
     try {
       final participantsList = _allParticipants.map((p) {
         final isPayer = p.id == _currentUser.id;
-        final amount = double.tryParse(_controllers[p.id]?.text ?? '') ?? (widget.expense.amount / _allParticipants.length);
+        final amount =
+            double.tryParse(_controllers[p.id]?.text ?? '') ??
+            (widget.expense.amount / _allParticipants.length);
         final percentage = _splitMethod == AppConstants.splitPercentage
             ? amount
-            : (widget.expense.amount > 0 ? (amount / widget.expense.amount) * 100 : 0.0);
+            : (widget.expense.amount > 0
+                  ? (amount / widget.expense.amount) * 100
+                  : 0.0);
 
         return {
           'participant_name': p.name,
@@ -176,147 +186,182 @@ class _SplitScreenState extends State<SplitScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Split Expense'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Split Expense')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
-          // Header
+          // Expense Summary Header
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.groups_rounded, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.expense.merchant,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      widget.expense.formattedAmount,
-                      style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Participants
-          Text('Select Contacts to Split With', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
-
-          if (_isLoadingContacts)
-            const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-          else if (_friends.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Text('No contacts found. Please add friends in Shared Expenses screen first.',
-                  style: TextStyle(color: AppColors.textSecondary)),
-            )
-          else ...[
-            ..._friends.map((f) => UserModel(id: f.id, name: f.name, email: f.email ?? ''))
-                .map((contact) {
-              final isSelected = _selectedContacts.contains(contact.id);
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedContacts.remove(contact.id);
-                      _controllers.remove(contact.id);
-                    } else {
-                      _selectedContacts.add(contact.id);
-                    }
-                    _updateEqualSplit();
-                  });
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.primary.withValues(alpha: 0.08)
-                        : AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        backgroundColor:
-                            AppColors.primary.withValues(alpha: isSelected ? 0.2 : 0.1),
-                        child: Text(
-                          contact.initials,
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
+                      Text(
+                        widget.expense.merchant,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          contact.name,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: Icon(
-                          isSelected
-                              ? Icons.check_circle_rounded
-                              : Icons.circle_outlined,
-                          key: ValueKey(isSelected),
-                          color: isSelected ? AppColors.primary : AppColors.border,
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.expense.category,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
+                Text(
+                  widget.expense.formattedAmount,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Participants
+          Text(
+            'Select Contacts to Split With',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          if (_isLoadingContacts)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (_friends.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Text(
+                'No contacts found. Add contacts in Shared Expenses screen first.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            )
+          else ...[
+            ..._friends
+                .map(
+                  (f) =>
+                      UserModel(id: f.id, name: f.name, email: f.email ?? ''),
+                )
+                .map((contact) {
+                  final isSelected = _selectedContacts.contains(contact.id);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedContacts.remove(contact.id);
+                            _controllers.remove(contact.id);
+                          } else {
+                            _selectedContacts.add(contact.id);
+                          }
+                          _updateEqualSplit();
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(
+                        AppTokens.radiusMedium,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.surfaceElevated
+                              : AppColors.surfaceCard,
+                          borderRadius: BorderRadius.circular(
+                            AppTokens.radiusMedium,
+                          ),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.border,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            UserAvatar(
+                              avatarUrl: contact.avatarUrl,
+                              emailSeed: contact.email,
+                              initials: contact.initials,
+                              size: 28,
+                              borderRadius: AppTokens.radiusSmall,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                contact.name,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                              ),
+                            ),
+                            Icon(
+                              isSelected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              size: 18,
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.borderStrong,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // Split method
-          Text('Split Method', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
+          Text(
+            'Split Method',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               _MethodChip(
@@ -355,7 +400,9 @@ class _SplitScreenState extends State<SplitScreen> {
                     _splitMethod = AppConstants.splitCustom;
                     final n = _allParticipants.length;
                     if (n > 0) {
-                      final each = (widget.expense.amount / n).toStringAsFixed(2);
+                      final each = (widget.expense.amount / n).toStringAsFixed(
+                        2,
+                      );
                       for (final p in _allParticipants) {
                         _controllers[p.id]?.text = each;
                       }
@@ -365,7 +412,7 @@ class _SplitScreenState extends State<SplitScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // Split details
           if (_allParticipants.length >= 2) ...[
@@ -373,7 +420,7 @@ class _SplitScreenState extends State<SplitScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.surfaceCard,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
                 border: Border.all(color: AppColors.border),
               ),
               child: Column(
@@ -381,63 +428,58 @@ class _SplitScreenState extends State<SplitScreen> {
                   ..._allParticipants.map((p) {
                     final isYou = p.id == _currentUser.id;
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                            child: Text(
-                              p.initials,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
+                          UserAvatar(
+                            avatarUrl: p.avatarUrl,
+                            emailSeed: p.email,
+                            initials: p.initials,
+                            size: 28,
+                            borderRadius: AppTokens.radiusSmall,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               isYou ? 'You' : p.name,
-                              style: Theme.of(context).textTheme.titleSmall,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                  ),
                             ),
                           ),
                           if (_splitMethod == AppConstants.splitEqual)
                             Text(
                               '₹${(widget.expense.amount / _allParticipants.length).toStringAsFixed(2)}',
                               style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: AppColors.textPrimary,
+                                fontFeatures: [FontFeature.tabularFigures()],
                               ),
                             )
                           else
                             SizedBox(
-                              width: 100,
+                              width: 90,
+                              height: 36,
                               child: TextField(
                                 controller: _controllers[p.id],
-                                keyboardType: TextInputType.number,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 onChanged: (_) => setState(() {}),
                                 textAlign: TextAlign.right,
-                                decoration: InputDecoration(
-                                  hintText: _splitMethod == AppConstants.splitPercentage ? '%' : '₹',
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 8),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide:
-                                        const BorderSide(color: AppColors.border),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(
-                                        color: AppColors.primary, width: 2),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide:
-                                        const BorderSide(color: AppColors.border),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                                decoration: const InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
                                   ),
                                   fillColor: AppColors.surfaceElevated,
                                   filled: true,
@@ -449,8 +491,7 @@ class _SplitScreenState extends State<SplitScreen> {
                     );
                   }),
                   if (_splitMethod != AppConstants.splitEqual) ...[
-                    const Divider(),
-                    const SizedBox(height: 8),
+                    const Divider(height: 20, color: AppColors.border),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -458,22 +499,32 @@ class _SplitScreenState extends State<SplitScreen> {
                           _splitMethod == AppConstants.splitCustom
                               ? 'Expense Total'
                               : 'Total %',
-                          style: Theme.of(context).textTheme.titleSmall,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                         Text(
                           _splitMethod == AppConstants.splitCustom
                               ? '₹${widget.expense.amount.toStringAsFixed(2)}'
                               : '100%',
-                          style: Theme.of(context).textTheme.titleSmall,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _remainingCustom().abs() < 0.01 ? 'Balanced' : 'Remaining',
+                          _remainingCustom().abs() < 0.01
+                              ? 'Balanced'
+                              : 'Remaining',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -487,10 +538,12 @@ class _SplitScreenState extends State<SplitScreen> {
                               ? '₹${_remainingCustom().abs().toStringAsFixed(2)}'
                               : '${_remainingCustom().abs().toStringAsFixed(1)}%',
                           style: TextStyle(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                             color: _remainingCustom().abs() < 0.01
                                 ? AppColors.success
                                 : AppColors.danger,
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
@@ -499,7 +552,7 @@ class _SplitScreenState extends State<SplitScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
             PrimaryButton(
               label: 'Create Split',
               isLoading: _isSaving,
@@ -509,13 +562,14 @@ class _SplitScreenState extends State<SplitScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
-                borderRadius: BorderRadius.circular(14),
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                border: Border.all(color: AppColors.border),
               ),
               child: const Text(
-                'Select at least one participant to split the expense.',
+                'Select at least one contact to split the expense.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
             ),
           ],
@@ -540,12 +594,11 @@ class _MethodChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : AppColors.surfaceCard,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,
           ),
@@ -553,9 +606,9 @@ class _MethodChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textSecondary,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            fontSize: 13,
+            color: isSelected ? Colors.white : AppColors.textPrimary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 12,
           ),
         ),
       ),

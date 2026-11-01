@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_theme.dart';
+import '../core/theme/app_tokens.dart';
+
+export 'empty_state.dart' show EmptyState;
+export 'error_state.dart' show ErrorState;
 
 class LoadingState extends StatelessWidget {
   final String? message;
@@ -10,16 +17,25 @@ class LoadingState extends StatelessWidget {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(color: AppColors.accent),
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.ink),
+            ),
+          ),
           if (message != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               message!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontFamily: AppTheme.fontSans,
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ],
@@ -28,109 +44,66 @@ class LoadingState extends StatelessWidget {
   }
 }
 
-class EmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  const EmptyState({
-    super.key,
-    this.icon = Icons.hourglass_empty_rounded,
-    required this.title,
-    required this.description,
-    this.actionLabel,
-    this.onAction,
-  });
+/// Content-shaped ledger row skeleton
+class LedgerRowSkeleton extends StatelessWidget {
+  const LedgerRowSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 56, color: AppColors.primary),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            if (actionLabel != null) ...[
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
-            ],
-          ],
+    return Shimmer.fromColors(
+      baseColor: AppColors.surfaceElevated,
+      highlightColor: AppColors.surfaceCard,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceCard,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          border: Border.all(color: AppColors.border, width: 1),
         ),
-      ),
-    );
-  }
-}
-
-class ErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback? onRetry;
-
-  const ErrorState({
-    super.key,
-    this.message = 'Something went wrong. Please try again.',
-    this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: AppColors.dangerLight,
-                shape: BoxShape.circle,
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
               ),
-              child: const Icon(Icons.error_outline, color: AppColors.danger, size: 36),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Oops!',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Try Again'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 120,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 70,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
+            Container(
+              width: 60,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
           ],
         ),
       ),

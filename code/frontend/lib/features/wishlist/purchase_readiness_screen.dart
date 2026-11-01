@@ -1,6 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../models/wishlist_model.dart';
 import '../../services/api_service.dart';
 
@@ -10,7 +13,8 @@ class PurchaseReadinessScreen extends StatefulWidget {
   const PurchaseReadinessScreen({super.key, required this.item});
 
   @override
-  State<PurchaseReadinessScreen> createState() => _PurchaseReadinessScreenState();
+  State<PurchaseReadinessScreen> createState() =>
+      _PurchaseReadinessScreenState();
 }
 
 class _PurchaseReadinessScreenState extends State<PurchaseReadinessScreen> {
@@ -45,145 +49,138 @@ class _PurchaseReadinessScreenState extends State<PurchaseReadinessScreen> {
     return AppColors.danger;
   }
 
-  IconData _getVerdictIcon(String verdict) {
-    final v = verdict.toLowerCase();
-    if (v.contains('comfortable')) return Icons.check_circle_rounded;
-    if (v.contains('possible')) return Icons.info_rounded;
-    return Icons.warning_rounded;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final currencyFormatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
 
     final verdict = _readinessData?.verdict ?? widget.item.readiness;
     final verdictColor = _getVerdictColor(verdict);
-    final verdictIcon = _getVerdictIcon(verdict);
-    final readinessScore = _readinessData?.purchaseReadiness ?? widget.item.purchaseReadiness ?? 65.0;
+    final readinessScore =
+        _readinessData?.purchaseReadiness ??
+        widget.item.purchaseReadiness ??
+        65.0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Purchase Readiness'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Purchase Readiness')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
           : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
               children: [
-                // ─── Top Item Overview Card ─────────────────────────────
+                // ─── Top Typographic Assessment Card ─────────────────────
                 Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
                     border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: verdictColor.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Icon(
-                            verdictIcon,
-                            size: 36,
-                            color: verdictColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        widget.item.name,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.item.formattedPrice,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w800,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.item.name,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.item.formattedPrice,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Clean Badge - NO EMOJIS
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: verdictColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: verdictColor.withValues(alpha: 0.4)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(verdictIcon, size: 18, color: verdictColor),
-                            const SizedBox(width: 8),
-                            Text(
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: verdictColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.radiusSmall,
+                              ),
+                            ),
+                            child: Text(
                               verdict,
                               style: TextStyle(
                                 color: verdictColor,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Readiness Score Progress Bar
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Affordability Score',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                '${readinessScore.clamp(0, 100).toStringAsFixed(0)} / 100',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: verdictColor,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LinearProgressIndicator(
-                              value: (readinessScore / 100).clamp(0.0, 1.0),
-                              backgroundColor: AppColors.border,
-                              valueColor: AlwaysStoppedAnimation<Color>(verdictColor),
-                              minHeight: 10,
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 18),
+                      const Divider(height: 1, color: AppColors.border),
+                      const SizedBox(height: 14),
+
+                      // Affordability Score (restrained thin indicator)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Affordability Score',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            '${readinessScore.clamp(0, 100).toStringAsFixed(0)} / 100',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: (readinessScore / 100).clamp(0.0, 1.0),
+                          backgroundColor: AppColors.surfaceElevated,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            verdictColor,
+                          ),
+                          minHeight: 4,
+                        ),
                       ),
                     ],
                   ),
@@ -193,14 +190,16 @@ class _PurchaseReadinessScreenState extends State<PurchaseReadinessScreen> {
                 // ─── Financial Breakdown Context ────────────────────────────
                 Text(
                   'Financial Evaluation',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
@@ -208,74 +207,112 @@ class _PurchaseReadinessScreenState extends State<PurchaseReadinessScreen> {
                       _FinancialRow(
                         label: 'Monthly Discretionary Budget',
                         value: _readinessData != null
-                            ? currencyFormatter.format(_readinessData!.monthlyDiscretionary)
-                            : 'Evaluated by AI',
-                        color: AppColors.primary,
-                        icon: Icons.account_balance_wallet_outlined,
+                            ? currencyFormatter.format(
+                                _readinessData!.monthlyDiscretionary,
+                              )
+                            : 'Pending',
                       ),
-                      const Divider(height: 20),
+                      const Divider(
+                        height: 1,
+                        indent: 16,
+                        color: AppColors.border,
+                      ),
                       _FinancialRow(
                         label: 'Average Monthly Spending',
                         value: _readinessData != null
-                            ? currencyFormatter.format(_readinessData!.avgMonthlySpending)
-                            : 'Tracked',
-                        color: AppColors.textPrimary,
-                        icon: Icons.shopping_bag_outlined,
+                            ? currencyFormatter.format(
+                                _readinessData!.avgMonthlySpending,
+                              )
+                            : 'Pending',
                       ),
-                      const Divider(height: 20),
+                      const Divider(
+                        height: 1,
+                        indent: 16,
+                        color: AppColors.border,
+                      ),
                       _FinancialRow(
                         label: 'Estimated Saving Timeline',
                         value: _readinessData?.estimatedMonths != null
                             ? '${_readinessData!.estimatedMonths!.toStringAsFixed(1)} months'
-                            : (verdict.toLowerCase().contains('comfortable') ? 'Immediately Affordable' : '1 - 2 months'),
-                        color: verdictColor,
-                        icon: Icons.timelapse_rounded,
+                            : (verdict.toLowerCase().contains('comfortable')
+                                  ? 'Immediately Affordable'
+                                  : '1 - 2 months'),
+                        highlightColor: verdictColor,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // ─── AI Analysis & Recommendation Notes ──────────────────────
+                // ─── Analysis Notes ──────────────────────
                 if (_readinessData?.analysisNotes.isNotEmpty ?? false) ...[
                   Text(
-                    'Smart Analysis Notes',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    'Analysis Notes',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  ..._readinessData!.analysisNotes.map((note) => Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceCard,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 2),
-                              child: Icon(
-                                Icons.check_circle_outline_rounded,
-                                size: 18,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                note,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.textPrimary,
-                                  height: 1.4,
+                  const SizedBox(height: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceCard,
+                      borderRadius: BorderRadius.circular(
+                        AppTokens.radiusMedium,
+                      ),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: _readinessData!.analysisNotes
+                          .asMap()
+                          .entries
+                          .map((entry) {
+                            final i = entry.key;
+                            final note = entry.value;
+                            final isLast =
+                                i == _readinessData!.analysisNotes.length - 1;
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 2),
+                                        child: Icon(
+                                          Icons.arrow_right_rounded,
+                                          size: 18,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          note,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppColors.textPrimary,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
+                                if (!isLast)
+                                  const Divider(
+                                    height: 1,
+                                    indent: 16,
+                                    color: AppColors.border,
+                                  ),
+                              ],
+                            );
+                          })
+                          .toList(),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -286,48 +323,39 @@ class _PurchaseReadinessScreenState extends State<PurchaseReadinessScreen> {
 class _FinancialRow extends StatelessWidget {
   final String label;
   final String value;
-  final Color color;
-  final IconData icon;
+  final Color? highlightColor;
 
   const _FinancialRow({
     required this.label,
     required this.value,
-    required this.color,
-    required this.icon,
+    this.highlightColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 20, color: color),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
             label,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: AppColors.textSecondary,
             ),
           ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: color,
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: highlightColor ?? AppColors.textPrimary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

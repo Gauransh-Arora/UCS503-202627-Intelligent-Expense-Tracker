@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../navigation/main_navigation.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/app_logo.dart';
 import '../../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -62,31 +64,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
+      appBar: AppBar(),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const AppLogo(
+                  size: 52,
+                  borderRadius: AppTokens.radiusSmall,
+                  heroTag: 'app_logo',
+                ),
+                const SizedBox(height: 20),
                 Text(
                   'Create Account',
-                  style: Theme.of(context).textTheme.headlineLarge,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
-                  'Start your intelligent expense journey today',
-                  style: Theme.of(context).textTheme.bodyLarge
+                  'Set up your personal expense tracker profile',
+                  style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(color: AppColors.textSecondary),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 32),
 
                 // Full name
                 TextFormField(
@@ -94,13 +100,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   textCapitalization: TextCapitalization.words,
                   decoration: const InputDecoration(
                     labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person_outline_rounded),
+                    prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
                   ),
                   validator: (v) => v == null || v.trim().isEmpty
                       ? 'Please enter your name'
                       : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 // Email
                 TextFormField(
@@ -108,13 +114,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email Address',
-                    prefixIcon: Icon(Icons.mail_outline_rounded),
+                    prefixIcon: Icon(Icons.mail_outline_rounded, size: 20),
                   ),
                   validator: (v) => v == null || !v.contains('@')
                       ? 'Enter a valid email'
                       : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 // Password
                 TextFormField(
@@ -122,12 +128,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    prefixIcon: const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 20,
+                    ),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
+                        size: 20,
                       ),
                       onPressed: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
@@ -137,7 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ? 'At least 6 characters required'
                       : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 // Confirm password
                 TextFormField(
@@ -145,12 +155,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: _obscureConfirm,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    prefixIcon: const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 20,
+                    ),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureConfirm
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
+                        size: 20,
                       ),
                       onPressed: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
@@ -159,7 +173,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (v) =>
                       v != _passwordCtrl.text ? 'Passwords do not match' : null,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
 
                 PrimaryButton(
                   label: 'Create Account',
@@ -174,7 +188,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       Text(
                         'Already have an account? ',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: AppColors.textSecondary),
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),

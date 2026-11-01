@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_theme.dart';
+import '../core/theme/app_tokens.dart';
 import '../features/home/home_screen.dart';
 import '../features/expenses/expenses_screen.dart';
 import '../features/analytics/analytics_screen.dart';
@@ -30,18 +33,14 @@ class _MainNavigationState extends State<MainNavigation> {
     });
   }
 
-  void _openAddExpense() async {
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const AddExpenseModal(),
-    );
+  void _openAddExpense() {
+    AddExpenseModal.show(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: IndexedStack(
         index: _actualTabIndex,
         children: [
@@ -58,75 +57,86 @@ class _MainNavigationState extends State<MainNavigation> {
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.surfaceCard,
-          border: const Border(top: BorderSide(color: AppColors.border)),
+          border: Border(
+            top: BorderSide(
+              color: AppColors.border,
+              width: AppTokens.cardBorderWidth,
+            ),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
+              color: Color(0x0C20352A),
+              offset: Offset(0, -2),
+              blurRadius: 4,
             ),
           ],
         ),
         child: SafeArea(
+          top: false,
           child: SizedBox(
             height: 64,
             child: Row(
               children: [
                 _NavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home_rounded,
-                  label: 'Home',
+                  icon: LucideIcons.layoutDashboard,
+                  label: 'Overview',
                   isActive: _currentIndex == 0,
                   onTap: () => _onTabTapped(0),
                 ),
                 _NavItem(
-                  icon: Icons.receipt_long_outlined,
-                  activeIcon: Icons.receipt_long_rounded,
+                  icon: LucideIcons.receipt,
                   label: 'Expenses',
                   isActive: _currentIndex == 1,
                   onTap: () => _onTabTapped(1),
                 ),
-                // Central FAB
+                // Central Add Button (Tactile chunky 3D Duolingo action button)
                 Expanded(
                   child: Center(
-                    child: GestureDetector(
-                      onTap: _openAddExpense,
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primaryDark,
-                              offset: const Offset(0, 4), // Solid bottom depth
+                    child: Tooltip(
+                      message: 'Add transaction',
+                      child: InkWell(
+                        onTap: _openAddExpense,
+                        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                        child: Container(
+                          width: 46,
+                          height: 46,
+                          margin: const EdgeInsets.only(bottom: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                            border: Border.all(
+                              color: AppColors.buttonDepth,
+                              width: 1.5,
                             ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.add_rounded,
-                          color: Colors.white,
-                          size: 32,
+                            boxShadow: const [
+                              BoxShadow(
+                                color: AppColors.buttonDepth,
+                                offset: Offset(0, 3),
+                                blurRadius: 0,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            LucideIcons.plus,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
                 _NavItem(
-                  icon: Icons.bar_chart_outlined,
-                  activeIcon: Icons.bar_chart_rounded,
+                  icon: LucideIcons.barChart2,
                   label: 'Analytics',
                   isActive: _currentIndex == 3,
                   onTap: () => _onTabTapped(3),
                 ),
                 _NavItem(
-                  icon: Icons.person_outline_rounded,
-                  activeIcon: Icons.person_rounded,
-                  label: 'Profile',
+                  icon: LucideIcons.user,
+                  label: 'Account',
                   isActive: _currentIndex == 4,
                   onTap: () => _onTabTapped(4),
                 ),
@@ -141,14 +151,12 @@ class _MainNavigationState extends State<MainNavigation> {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
-  final IconData activeIcon;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
-    required this.activeIcon,
     required this.label,
     required this.isActive,
     required this.onTap,
@@ -157,28 +165,34 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
+      child: InkWell(
         onTap: onTap,
-        behavior: HitTestBehavior.opaque,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.mint : Colors.transparent,
+                borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+              ),
               child: Icon(
-                isActive ? activeIcon : icon,
-                key: ValueKey(isActive),
-                color: isActive ? AppColors.accent : AppColors.textTertiary,
-                size: 24,
+                icon,
+                color: isActive ? AppColors.primary : AppColors.textSecondary,
+                size: 20,
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
+                fontFamily: AppTheme.fontSans,
                 fontSize: 11,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                color: isActive ? AppColors.accent : AppColors.textTertiary,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? AppColors.primary : AppColors.textSecondary,
               ),
             ),
           ],

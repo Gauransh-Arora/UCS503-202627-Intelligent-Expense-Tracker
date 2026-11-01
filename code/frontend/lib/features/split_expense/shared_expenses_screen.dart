@@ -1,6 +1,9 @@
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../models/split_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
@@ -37,9 +40,17 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
-        ApiService.calculateUserBalance(forceRefresh: forceRefresh),
-        ApiService.getSettlementHistory(forceRefresh: forceRefresh),
-        ApiService.getFriends(forceRefresh: forceRefresh),
+        ApiService.calculateUserBalance(forceRefresh: forceRefresh)
+            .catchError((_) => const UserBalanceModel(
+                  totalOwedToUser: 0.0,
+                  totalUserOwes: 0.0,
+                  netBalance: 0.0,
+                  friendBalances: [],
+                )),
+        ApiService.getSettlementHistory(forceRefresh: forceRefresh)
+            .catchError((_) => <SettlementItemModel>[]),
+        ApiService.getFriends(forceRefresh: forceRefresh)
+            .catchError((_) => <FriendModel>[]),
       ]);
 
       if (!mounted) return;
@@ -64,101 +75,115 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.surfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLarge),
+        ),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Add New Friend / Contact',
-                        style: Theme.of(context).textTheme.titleLarge),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.pop(context),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Add Contact',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 1, color: AppColors.border),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      hintText: 'e.g. Sarah Jenkins',
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    hintText: 'e.g., Sarah Jenkins',
                   ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address (Optional)',
-                    hintText: 'e.g., sarah@example.com',
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email Address (Optional)',
+                      hintText: 'e.g. sarah@example.com',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone Number (Optional)',
-                    hintText: 'e.g., +91 98765 43210',
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number (Optional)',
+                      hintText: 'e.g. +91 98765 43210',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  label: isSaving ? 'Saving...' : 'Add Contact',
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final name = nameCtrl.text.trim();
-                          if (name.isEmpty) return;
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    label: isSaving ? 'Saving...' : 'Add Contact',
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final name = nameCtrl.text.trim();
+                            if (name.isEmpty) return;
 
-                          setSheetState(() => isSaving = true);
-                          try {
-                            await ApiService.addFriend(
-                              name,
-                              email: emailCtrl.text.trim().isNotEmpty
-                                  ? emailCtrl.text.trim()
-                                  : null,
-                              phone: phoneCtrl.text.trim().isNotEmpty
-                                  ? phoneCtrl.text.trim()
-                                  : null,
-                            );
-                            if (!context.mounted) return;
-                            Navigator.pop(context);
-                            _loadAllData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Friend added successfully'),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
-                          } catch (e) {
-                            setSheetState(() => isSaving = false);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to add friend: $e'),
-                                backgroundColor: AppColors.danger,
-                              ),
-                            );
-                          }
-                        },
-                ),
-              ],
+                            setSheetState(() => isSaving = true);
+                            try {
+                              await ApiService.addFriend(
+                                name,
+                                email: emailCtrl.text.trim().isNotEmpty
+                                    ? emailCtrl.text.trim()
+                                    : null,
+                                phone: phoneCtrl.text.trim().isNotEmpty
+                                    ? phoneCtrl.text.trim()
+                                    : null,
+                              );
+                              if (!context.mounted) return;
+                              Navigator.pop(context);
+                              _loadAllData();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Contact added'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            } catch (e) {
+                              setSheetState(() => isSaving = false);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Failed to add contact: $e'),
+                                  backgroundColor: AppColors.danger,
+                                ),
+                              );
+                            }
+                          },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -169,7 +194,9 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
   void _showSettleUpDialog({String? defaultFriendName, double? defaultAmount}) {
     final friendCtrl = TextEditingController(text: defaultFriendName ?? '');
     final amountCtrl = TextEditingController(
-      text: defaultAmount != null && defaultAmount > 0 ? defaultAmount.toStringAsFixed(0) : '',
+      text: defaultAmount != null && defaultAmount > 0
+          ? defaultAmount.toStringAsFixed(0)
+          : '',
     );
     String direction = 'you_paid'; // 'you_paid' or 'friend_paid'
     bool isSaving = false;
@@ -177,125 +204,138 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.surfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLarge),
+        ),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Record Settlement',
-                        style: Theme.of(context).textTheme.titleLarge),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: friendCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Friend Name',
-                    hintText: 'e.g., Alex Carter',
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: amountCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Settlement Amount (INR)',
-                    hintText: 'e.g., 500',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('Settlement Direction', style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    ChoiceChip(
-                      label: const Text('You paid friend'),
-                      selected: direction == 'you_paid',
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: direction == 'you_paid' ? Colors.white : AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Record Settlement',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
                       ),
-                      onSelected: (val) {
-                        if (val) setSheetState(() => direction = 'you_paid');
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: const Text('Friend paid you'),
-                      selected: direction == 'friend_paid',
-                      selectedColor: AppColors.success,
-                      labelStyle: TextStyle(
-                        color: direction == 'friend_paid' ? Colors.white : AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          size: 20,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: () => Navigator.pop(context),
                       ),
-                      onSelected: (val) {
-                        if (val) setSheetState(() => direction = 'friend_paid');
-                      },
+                    ],
+                  ),
+                  const Divider(height: 1, color: AppColors.border),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: friendCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Friend Name',
+                      hintText: 'e.g. Alex Carter',
                     ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                PrimaryButton(
-                  label: isSaving ? 'Recording...' : 'Save Settlement',
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final friend = friendCtrl.text.trim();
-                          final amount = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
-                          if (friend.isEmpty || amount <= 0) return;
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Settlement Amount (₹)',
+                      hintText: 'e.g. 500',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Direction',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      _DirectionChip(
+                        label: 'You paid friend',
+                        isSelected: direction == 'you_paid',
+                        onTap: () =>
+                            setSheetState(() => direction = 'you_paid'),
+                      ),
+                      const SizedBox(width: 8),
+                      _DirectionChip(
+                        label: 'Friend paid you',
+                        isSelected: direction == 'friend_paid',
+                        onTap: () =>
+                            setSheetState(() => direction = 'friend_paid'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    label: isSaving ? 'Recording...' : 'Save Settlement',
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final friend = friendCtrl.text.trim();
+                            final amount =
+                                double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+                            if (friend.isEmpty || amount <= 0) return;
 
-                          setSheetState(() => isSaving = true);
-                          try {
-                            final payer = direction == 'you_paid' ? 'You' : friend;
-                            final payee = direction == 'you_paid' ? friend : 'You';
+                            setSheetState(() => isSaving = true);
+                            try {
+                              final payer = direction == 'you_paid'
+                                  ? 'You'
+                                  : friend;
+                              final payee = direction == 'you_paid'
+                                  ? friend
+                                  : 'You';
 
-                            await ApiService.recordSettlement(
-                              payerName: payer,
-                              payeeName: payee,
-                              amount: amount,
-                            );
+                              await ApiService.recordSettlement(
+                                payerName: payer,
+                                payeeName: payee,
+                                amount: amount,
+                              );
 
-                            if (!context.mounted) return;
-                            Navigator.pop(context);
-                            _loadAllData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Settlement recorded successfully'),
-                                backgroundColor: AppColors.success,
-                              ),
-                            );
-                          } catch (e) {
-                            setSheetState(() => isSaving = false);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error recording settlement: $e'),
-                                backgroundColor: AppColors.danger,
-                              ),
-                            );
-                          }
-                        },
-                ),
-              ],
+                              if (!context.mounted) return;
+                              Navigator.pop(context);
+                              _loadAllData();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Settlement recorded'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            } catch (e) {
+                              setSheetState(() => isSaving = false);
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: AppColors.danger,
+                                ),
+                              );
+                            }
+                          },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -307,26 +347,28 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.surfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLarge),
+        ),
+      ),
       builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
+        initialChildSize: 0.65,
+        maxChildSize: 0.85,
         minChildSize: 0.4,
-        builder: (_, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceCard,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
+        expand: false,
+        builder: (_, scrollController) => Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 32,
+                  height: 3,
                   decoration: BoxDecoration(
-                    color: AppColors.border,
+                    color: AppColors.borderStrong,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -338,26 +380,31 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.friendName,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
+                      Text(
+                        item.friendName,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
                       Text(
                         item.netBalance > 0
                             ? 'Owes you ₹${item.netBalance.toStringAsFixed(0)}'
                             : (item.netBalance < 0
-                                ? 'You owe ₹${item.netBalance.abs().toStringAsFixed(0)}'
-                                : 'All settled up'),
+                                  ? 'You owe ₹${item.netBalance.abs().toStringAsFixed(0)}'
+                                  : 'All settled up'),
                         style: TextStyle(
                           color: item.netBalance > 0
                               ? AppColors.success
-                              : (item.netBalance < 0 ? AppColors.danger : AppColors.textSecondary),
+                              : (item.netBalance < 0
+                                    ? AppColors.danger
+                                    : AppColors.textSecondary),
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ],
                   ),
-                  OutlinedButton.icon(
+                  OutlinedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
                       _showSettleUpDialog(
@@ -365,24 +412,41 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                         defaultAmount: item.netBalance.abs(),
                       );
                     },
-                    icon: const Icon(Icons.handshake_outlined, size: 16),
-                    label: const Text('Settle'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.radiusSmall,
+                        ),
+                      ),
+                    ),
+                    child: const Text(
+                      'Settle',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              Text(
-                'Financial Breakdown with ${item.friendName}',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: AppColors.border),
               const SizedBox(height: 12),
+              Text(
+                'Breakdown',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 10),
               Expanded(
                 child: ListView(
                   controller: scrollController,
@@ -397,7 +461,7 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                       '₹${item.totalSettledByFriend.toStringAsFixed(0)}',
                       AppColors.success,
                     ),
-                    const Divider(height: 24),
+                    const Divider(height: 16, color: AppColors.border),
                     _buildLedgerRow(
                       'You borrowed from friend',
                       '₹${item.totalOwedByUser.toStringAsFixed(0)}',
@@ -408,13 +472,15 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                       '₹${item.totalSettledByUser.toStringAsFixed(0)}',
                       AppColors.info,
                     ),
-                    const Divider(height: 24),
+                    const Divider(height: 16, color: AppColors.border),
                     _buildLedgerRow(
                       'Net Balance',
                       item.netBalance >= 0
                           ? '+₹${item.netBalance.toStringAsFixed(0)}'
                           : '-₹${item.netBalance.abs().toStringAsFixed(0)}',
-                      item.netBalance >= 0 ? AppColors.success : AppColors.danger,
+                      item.netBalance >= 0
+                          ? AppColors.success
+                          : AppColors.danger,
                       isBold: true,
                     ),
                   ],
@@ -427,14 +493,34 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
     );
   }
 
-  Widget _buildLedgerRow(String title, String val, Color color, {bool isBold = false}) {
+  Widget _buildLedgerRow(
+    String title,
+    String val,
+    Color color, {
+    bool isBold = false,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: isBold ? FontWeight.w700 : FontWeight.normal)),
-          Text(val, style: TextStyle(fontSize: 15, color: color, fontWeight: isBold ? FontWeight.w800 : FontWeight.w600)),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          Text(
+            val,
+            style: TextStyle(
+              fontSize: 14,
+              color: color,
+              fontWeight: isBold ? FontWeight.w600 : FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
@@ -442,7 +528,11 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final currencyFormatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
     final net = _userBalance?.netBalance ?? 0.0;
     final totalOwedToYou = _userBalance?.totalOwedToUser ?? 0.0;
     final totalYouOwe = _userBalance?.totalUserOwes ?? 0.0;
@@ -452,36 +542,39 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Shared Expenses & Splits'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           IconButton(
-            tooltip: 'Add Friend',
-            icon: const Icon(Icons.person_add_alt_1_rounded),
+            tooltip: 'Add Contact',
+            icon: const Icon(Icons.person_add_outlined, size: 20),
             onPressed: _showAddFriendDialog,
           ),
           IconButton(
             tooltip: 'Settle Up',
-            icon: const Icon(Icons.handshake_outlined),
+            icon: const Icon(Icons.swap_horiz_rounded, size: 22),
             onPressed: () => _showSettleUpDialog(),
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
+          labelColor: AppColors.textPrimary,
           unselectedLabelColor: AppColors.textSecondary,
           indicatorColor: AppColors.primary,
+          indicatorWeight: 2,
           tabs: const [
             Tab(text: 'Balances'),
             Tab(text: 'Settlements'),
-            Tab(text: 'Friends'),
+            Tab(text: 'Contacts'),
           ],
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
           : TabBarView(
               controller: _tabController,
               children: [
@@ -489,59 +582,97 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                 RefreshIndicator(
                   onRefresh: () => _loadAllData(forceRefresh: true),
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                     children: [
                       // Net Balance Overview Banner
                       Container(
-                        padding: const EdgeInsets.all(22),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          gradient: net >= 0 ? AppColors.successGradient : AppColors.primaryGradient,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (net >= 0 ? AppColors.success : AppColors.primary).withValues(alpha: 0.25),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          color: AppColors.surfaceCard,
+                          borderRadius: BorderRadius.circular(
+                            AppTokens.radiusMedium,
+                          ),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Column(
                           children: [
                             Text(
-                              net >= 0 ? 'You are overall owed' : 'You overall owe',
-                              style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                              net >= 0
+                                  ? 'You are overall owed'
+                                  : 'You overall owe',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               currencyFormatter.format(net.abs()),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 36,
-                                fontWeight: FontWeight.w800,
+                              style: TextStyle(
+                                color: net >= 0
+                                    ? AppColors.success
+                                    : AppColors.danger,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 14),
+                            const Divider(height: 1, color: AppColors.border),
+                            const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
                                 Column(
                                   children: [
-                                    const Text('Owed to You', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Owed to You',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
                                     Text(
                                       currencyFormatter.format(totalOwedToYou),
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        fontFeatures: [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
-                                Container(width: 1, height: 28, color: Colors.white24),
+                                Container(
+                                  width: 1,
+                                  height: 24,
+                                  color: AppColors.border,
+                                ),
                                 Column(
                                   children: [
-                                    const Text('You Owe', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'You Owe',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
                                     Text(
                                       currencyFormatter.format(totalYouOwe),
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        fontFeatures: [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -556,26 +687,67 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Contacts & Balances', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                          TextButton.icon(
+                          Text(
+                            'Contacts & Balances',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          TextButton(
                             onPressed: () => _showSettleUpDialog(),
-                            icon: const Icon(Icons.handshake_outlined, size: 16),
-                            label: const Text('Settle Up'),
+                            child: const Text(
+                              'Settle Up',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.primary,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
 
-                      if (balances.isEmpty)
+                      if (balances.isEmpty && _friends.isEmpty)
                         _buildEmptyBalances()
-                      else
-                        ...balances.map((item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _FriendBalanceCard(
-                                item: item,
-                                onTap: () => _showFriendLedger(item),
+                      else if (balances.isEmpty)
+                        ..._friends.map(
+                          (f) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: _FriendBalanceCard(
+                              item: FriendBalanceItemModel(
+                                friendName: f.name,
+                                friendId: f.id,
+                                netBalance: 0.0,
+                                totalOwedByFriend: 0.0,
+                                totalSettledByFriend: 0.0,
+                                totalOwedByUser: 0.0,
+                                totalSettledByUser: 0.0,
+                                status: 'settled',
                               ),
-                            )),
+                              onTap: () => _showFriendLedger(
+                                FriendBalanceItemModel(
+                                  friendName: f.name,
+                                  friendId: f.id,
+                                  netBalance: 0.0,
+                                  totalOwedByFriend: 0.0,
+                                  totalSettledByFriend: 0.0,
+                                  totalOwedByUser: 0.0,
+                                  totalSettledByUser: 0.0,
+                                  status: 'settled',
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ...balances.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: _FriendBalanceCard(
+                              item: item,
+                              onTap: () => _showFriendLedger(item),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -586,42 +758,59 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                   child: _settlements.isEmpty
                       ? _buildEmptySettlements()
                       : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                           itemCount: _settlements.length,
-                          separatorBuilder: (_, index) => const SizedBox(height: 10),
+                          separatorBuilder: (_, index) =>
+                              const SizedBox(height: 6),
                           itemBuilder: (context, index) {
                             final s = _settlements[index];
                             return Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.surfaceCard,
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(
+                                  AppTokens.radiusMedium,
+                                ),
                                 border: Border.all(color: AppColors.border),
                               ),
                               child: Row(
                                 children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.success.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(12),
+                                  const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.check_circle_outline_rounded,
+                                        color: AppColors.success,
+                                        size: 20,
+                                      ),
                                     ),
-                                    child: const Icon(Icons.check_circle_outline_rounded, color: AppColors.success, size: 24),
                                   ),
-                                  const SizedBox(width: 14),
+                                  const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           '${s.payerName} paid ${s.payeeName}',
-                                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppColors.textPrimary,
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 2),
                                         Text(
-                                          DateFormat('dd MMM yyyy, hh:mm a').format(s.createdAt),
-                                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                          DateFormat('dd MMM yyyy, hh:mm a')
+                                              .format(s.createdAt),
+                                          style: const TextStyle(
+                                            color: AppColors.textTertiary,
+                                            fontSize: 11,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -629,9 +818,12 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                                   Text(
                                     s.formattedAmount,
                                     style: const TextStyle(
-                                      color: AppColors.success,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16,
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      fontFeatures: [
+                                        FontFeature.tabularFigures(),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -645,75 +837,143 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
                 RefreshIndicator(
                   onRefresh: () => _loadAllData(forceRefresh: true),
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('All Contacts (${_friends.length})', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                          ElevatedButton.icon(
+                          Text(
+                            'All Contacts (${_friends.length})',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          OutlinedButton(
                             onPressed: _showAddFriendDialog,
-                            icon: const Icon(Icons.add, size: 16),
-                            label: const Text('Add Friend'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: Size.zero,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              side: const BorderSide(color: AppColors.border),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTokens.radiusSmall,
+                                ),
+                              ),
+                            ),
+                            child: const Text(
+                              'Add Contact',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       if (_friends.isEmpty)
                         _buildEmptyFriends()
                       else
-                        ..._friends.map((f) => Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceCard,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.border),
+                        ..._friends.map(
+                          (f) => Container(
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceCard,
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.radiusMedium,
                               ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppColors.primaryLight,
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceElevated,
+                                    borderRadius: BorderRadius.circular(
+                                      AppTokens.radiusSmall,
+                                    ),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: Center(
                                     child: Text(
-                                      f.name.isNotEmpty ? f.name[0].toUpperCase() : '?',
-                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                                      f.name.isNotEmpty
+                                          ? f.name[0].toUpperCase()
+                                          : '?',
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(f.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                                        if (f.email != null)
-                                          Text(f.email!, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                                        if (f.phone != null)
-                                          Text(f.phone!, style: const TextStyle(color: AppColors.textTertiary, fontSize: 11)),
-                                      ],
-                                    ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        f.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      if (f.email != null)
+                                        Text(
+                                          f.email!,
+                                          style: const TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      if (f.phone != null)
+                                        Text(
+                                          f.phone!,
+                                          style: const TextStyle(
+                                            color: AppColors.textTertiary,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.danger),
-                                    onPressed: () async {
-                                      try {
-                                        await ApiService.deleteFriend(f.id);
-                                        _loadAllData();
-                                      } catch (e) {
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.danger),
-                                        );
-                                      }
-                                    },
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: AppColors.textTertiary,
                                   ),
-                                ],
-                              ),
-                            )),
+                                  onPressed: () async {
+                                    try {
+                                      await ApiService.deleteFriend(f.id);
+                                      _loadAllData();
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            SnackBar(
+                                              content: Text('Failed: $e'),
+                                              backgroundColor: AppColors.danger,
+                                            ),
+                                          );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -723,45 +983,62 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
   }
 
   Widget _buildEmptyBalances() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Column(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-              child: const Icon(Icons.group_outlined, color: AppColors.primary, size: 30),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'No Active Shared Balances',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Split an expense or add contacts to track balances.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: _showAddFriendDialog,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+              ),
             ),
-            const SizedBox(height: 14),
-            const Text('No Active Shared Balances', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            const Text('Add friends or split an expense to start tracking debts.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13), textAlign: TextAlign.center),
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: _showAddFriendDialog,
-              icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-              label: const Text('Add Friend Contact'),
+            child: const Text(
+              'Add Contact',
+              style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildEmptySettlements() {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.handshake_outlined, size: 48, color: AppColors.textTertiary),
-            SizedBox(height: 14),
-            Text('No Settlements Recorded', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            SizedBox(height: 6),
-            Text('When participants settle their shared balances, records will show up here.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          children: const [
+            Text(
+              'No Settlements Recorded',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Recorded settlement transactions will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -769,17 +1046,62 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
   }
 
   Widget _buildEmptyFriends() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        child: Column(
-          children: [
-            const Icon(Icons.contacts_outlined, size: 44, color: AppColors.textTertiary),
-            const SizedBox(height: 12),
-            const Text('No Contacts Added Yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            const Text('Add friends to easily split expenses and track shared debts.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: const [
+          Text(
+            'No Contacts Added Yet',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Add contacts to quickly split expenses with friends.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DirectionChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _DirectionChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : AppColors.textPrimary,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 12,
+          ),
         ),
       ),
     );
@@ -796,40 +1118,63 @@ class _FriendBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final owesYou = item.netBalance > 0;
     final youOwe = item.netBalance < 0;
-    final color = owesYou ? AppColors.success : (youOwe ? AppColors.danger : AppColors.textSecondary);
+    final color = owesYou
+        ? AppColors.success
+        : (youOwe ? AppColors.danger : AppColors.textSecondary);
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.surfaceCard,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
           border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.12),
-              child: Text(
-                item.friendName.isNotEmpty ? item.friendName[0].toUpperCase() : '?',
-                style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Center(
+                child: Text(
+                  item.friendName.isNotEmpty
+                      ? item.friendName[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.friendName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                  const SizedBox(height: 4),
+                  Text(
+                    item.friendName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
                   Text(
                     owesYou ? 'Owes you' : (youOwe ? 'You owe' : 'Settled up'),
                     style: TextStyle(
                       color: color,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -842,14 +1187,15 @@ class _FriendBalanceCard extends StatelessWidget {
                   '₹${item.netBalance.abs().toStringAsFixed(0)}',
                   style: TextStyle(
                     color: color,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'View Ledger >',
-                  style: TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                  'Ledger',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: 11),
                 ),
               ],
             ),

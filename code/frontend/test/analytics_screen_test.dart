@@ -109,4 +109,27 @@ void main() {
       expect(find.text('Current'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'AnalyticsScreen renders monthly spending trend with formatted, non-overlapping month labels',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: AnalyticsScreen()));
+      await tester.pumpAndSettle();
+
+      // Scroll down to reveal Monthly Trend section
+      await tester.scrollUntilVisible(find.text('Monthly Trend'), 200);
+      await tester.pumpAndSettle();
+
+      // Trend data has 2026-09, 2026-10, 2026-11
+      // Verify raw 'YYYY-MM' strings are NOT rendered on the chart axis
+      expect(find.text('2026-09'), findsNothing);
+      expect(find.text('2026-10'), findsNothing);
+      expect(find.text('2026-11'), findsNothing);
+
+      // Verify formatted short month abbreviations are present
+      expect(find.text('Sep'), findsOneWidget);
+      expect(find.text('Oct'), findsOneWidget);
+      expect(find.text('Nov'), findsOneWidget);
+    },
+  );
 }

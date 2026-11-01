@@ -691,11 +691,23 @@ class _LineChart extends StatelessWidget {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                interval: 1,
                 getTitlesWidget: (value, _) {
                   final i = value.toInt();
-                  if (i < 0 || i >= data.length) return const SizedBox();
+                  if (value != i.toDouble() || i < 0 || i >= data.length) {
+                    return const SizedBox();
+                  }
+                  String label = data[i].month;
+                  try {
+                    final parts = label.split('-');
+                    if (parts.length >= 2) {
+                      final year = int.tryParse(parts[0]) ?? 2026;
+                      final month = int.tryParse(parts[1]) ?? 1;
+                      label = DateFormat('MMM').format(DateTime(year, month));
+                    }
+                  } catch (_) {}
                   return Text(
-                    data[i].month,
+                    label,
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary,

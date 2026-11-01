@@ -1,10 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../core/utils/num_parser.dart';
 import '../../../widgets/primary_button.dart';
 import '../../../services/api_service.dart';
+import '../../../widgets/split_with_friends_selector.dart';
+
 
 class OcrReviewScreen extends StatefulWidget {
   final Map<String, dynamic> ocrData;
@@ -21,8 +28,11 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
   late String _selectedCategory;
   bool _isConfirming = false;
   late double _confidence;
+  String? _localImagePath;
 
   late final List<Map<String, dynamic>> _items;
+  SplitSelectionData? _splitData;
+
 
   @override
   void initState() {
@@ -31,12 +41,17 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
     _merchantCtrl = TextEditingController(text: data['merchant_name'] ?? '');
     _amountCtrl = TextEditingController(text: data['amount']?.toString() ?? '');
 
-    // Parse date if available
-    _selectedDate = data['date'] ?? 'Unknown Date';
+    _selectedDate =
+        data['date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
     _selectedCategory = data['category_suggestion'] ?? 'Food & Dining';
     _confidence = asDouble(data['confidence'], 0.0);
+    _localImagePath = data['local_image_path'] as String?;
 
     _items = List<Map<String, dynamic>>.from(data['items'] ?? []);
+    _amountCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
+
   }
 
   @override
@@ -59,12 +74,16 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
         dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
       }
 
-      final itemsPayload = _items.map((i) => {
-            'name': i['name'] ?? 'Item',
-            'quantity': asInt(i['quantity'], 1),
-            'unit_price': asDouble(i['unit_price'] ?? i['price']),
-            'total_price': asDouble(i['total_price'] ?? i['price']),
-          }).toList();
+      final itemsPayload = _items
+          .map(
+            (i) => {
+              'name': i['name'] ?? 'Item',
+              'quantity': asInt(i['quantity'], 1),
+              'unit_price': asDouble(i['unit_price'] ?? i['price']),
+              'total_price': asDouble(i['total_price'] ?? i['price']),
+            },
+          )
+          .toList();
 
       final payload = <String, dynamic>{
         'merchant_name': _merchantCtrl.text.trim().isNotEmpty
@@ -83,11 +102,36 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
 
       await ApiService.createTransaction(payload);
 
+      if (_splitData != null && _splitData!.isEnabled && _splitData!.selectedFriends.isNotEmpty) {
+        try {
+          await SplitWithFriendsSelector.createSplitIfEnabled(
+            isEnabled: _splitData!.isEnabled,
+            splitType: _splitData!.splitType,
+            selectedFriends: _splitData!.selectedFriends,
+            participantShares: _splitData!.participantShares,
+            title: _merchantCtrl.text.trim().isNotEmpty
+                ? _merchantCtrl.text.trim()
+                : 'OCR Expense Split',
+            totalAmount: amount > 0 ? amount : 1.0,
+            description: 'Split from OCR receipt / transaction',
+          );
+        } catch (splitErr) {
+          debugPrint('[OcrReviewScreen] Split error: $splitErr');
+        }
+      }
+
+
       if (!mounted) return;
+      final isSplitDone = _splitData != null && _splitData!.isEnabled && _splitData!.selectedFriends.isNotEmpty;
+      final splitFriendsCount = _splitData?.selectedFriends.length ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Expense confirmed and saved!'),
-          backgroundColor: AppColors.success,
+        SnackBar(
+          content: Text(
+            isSplitDone
+                ? 'Expense recorded & split with $splitFriendsCount friend${splitFriendsCount > 1 ? "s" : ""}'
+                : 'Expense confirmed and recorded',
+          ),
+          backgroundColor: AppColors.credit,
         ),
       );
       Navigator.of(context).popUntil((r) => r.isFirst);
@@ -97,8 +141,9 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'Failed to save expense: ${e.toString().replaceAll('Exception: ', '')}'),
-          backgroundColor: AppColors.danger,
+            'Failed to record expense: ${e.toString().replaceAll('Exception: ', '')}',
+          ),
+          backgroundColor: AppColors.debit,
         ),
       );
     }
@@ -112,204 +157,365 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
       } catch (_) {}
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Draft discarded')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Draft discarded')));
     Navigator.of(context).pop();
+  }
+
+  void _editItem(int index) {
+    final item = _items[index];
+    final nameCtrl = TextEditingController(text: item['name'] ?? '');
+    final priceCtrl = TextEditingController(
+      text: asDouble(item['total_price'] ?? item['price']).toStringAsFixed(0),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: const Text(
+          'Edit Item',
+          style: TextStyle(fontFamily: AppTheme.fontSans, fontSize: 16),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Item name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: priceCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Amount (₹)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = nameCtrl.text.trim();
+              final newPrice = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
+              if (newName.isNotEmpty) {
+                setState(() {
+                  _items[index]['name'] = newName;
+                  _items[index]['total_price'] = newPrice;
+                  _items[index]['price'] = newPrice;
+                });
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isHighConfidence = _confidence >= 0.85;
+    final isLowConfidence = _confidence > 0 && _confidence < 0.75;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Review Extracted Data'),
+        title: const Text('Verify Extracted Data'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         children: [
-          // Confidence banner
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isHighConfidence
-                  ? AppColors.successLight
-                  : AppColors.warningLight,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isHighConfidence
-                    ? AppColors.success.withOpacity(0.4)
-                    : AppColors.warning.withOpacity(0.4),
+          // ─── Source Document Thumbnail / Strip ───────────────────────────
+          if (_localImagePath != null &&
+              File(_localImagePath!).existsSync()) ...[
+            Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                border: Border.all(color: AppColors.border, width: 1),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(AppTokens.radiusMedium - 1),
+                    ),
+                    child: Image.file(
+                      File(_localImagePath!),
+                      width: 100,
+                      height: 120,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Source Document',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Cross-check values with original receipt',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  isHighConfidence
-                      ? Icons.verified_rounded
-                      : Icons.warning_amber_rounded,
-                  color: isHighConfidence ? AppColors.success : AppColors.warning,
-                  size: 22,
+            const SizedBox(height: 12),
+          ],
+
+          // Low-confidence quiet flag (not a giant rainbow banner)
+          if (isLowConfidence) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.warningLight,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.3),
+                  width: 1,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isHighConfidence
-                            ? 'High Confidence (${(_confidence * 100).toStringAsFixed(0)}%)'
-                            : 'Some fields may be incorrect',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: isHighConfidence
-                              ? AppColors.success
-                              : AppColors.warning,
-                        ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.flag_outlined,
+                    color: AppColors.warning,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Confidence (${(_confidence * 100).toStringAsFixed(0)}%): please check marked values.',
+                      style: const TextStyle(
+                        fontFamily: AppTheme.fontSans,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.warning,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        isHighConfidence
-                            ? 'Please verify the details below and confirm.'
-                            : 'Please review highlighted fields carefully.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isHighConfidence
-                              ? AppColors.success
-                              : AppColors.warning,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Merchant
-          _ReviewField(
-            label: 'Merchant',
-            child: TextFormField(
-              controller: _merchantCtrl,
-              decoration: const InputDecoration(hintText: 'Merchant name'),
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Amount
-          _ReviewField(
-            label: 'Total Amount',
-            child: TextFormField(
-              controller: _amountCtrl,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: AppColors.danger,
-              ),
-              decoration: const InputDecoration(
-                prefixText: '₹ ',
-                prefixStyle: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.danger,
-                ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 12),
+          ],
 
-          // Date + Category row
-          Row(
-            children: [
-              Expanded(
-                child: _ReviewField(
-                  label: 'Date',
-                  child: Text(
-                    _selectedDate,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ReviewField(
-                  label: 'Category',
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: AppConstants.categories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
-                        .toList(),
-                    // Fallback to first category if the suggested one isn't in the list
-                    onChanged: (v) => setState(() => _selectedCategory = v!),
-                    value: AppConstants.categories.contains(_selectedCategory)
-                        ? _selectedCategory
-                        : AppConstants.categories.first,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Extracted items
-          Text('Extracted Items', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
+          // ─── Extracted Fields Card ─────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+              border: Border.all(color: AppColors.border, width: 1),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ..._items.asMap().entries.map((entry) {
-                  final item = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.receipt_outlined,
-                            size: 16, color: AppColors.textTertiary),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(item['name'],
-                              style: Theme.of(context).textTheme.bodyMedium),
-                        ),
-                        Text(
-                          '₹${asDouble(item['total_price']).toStringAsFixed(0)}',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ],
+                // Merchant
+                const Text(
+                  'Merchant',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: _merchantCtrl,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Merchant name',
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
-                  );
-                }),
-                const Divider(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Amount
+                const Text(
+                  'Total Amount',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: _amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                  decoration: const InputDecoration(
+                    prefixText: '₹ ',
+                    prefixStyle: TextStyle(
+                      fontFamily: AppTheme.fontSans,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Date & Category
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
-                    Text(
-                      '₹${_items.fold<double>(0, (s, i) => s + asDouble(i['total_price'])).toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.danger,
-                        fontSize: 16,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Date',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontSans,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            height: 44,
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceElevated,
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.radiusSmall,
+                              ),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              _selectedDate,
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontSans,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Category',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontSans,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            height: 44,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceElevated,
+                              borderRadius: BorderRadius.circular(
+                                AppTokens.radiusSmall,
+                              ),
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 18,
+                                ),
+                                items: AppConstants.categories
+                                    .map(
+                                      (c) => DropdownMenuItem(
+                                        value: c,
+                                        child: Text(
+                                          c,
+                                          style: const TextStyle(
+                                            fontFamily: AppTheme.fontSans,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (v) =>
+                                    setState(() => _selectedCategory = v!),
+                                value:
+                                    AppConstants.categories.contains(
+                                      _selectedCategory,
+                                    )
+                                    ? _selectedCategory
+                                    : AppConstants.categories.first,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -317,55 +523,124 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
+          // ─── Line Items (Editable Table) ──────────────────────────────────
+          if (_items.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+                border: Border.all(color: AppColors.border, width: 1),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'EXTRACTED LINE ITEMS',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontSans,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.6,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ..._items.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    return InkWell(
+                      onTap: () => _editItem(idx),
+                      borderRadius: BorderRadius.circular(
+                        AppTokens.radiusSmall,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 6,
+                          horizontal: 4,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item['name'] ?? 'Item',
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.fontSans,
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '₹${asDouble(item['total_price'] ?? item['price']).toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontSans,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: AppColors.textTertiary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total itemized',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '₹${_items.fold<double>(0, (s, i) => s + asDouble(i['total_price'] ?? i['price'])).toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // ─── Split with friends selector ──────────────────────────────
+          SplitWithFriendsSelector(
+            totalAmount: double.tryParse(_amountCtrl.text.trim()) ?? 0.0,
+            onChanged: (data) => _splitData = data,
+          ),
+          const SizedBox(height: 16),
+
+          // ─── Obvious Confirm vs Discard Actions ───────────────────────────
           PrimaryButton(
             label: 'Confirm Expense',
-            icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.white, size: 20),
             isLoading: _isConfirming,
             onPressed: _confirm,
           ),
-          const SizedBox(height: 12),
-          Center(
-            child: TextButton.icon(
-              icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
-              onPressed: _discardDraft,
-              label: const Text('Discard Draft', style: TextStyle(color: AppColors.danger)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReviewField extends StatelessWidget {
-  final String label;
-  final Widget child;
-  const _ReviewField({required this.label, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          child,
+          const SizedBox(height: 10),
+          SecondaryButton(label: 'Discard Draft', onPressed: _discardDraft),
         ],
       ),
     );

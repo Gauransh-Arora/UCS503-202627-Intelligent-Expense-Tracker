@@ -1,5 +1,10 @@
 """Test configuration and shared fixtures using SQLite with StaticPool."""
+import os
 import uuid
+
+# Force in-memory SQLite for tests so FastAPI's lifespan does not connect to remote Supabase
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -11,6 +16,10 @@ from app.main import app
 from app.models.category import DEFAULT_CATEGORIES, Category
 from app.models.user import User
 from app.utils.security import create_access_token, hash_password
+
+# Pre-compute bcrypt hashes once for all tests to eliminate CPU key-derivation lag
+_CACHED_TEST_PASSWORD_HASH = hash_password("password123")
+_CACHED_SECOND_PASSWORD_HASH = hash_password("password456")
 
 
 @pytest.fixture(scope="session")
@@ -62,11 +71,11 @@ def client(db_session):
 
 @pytest.fixture(scope="function")
 def test_user(db_session):
-    """Create a fresh test user for each test."""
+    """Create a fresh test user for each test using pre-cached password hash."""
     user = User(
         name="Test User",
         email=f"user_{uuid.uuid4().hex[:6]}@example.com",
-        password_hash=hash_password("password123"),
+        password_hash=_CACHED_TEST_PASSWORD_HASH,
     )
     db_session.add(user)
     db_session.commit()

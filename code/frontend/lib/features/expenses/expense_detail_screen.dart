@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../models/expense_model.dart';
 import '../../services/api_service.dart';
+import '../../widgets/amount_display.dart';
 import '../../widgets/primary_button.dart';
 import '../split_expense/split_screen.dart';
 import '../add_expense/manual_expense_screen.dart';
@@ -10,6 +14,23 @@ class ExpenseDetailScreen extends StatelessWidget {
   final ExpenseModel expense;
 
   const ExpenseDetailScreen({super.key, required this.expense});
+
+  String _formatPaymentMethod(String method) {
+    switch (method.toLowerCase()) {
+      case "upi":
+        return "UPI";
+      case "credit_card":
+        return "Credit Card";
+      case "debit_card":
+        return "Debit Card";
+      case "net_banking":
+        return "Net Banking";
+      case "cash":
+        return "Cash";
+      default:
+        return method.isNotEmpty ? method[0].toUpperCase() + method.substring(1) : method;
+    }
+  }
 
   String _sourceLabel(String? source) {
     switch (source) {
@@ -27,200 +48,256 @@ class ExpenseDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final catColor = AppColors.categoryColor(expense.category);
-    final catIcon = AppColors.categoryIcon(expense.category);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Expense Details'),
+        title: const Text('Transaction Detail'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => Navigator.of(context).push<bool>(
-              MaterialPageRoute(
-                builder: (_) => ManualExpenseScreen(editExpense: expense),
-              ),
-            ).then((res) {
-              if (res == true && context.mounted) {
-                Navigator.pop(context, true);
-              }
-            }),
+            tooltip: 'Edit transaction',
+            icon: const Icon(Icons.edit_outlined, size: 20),
+            onPressed: () => Navigator.of(context)
+                .push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => ManualExpenseScreen(editExpense: expense),
+                  ),
+                )
+                .then((res) {
+                  if (res == true && context.mounted) {
+                    Navigator.pop(context, true);
+                  }
+                }),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+            tooltip: 'Delete transaction',
+            icon: const Icon(
+              Icons.delete_outline,
+              color: AppColors.debit,
+              size: 20,
+            ),
             onPressed: () => _confirmDelete(context),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 60),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ─── Header ───────────────────────────────────────────────────
+            // ─── Header: Typographic Ledger Statement ─────────────────────────
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.surfaceCard,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+                border: Border.all(color: AppColors.border, width: 1),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: catColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Center(
-                      child: Icon(catIcon, size: 36, color: catColor),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    expense.merchant,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    expense.formattedAmount,
-                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                          color: AppColors.danger,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
-                          color: catColor.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20),
+                          color: catColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(
+                            AppTokens.radiusSmall,
+                          ),
+                          border: Border.all(
+                            color: catColor.withValues(alpha: 0.25),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(catIcon, size: 14, color: catColor),
-                            const SizedBox(width: 4),
+                            Icon(
+                              AppColors.categoryIcon(expense.category),
+                              size: 13,
+                              color: catColor,
+                            ),
+                            const SizedBox(width: 5),
                             Text(
                               expense.category,
                               style: TextStyle(
+                                fontFamily: AppTheme.fontSans,
                                 color: catColor,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                                fontSize: 12,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          expense.formattedDate,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w500,
-                              ),
+                      Text(
+                        expense.formattedDate,
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontSize: 12,
+                          color: AppColors.textTertiary,
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 14),
+
+                  Text(
+                    expense.merchant,
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontSans,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  AmountDisplay(
+                    amount: expense.amount,
+                    style: AmountDisplayStyle.large,
+                    isExpense: true,
+                    showSign: true,
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // ─── Details grid ─────────────────────────────────────────────
-            _InfoSection(
-              children: [
-                _InfoRow(
-                  label: 'Payment Method',
-                  value: expense.paymentMethod,
-                  icon: Icons.payment_rounded,
-                ),
-                _InfoRow(
-                  label: 'Source',
-                  value: _sourceLabel(expense.source),
-                  icon: Icons.info_outline_rounded,
-                ),
-                if (expense.isRecurring)
-                  _InfoRow(
-                    label: 'Type',
-                    value: 'Recurring Expense',
-                    icon: Icons.repeat_rounded,
-                  ),
-                if (expense.notes != null)
-                  _InfoRow(
-                    label: 'Notes',
-                    value: expense.notes!,
-                    icon: Icons.notes_rounded,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // ─── Items ────────────────────────────────────────────────────
-            if (expense.items.isNotEmpty) ...[
-              _InfoSection(
-                title: 'Items',
+            // ─── Details Table ────────────────────────────────────────────────
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+                border: Border.all(color: AppColors.border, width: 1),
+              ),
+              child: Column(
                 children: [
-                  ...expense.items.map((item) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                  _LedgerDetailRow(
+                    label: 'Payment Method',
+                    value: _formatPaymentMethod(expense.paymentMethod),
+                  ),
+                  const Divider(height: 1, indent: 16, endIndent: 16),
+                  _LedgerDetailRow(
+                    label: 'Source',
+                    value: _sourceLabel(expense.source),
+                  ),
+                  if (expense.isRecurring) ...[
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    const _LedgerDetailRow(
+                      label: 'Frequency',
+                      value: 'Recurring Schedule',
+                    ),
+                  ],
+                  if (expense.notes != null &&
+                      expense.notes!.trim().isNotEmpty) ...[
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _LedgerDetailRow(label: 'Notes', value: expense.notes!),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ─── Items Table ──────────────────────────────────────────────────
+            if (expense.items.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+                  border: Border.all(color: AppColors.border, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ITEMIZED BREAKDOWN',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontSans,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.6,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...expense.items.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
                                 item.quantity > 1
-                                    ? '${item.name} ×${item.quantity}'
+                                    ? '${item.name} (×${item.quantity})'
                                     : item.name,
-                                style: Theme.of(context).textTheme.bodyMedium,
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.fontSans,
+                                  fontSize: 13,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                             ),
-                            Text(
-                              '₹${item.total.toStringAsFixed(0)}',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                            AmountDisplay(
+                              amount: item.total,
+                              style: AmountDisplayStyle.small,
+                              textAlign: TextAlign.end,
                             ),
                           ],
                         ),
-                      )),
-                  const Divider(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Total', style: Theme.of(context).textTheme.titleSmall),
-                      Text(
-                        expense.formattedAmount,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.danger,
-                            ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total itemized',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        AmountDisplay(
+                          amount: expense.amount,
+                          style: AmountDisplayStyle.small,
+                          textAlign: TextAlign.end,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
             ],
 
-            // ─── Actions ──────────────────────────────────────────────────
+            // ─── Actions ──────────────────────────────────────────────────────
             PrimaryButton(
-              label: 'Split Expense',
-              backgroundColor: AppColors.primary,
+              label: 'Split with contacts',
+              icon: const Icon(
+                Icons.people_outline_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => SplitScreen(expense: expense),
@@ -237,39 +314,57 @@ class ExpenseDetailScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Expense'),
-        content: Text('Are you sure you want to delete "${expense.merchant}"?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: const Text(
+          'Delete transaction',
+          style: TextStyle(
+            fontFamily: AppTheme.fontSans,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Remove "${expense.merchant}" for ${expense.formattedAmount} from the ledger? This action cannot be undone.',
+          style: const TextStyle(
+            fontFamily: AppTheme.fontSans,
+            fontSize: 13,
+            color: AppColors.textSecondary,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               try {
                 await ApiService.deleteTransaction(expense.id);
-                if (!context.mounted) return;
-                Navigator.pop(context); // close dialog
-                Navigator.pop(context, true); // return true to parent
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Expense deleted successfully'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
+                if (context.mounted) {
+                  Navigator.pop(context); // dialog
+                  Navigator.pop(context, true); // screen
+                }
               } catch (e) {
-                if (!context.mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Failed to delete: ${e.toString().replaceAll('Exception: ', '')}'),
-                    backgroundColor: AppColors.danger,
-                  ),
-                );
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Delete failed: ${e.toString().replaceAll('Exception: ', '')}',
+                      ),
+                      backgroundColor: AppColors.debit,
+                    ),
+                  );
+                }
               }
             },
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.debit,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -278,62 +373,37 @@ class ExpenseDetailScreen extends StatelessWidget {
   }
 }
 
-class _InfoSection extends StatelessWidget {
-  final String? title;
-  final List<Widget> children;
-  const _InfoSection({this.title, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null) ...[
-            Text(title!, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            const Divider(),
-            const SizedBox(height: 4),
-          ],
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
+class _LedgerDetailRow extends StatelessWidget {
   final String label;
   final String value;
-  final IconData icon;
 
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+  const _LedgerDetailRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, size: 18, color: AppColors.textSecondary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: Theme.of(context).textTheme.bodySmall),
-                Text(value, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-              ],
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: AppTheme.fontSans,
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontSans,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
         ],

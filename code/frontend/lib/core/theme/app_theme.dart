@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+
 import 'app_colors.dart';
+import 'app_tokens.dart';
 
 class AppTheme {
   AppTheme._();
+
+  static const String fontSans = 'DMSans';
+  static const String fontMono = 'JetBrainsMono';
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -10,76 +15,103 @@ class AppTheme {
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         primary: AppColors.primary,
-        secondary: AppColors.accent,
+        secondary: AppColors.primaryMain,
         surface: AppColors.surfaceCard,
-        error: AppColors.danger,
+        error: AppColors.expense,
         brightness: Brightness.light,
       ),
-      fontFamily: 'Nunito',
+      fontFamily: fontSans,
       scaffoldBackgroundColor: AppColors.background,
       textTheme: const TextTheme(
         displayLarge: TextStyle(
-          fontSize: 48,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textPrimary,
-          letterSpacing: -1.5,
-        ),
-        displayMedium: TextStyle(
-          fontSize: 36,
-          fontWeight: FontWeight.w800,
+          fontFamily: fontSans,
+          fontSize: 38,
+          fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
           letterSpacing: -1.0,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
+        displayMedium: TextStyle(
+          fontFamily: fontSans,
+          fontSize: 30,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.6,
+          fontFeatures: [FontFeature.tabularFigures()],
         ),
         headlineLarge: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textPrimary,
-        ),
-        headlineMedium: TextStyle(
+          fontFamily: fontSans,
           fontSize: 24,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
+          letterSpacing: -0.3,
         ),
-        headlineSmall: TextStyle(
+        headlineMedium: TextStyle(
+          fontFamily: fontSans,
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
+          letterSpacing: -0.2,
         ),
-        titleLarge: TextStyle(
+        headlineSmall: TextStyle(
+          fontFamily: fontSans,
           fontSize: 18,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
+        titleLarge: TextStyle(
+          fontFamily: fontSans,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+          letterSpacing: -0.1,
+        ),
         titleMedium: TextStyle(
-          fontSize: 16,
+          fontFamily: fontSans,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
         titleSmall: TextStyle(
-          fontSize: 14,
+          fontFamily: fontSans,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
           color: AppColors.textSecondary,
         ),
         bodyLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
+          fontFamily: fontSans,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
           color: AppColors.textPrimary,
+          height: 1.45,
         ),
         bodyMedium: TextStyle(
+          fontFamily: fontSans,
           fontSize: 14,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
           color: AppColors.textPrimary,
+          height: 1.4,
         ),
         bodySmall: TextStyle(
+          fontFamily: fontSans,
           fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
           color: AppColors.textSecondary,
+          height: 1.35,
         ),
         labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
+          fontFamily: fontSans,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
-          letterSpacing: 0.3,
+          letterSpacing: 0,
+        ),
+        labelSmall: TextStyle(
+          fontFamily: fontSans,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textSecondary,
+          letterSpacing: 0,
         ),
       ),
       appBarTheme: const AppBarTheme(
@@ -89,19 +121,23 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
-          fontFamily: 'Nunito',
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
+          fontFamily: fontSans,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
+          letterSpacing: -0.2,
         ),
-        iconTheme: IconThemeData(color: AppColors.textPrimary),
+        iconTheme: IconThemeData(color: AppColors.textPrimary, size: 22),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surfaceCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppColors.border, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+          side: const BorderSide(
+            color: AppColors.border,
+            width: AppTokens.cardBorderWidth,
+          ),
         ),
         margin: EdgeInsets.zero,
       ),
@@ -110,108 +146,147 @@ class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          minimumSize: const Size(64, AppTokens.buttonHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
           ),
           textStyle: const TextStyle(
-            fontFamily: 'Nunito',
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontFamily: fontSans,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          foregroundColor: AppColors.textPrimary,
+          backgroundColor: AppColors.surfaceCard,
+          side: const BorderSide(
+            color: AppColors.border,
+            width: AppTokens.cardBorderWidth,
+          ),
+          minimumSize: const Size(64, AppTokens.buttonHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
           ),
           textStyle: const TextStyle(
-            fontFamily: 'Nunito',
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontFamily: fontSans,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          minimumSize: const Size(
+            AppTokens.minTouchTarget,
+            AppTokens.minTouchTarget,
+          ),
           textStyle: const TextStyle(
-            fontFamily: 'Nunito',
+            fontFamily: fontSans,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        fillColor: AppColors.surfaceCard,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+            width: AppTokens.cardBorderWidth,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+            width: AppTokens.cardBorderWidth,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.borderFocus, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          borderSide: const BorderSide(
+            color: AppColors.primaryMain,
+            width: AppTokens.cardBorderWidth,
+          ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.danger, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          borderSide: const BorderSide(
+            color: AppColors.expense,
+            width: AppTokens.cardBorderWidth,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          borderSide: const BorderSide(
+            color: AppColors.expense,
+            width: AppTokens.cardBorderWidth,
+          ),
         ),
         labelStyle: const TextStyle(
           color: AppColors.textSecondary,
-          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
         hintStyle: const TextStyle(
           color: AppColors.textTertiary,
-          fontWeight: FontWeight.w500,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
         ),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surfaceCard,
         selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textTertiary,
+        unselectedItemColor: AppColors.textSecondary,
         showSelectedLabels: true,
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
         selectedLabelStyle: TextStyle(
-          fontFamily: 'Nunito',
+          fontFamily: fontSans,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
         unselectedLabelStyle: TextStyle(
-          fontFamily: 'Nunito',
+          fontFamily: fontSans,
           fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
         ),
       ),
       dividerTheme: const DividerThemeData(
-        color: AppColors.border,
-        thickness: 2,
-        space: 2,
+        color: AppColors.borderSubtle,
+        thickness: 1,
+        space: 1,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.background,
-        selectedColor: AppColors.primaryLight,
+        backgroundColor: AppColors.surfaceCream,
+        selectedColor: AppColors.mint,
         labelStyle: const TextStyle(
-          fontFamily: 'Nunito',
+          fontFamily: fontSans,
           fontSize: 13,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.border, width: 2),
+          borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+          side: const BorderSide(
+            color: AppColors.border,
+            width: AppTokens.cardBorderWidth,
+          ),
         ),
       ),
     );

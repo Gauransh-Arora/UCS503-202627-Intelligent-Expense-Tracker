@@ -1,5 +1,6 @@
 """User Pydantic schemas."""
 from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, field_validator
@@ -9,6 +10,7 @@ class UserCreate(BaseModel):
     name: str
     email: EmailStr
     password: str
+    monthly_income: Optional[float] = 60000.0
 
     @field_validator("password")
     @classmethod
@@ -30,11 +32,26 @@ class UserLogin(BaseModel):
     password: str
 
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    monthly_income: Optional[float] = None
+
+    @field_validator("monthly_income")
+    @classmethod
+    def validate_income(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and v < 0:
+            raise ValueError("Monthly income cannot be negative")
+        return v
+
+
 class UserResponse(BaseModel):
     id: UUID
     name: str
     email: str
     is_active: bool
+    monthly_income: Optional[float] = 60000.0
+    avatar_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

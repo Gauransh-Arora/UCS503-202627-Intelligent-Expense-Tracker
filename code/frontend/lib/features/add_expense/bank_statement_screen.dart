@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/utils/num_parser.dart';
 import '../../models/category_model.dart';
 import '../../services/api_service.dart';
@@ -51,6 +53,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   String? _fileName;
   int? _fileSizeBytes;
   bool _isPdf = true;
+  String? _statementId;
 
   bool _isProcessing = false;
   String _processingMessage = 'Uploading statement...';
@@ -103,8 +106,8 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return 'Bank Transaction';
 
-    // Handle UPI strings: UPI/123456/MERCHANT/BANK -> MERCHANT
-    if (trimmed.toUpperCase().startsWith('UPI/') || trimmed.toUpperCase().startsWith('UPI-')) {
+    if (trimmed.toUpperCase().startsWith('UPI/') ||
+        trimmed.toUpperCase().startsWith('UPI-')) {
       final parts = trimmed.split(RegExp(r'[/|-]'));
       if (parts.length >= 3) {
         final cand = parts[2].trim();
@@ -113,7 +116,6 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         }
       }
     }
-    // Clean up excessive whitespace
     return trimmed.replaceAll(RegExp(r'\s+'), ' ');
   }
 
@@ -145,11 +147,57 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not pick file: $e'),
-          backgroundColor: AppColors.danger,
+          content: Text('Could not open file: $e'),
+          backgroundColor: AppColors.debit,
         ),
       );
     }
+  }
+
+  void _populateFromParsed(Map<String, dynamic> parsed) {
+    _bankName = parsed['bank_name'] as String?;
+    _periodFrom = parsed['statement_period_from'] as String?;
+    _periodTo = parsed['statement_period_to'] as String?;
+    _totalDebits = asDouble(parsed['total_debits']);
+    _totalCredits = asDouble(parsed['total_credits']);
+
+    final rawRows = parsed['parsed_rows'] as List<dynamic>? ?? [];
+    final List<_StatementItem> items = [];
+
+    for (final r in rawRows) {
+      final row = r as Map<String, dynamic>;
+      final debit = asDoubleOrNull(row['debit']);
+      final credit = asDoubleOrNull(row['credit']);
+      final isDebit = (debit != null && debit > 0);
+      final amount = isDebit ? debit : (credit ?? 0.0);
+      final desc = row['description'] as String? ?? '';
+      final cat = row['category'] as String? ?? 'Other';
+      final isVerified =
+          cat != 'Unrecognised' && cat != 'Uncategorised' && cat.isNotEmpty;
+
+      items.add(
+        _StatementItem(
+          date:
+              row['date'] as String? ??
+              DateFormat('yyyy-MM-dd').format(DateTime.now()),
+          merchant: _cleanMerchant(desc),
+          amount: amount,
+          isDebit: isDebit,
+          category: cat.isEmpty ? 'Other' : cat,
+          categoryId: _matchCategoryId(cat),
+          isSelected: isDebit,
+          isVerified: isVerified,
+          originalDescription: desc,
+        ),
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _transactions = items;
+      _isProcessing = false;
+      _state = _BankState.review;
+    });
   }
 
   Future<void> _process() async {
@@ -162,77 +210,37 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     });
 
     try {
-      // Step 1: Upload statement file
       final statementId = await ApiService.uploadBankStatement(_filePath!);
+      _statementId = statementId;
 
       if (!mounted) return;
       setState(() {
-        _processingMessage = 'Extracting transactions with AI...';
+        _processingMessage = 'Parsing statement transactions...';
       });
 
-      // Step 2: Parse statement
       final parsed = await ApiService.parseBankStatement(statementId);
-
-      _bankName = parsed['bank_name'] as String?;
-      _periodFrom = parsed['statement_period_from'] as String?;
-      _periodTo = parsed['statement_period_to'] as String?;
-      _totalDebits = asDouble(parsed['total_debits']);
-      _totalCredits = asDouble(parsed['total_credits']);
-
-      final rawRows = parsed['parsed_rows'] as List<dynamic>? ?? [];
-      final List<_StatementItem> items = [];
-
-      for (final r in rawRows) {
-        final row = r as Map<String, dynamic>;
-        final debit = asDoubleOrNull(row['debit']);
-        final credit = asDoubleOrNull(row['credit']);
-        final isDebit = (debit != null && debit > 0);
-        final amount = isDebit ? debit : (credit ?? 0.0);
-        final desc = row['description'] as String? ?? '';
-        final cat = row['category'] as String? ?? 'Other';
-        final isVerified = cat != 'Unrecognised' && cat != 'Uncategorised' && cat.isNotEmpty;
-
-        items.add(
-          _StatementItem(
-            date: row['date'] as String? ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-            merchant: _cleanMerchant(desc),
-            amount: amount,
-            isDebit: isDebit,
-            category: cat,
-            categoryId: _matchCategoryId(cat),
-            isSelected: true, // Everything selected by default
-            isVerified: isVerified,
-            originalDescription: desc,
-          ),
-        );
-      }
-
-      if (!mounted) return;
-
-      if (items.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No transactions found in this statement. Please check the file format.'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
-      }
-
-      setState(() {
-        _transactions = items;
-        _isProcessing = false;
-        _state = _BankState.review;
-      });
+      _populateFromParsed(parsed);
     } catch (e) {
       if (!mounted) return;
+      if (_statementId != null) {
+        try {
+          final detail = await ApiService.getBankStatement(_statementId!, forceRefresh: true);
+          if (detail['status'] == 'parsed' && detail['parsed_rows'] != null) {
+            _populateFromParsed(detail);
+            return;
+          }
+        } catch (_) {}
+      }
       setState(() {
         _isProcessing = false;
         _state = _BankState.uploaded;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to process statement: $e'),
-          backgroundColor: AppColors.danger,
+          content: Text(
+            'Processing failed: ${e.toString().replaceAll('Exception: ', '')}',
+          ),
+          backgroundColor: AppColors.debit,
         ),
       );
     }
@@ -240,12 +248,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
 
   Future<void> _importSelected() async {
     final selected = _transactions.where((t) => t.isSelected).toList();
-    if (selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one transaction to import')),
-      );
-      return;
-    }
+    if (selected.isEmpty) return;
 
     setState(() {
       _isImporting = true;
@@ -253,37 +256,62 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       _importTotal = selected.length;
     });
 
-    int imported = 0;
-    int failed = 0;
-
-    final payloadList = selected.map((tx) {
+    final payloadList = selected.map((t) {
       return <String, dynamic>{
-        'merchant_name': tx.merchant.trim().isNotEmpty ? tx.merchant.trim() : 'Bank Transaction',
-        'amount': tx.amount > 0 ? tx.amount : 1.0,
+        'merchant_name': t.merchant,
+        'amount': t.amount > 0 ? t.amount : 1.0,
         'currency': 'INR',
-        'transaction_date': tx.date.isNotEmpty ? tx.date : DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        'payment_method': 'bank',
-        'description': 'Imported from ${_fileName ?? "bank statement"}',
-        'category_name': tx.category,
-        if (tx.categoryId != null) 'category_id': tx.categoryId,
+        'transaction_date': t.date,
+        'payment_method': 'net_banking',
+        'category_name': t.category,
+        if (t.categoryId != null) 'category_id': t.categoryId,
+        'source': 'bank_statement',
+        'description': t.originalDescription,
       };
     }).toList();
 
-    try {
-      final results = await ApiService.createBulkTransactions(payloadList);
-      imported = results.length;
-    } catch (_) {
-      for (int i = 0; i < payloadList.length; i++) {
-        if (!mounted) return;
-        setState(() => _importProgress = i + 1);
+    int imported = 0;
+    int failed = 0;
+
+    if (_statementId != null) {
+      try {
+        final res = await ApiService.mergeBankStatement(_statementId!);
+        imported = res['merged_count'] ?? selected.length;
+      } catch (_) {
         try {
-          await ApiService.createTransaction(payloadList[i], notify: false);
-          imported++;
+          final results = await ApiService.createBulkTransactions(payloadList);
+          imported = results.length;
         } catch (_) {
-          failed++;
+          for (int i = 0; i < payloadList.length; i++) {
+            if (!mounted) return;
+            setState(() => _importProgress = i + 1);
+            try {
+              await ApiService.createTransaction(payloadList[i], notify: false);
+              imported++;
+            } catch (_) {
+              failed++;
+            }
+          }
+          ApiService.notifyDataChanged();
         }
       }
-      ApiService.notifyDataChanged();
+    } else {
+      try {
+        final results = await ApiService.createBulkTransactions(payloadList);
+        imported = results.length;
+      } catch (_) {
+        for (int i = 0; i < payloadList.length; i++) {
+          if (!mounted) return;
+          setState(() => _importProgress = i + 1);
+          try {
+            await ApiService.createTransaction(payloadList[i], notify: false);
+            imported++;
+          } catch (_) {
+            failed++;
+          }
+        }
+        ApiService.notifyDataChanged();
+      }
     }
 
     if (!mounted) return;
@@ -293,10 +321,10 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       SnackBar(
         content: Text(
           failed == 0
-              ? '$imported transactions imported successfully!'
-              : '$imported imported ($failed failed).',
+              ? '$imported transactions imported into ledger'
+              : '$imported imported ($failed failed)',
         ),
-        backgroundColor: failed == 0 ? AppColors.success : AppColors.warning,
+        backgroundColor: failed == 0 ? AppColors.credit : AppColors.warning,
       ),
     );
 
@@ -309,50 +337,64 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Edit Transaction', style: TextStyle(color: AppColors.textPrimary)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        ),
+        title: const Text(
+          'Edit Transaction',
+          style: TextStyle(fontFamily: AppTheme.fontSans, fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: merchantCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Merchant Name',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Merchant Name'),
             ),
             const SizedBox(height: 16),
-            const Text('Category', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text(
+              'Category',
+              style: TextStyle(
+                fontFamily: AppTheme.fontSans,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                'Food & Dining',
-                'Shopping',
-                'Entertainment',
-                'Travel & Transport',
-                'Utilities',
-                'Healthcare',
-                'Other',
-              ].map((c) {
-                final isCurrent = item.category == c;
-                return ChoiceChip(
-                  label: Text(c),
-                  selected: isCurrent,
-                  onSelected: (val) {
-                    if (val) {
-                      setState(() {
-                        item.category = c;
-                        item.categoryId = _matchCategoryId(c);
-                        item.isVerified = true;
-                      });
-                      Navigator.pop(ctx);
-                    }
-                  },
-                );
-              }).toList(),
+              spacing: 6,
+              runSpacing: 6,
+              children:
+                  [
+                    'Food & Dining',
+                    'Shopping',
+                    'Entertainment',
+                    'Travel & Transport',
+                    'Utilities',
+                    'Healthcare',
+                    'Other',
+                  ].map((c) {
+                    final isCurrent = item.category == c;
+                    return ChoiceChip(
+                      label: Text(c, style: const TextStyle(fontSize: 12)),
+                      selected: isCurrent,
+                      selectedColor: AppColors.ink,
+                      labelStyle: TextStyle(
+                        color: isCurrent ? Colors.white : AppColors.textPrimary,
+                      ),
+                      onSelected: (val) {
+                        if (val) {
+                          setState(() {
+                            item.category = c;
+                            item.categoryId = _matchCategoryId(c);
+                            item.isVerified = true;
+                          });
+                          Navigator.pop(ctx);
+                        }
+                      },
+                    );
+                  }).toList(),
             ),
           ],
         ),
@@ -415,11 +457,8 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 350),
-          child: _buildBody(),
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: _buildBody(),
       ),
       bottomNavigationBar: _state == _BankState.review
           ? _buildBottomBar(selectedCount)
@@ -428,35 +467,68 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   }
 
   Widget _buildBottomBar(int selectedCount) {
+    final selectedDebits = _transactions
+        .where((t) => t.isSelected && t.isDebit)
+        .fold<double>(0, (s, t) => s + t.amount);
+    final skippedCredits = _transactions
+        .where((t) => !t.isDebit && !t.isSelected)
+        .length;
+
+    final fmt = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
+
     return Container(
       padding: EdgeInsets.fromLTRB(
-        20,
-        12,
-        20,
+        16,
+        10,
+        16,
         MediaQuery.of(context).padding.bottom + 12,
       ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surfaceCard,
-        border: const Border(
-          top: BorderSide(color: AppColors.border, width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
       ),
       child: SafeArea(
         top: false,
-        child: PrimaryButton(
-          label: _isImporting
-              ? 'Importing $_importProgress of $_importTotal...'
-              : 'Import Selected ($selectedCount)',
-          icon: const Icon(Icons.download_done_rounded, color: Colors.white, size: 20),
-          isLoading: _isImporting,
-          onPressed: _isImporting || selectedCount == 0 ? null : _importSelected,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$selectedCount selected (${fmt.format(selectedDebits)})',
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  '$skippedCredits credit(s) skipped',
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            PrimaryButton(
+              label: _isImporting
+                  ? 'Importing $_importProgress of $_importTotal...'
+                  : 'Import $selectedCount Transactions',
+              isLoading: _isImporting,
+              onPressed: _isImporting || selectedCount == 0
+                  ? null
+                  : _importSelected,
+            ),
+          ],
         ),
       ),
     );
@@ -478,61 +550,80 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       key: const ValueKey('upload_section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Illustration banner
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: AppColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
+            color: AppColors.surfaceCard,
+            borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+            border: Border.all(color: AppColors.border, width: 1),
           ),
           child: Column(
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
                 ),
-                child: const Icon(Icons.account_balance_rounded, size: 36, color: AppColors.primary),
+                child: const Icon(
+                  Icons.table_chart_outlined,
+                  size: 24,
+                  color: AppColors.textPrimary,
+                ),
               ),
-              const SizedBox(height: 16),
-              Text(
+              const SizedBox(height: 14),
+              const Text(
                 'Import Bank Statement',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontSans,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Upload your PDF or CSV bank statement. Our AI will automatically parse and categorize every transaction for you.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+              const SizedBox(height: 6),
+              const Text(
+                'Upload a PDF or CSV statement. Transactions are parsed into ledger entries for verification before merging.',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontSans,
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
 
-        Text('Choose File Format', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
+        const Text(
+          'Supported Formats',
+          style: TextStyle(
+            fontFamily: AppTheme.fontSans,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
 
         Row(
           children: [
             Expanded(
-              child: _FormatButton(
-                icon: Icons.picture_as_pdf_rounded,
+              child: _FormatTile(
+                icon: Icons.picture_as_pdf_outlined,
                 label: 'PDF Statement',
                 isSelected: _isPdf,
                 onTap: () => _pickFile(true),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
-              child: _FormatButton(
-                icon: Icons.table_chart_rounded,
+              child: _FormatTile(
+                icon: Icons.table_chart_outlined,
                 label: 'CSV / Excel File',
                 isSelected: !_isPdf,
                 onTap: () => _pickFile(false),
@@ -542,30 +633,22 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         ),
 
         if (_fileName != null) ...[
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.success.withValues(alpha: 0.5), width: 1.5),
+              borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+              border: Border.all(color: AppColors.border, width: 1),
             ),
             child: Row(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.successLight,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _isPdf ? Icons.picture_as_pdf_rounded : Icons.table_chart_rounded,
-                    color: AppColors.success,
-                    size: 24,
-                  ),
+                const Icon(
+                  Icons.attach_file_rounded,
+                  color: AppColors.accent,
+                  size: 20,
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,69 +657,74 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                         _fileName!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _fileSizeBytes != null
-                            ? '${_formatFileSize(_fileSizeBytes!)} • Ready to process'
-                            : 'Ready to process',
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.success,
+                          fontFamily: AppTheme.fontSans,
                           fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
+                      if (_fileSizeBytes != null)
+                        Text(
+                          _formatFileSize(_fileSizeBytes!),
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                  icon: const Icon(Icons.close_rounded, size: 18),
                   onPressed: _isProcessing
                       ? null
                       : () => setState(() {
-                            _fileName = null;
-                            _filePath = null;
-                            _fileSizeBytes = null;
-                            _state = _BankState.initial;
-                          }),
+                          _fileName = null;
+                          _filePath = null;
+                          _fileSizeBytes = null;
+                          _state = _BankState.initial;
+                        }),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           if (_isProcessing)
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: AppColors.surfaceCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                border: Border.all(color: AppColors.border),
               ),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.primary),
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.ink,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(width: 12),
                   Text(
                     _processingMessage,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Extracting dates, descriptions, categories & amounts...',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontSans,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
             )
           else
             PrimaryButton(
-              label: 'Upload & Process with AI',
-              icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+              label: 'Process Statement',
               isLoading: _isProcessing,
               onPressed: _process,
             ),
@@ -644,21 +732,30 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
 
         const SizedBox(height: 24),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.infoLight,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.info.withValues(alpha: 0.2)),
+            color: AppColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+            border: Border.all(color: AppColors.border),
           ),
-          child: Row(
+          child: const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.security_outlined, color: AppColors.info, size: 20),
-              const SizedBox(width: 12),
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 16,
+                color: AppColors.textSecondary,
+              ),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Your bank statement is processed securely on your local server. We do not store or sell your personal banking credentials.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.info),
+                  'Statements are parsed locally on your server. Personal banking credentials are never requested or stored.',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ],
@@ -670,7 +767,6 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
 
   Widget _buildReviewSection() {
     final unverifiedCount = _transactions.where((t) => !t.isVerified).length;
-    final recognizedCount = _transactions.where((t) => t.isVerified).length;
     final selectedCount = _transactions.where((t) => t.isSelected).length;
     final filtered = _filteredTransactions;
 
@@ -679,129 +775,125 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       periodLabel = '${_formatDate(_periodFrom!)} – ${_formatDate(_periodTo!)}';
     }
 
+    final fmt = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
+
     return Column(
       key: const ValueKey('review_section'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Summary Header Card
+        // Statement Summary Block
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.25),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            color: AppColors.surfaceCard,
+            borderRadius: BorderRadius.circular(AppTokens.radiusLarge),
+            border: Border.all(color: AppColors.border, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
+                  Text(
+                    _bankName ?? _fileName ?? 'Bank Statement',
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontSans,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
-                    child: const Icon(Icons.analytics_rounded, size: 24, color: Colors.white),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _bankName ?? _fileName ?? 'Statement Parsed',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          periodLabel,
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
+                  Text(
+                    '${_transactions.length} rows',
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontSans,
+                      fontSize: 12,
+                      color: AppColors.textTertiary,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 2),
+              Text(
+                periodLabel,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontSans,
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${_transactions.length} Found',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
+                        const Text(
+                          'TOTAL DEBITS',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                            color: AppColors.textSecondary,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          '$recognizedCount recognized • $unverifiedCount need review',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          fmt.format(_totalDebits),
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.debit,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  if (_totalDebits > 0 || _totalCredits > 0)
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          if (_totalDebits > 0)
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                '₹${NumberFormat('#,##,###').format(_totalDebits)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          const Text(
-                            'Total Debits',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                  Container(width: 1, height: 28, color: AppColors.border),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'TOTAL CREDITS',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                            color: AppColors.textSecondary,
                           ),
-                          if (_totalCredits > 0)
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                '+₹${NumberFormat('#,##,###').format(_totalCredits)} credits',
-                                style: const TextStyle(color: Colors.white70, fontSize: 11),
-                                maxLines: 1,
-                              ),
-                            ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          fmt.format(_totalCredits),
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.credit,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
                 ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
 
         // Filter tabs
         SingleChildScrollView(
@@ -811,26 +903,31 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
               _buildFilterChip('All (${_transactions.length})', _FilterTab.all),
               const SizedBox(width: 8),
               _buildFilterChip(
-                'Expenses (${_transactions.where((t) => t.isDebit).length})',
+                'Debits (${_transactions.where((t) => t.isDebit).length})',
                 _FilterTab.debits,
               ),
               const SizedBox(width: 8),
               _buildFilterChip(
-                'Income / Deposits (${_transactions.where((t) => !t.isDebit).length})',
+                'Credits (${_transactions.where((t) => !t.isDebit).length})',
                 _FilterTab.credits,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-        // Selection controls
+        // Select All / Clear Row
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Selected: $selectedCount of ${_transactions.length}',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              '$selectedCount of ${_transactions.length} selected for merge',
+              style: const TextStyle(
+                fontFamily: AppTheme.fontSans,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
             ),
             Row(
               children: [
@@ -842,7 +939,10 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                       }
                     });
                   },
-                  child: const Text('Select All', style: TextStyle(fontSize: 13)),
+                  child: const Text(
+                    'Select all',
+                    style: TextStyle(fontSize: 12),
+                  ),
                 ),
                 TextButton(
                   onPressed: () {
@@ -852,72 +952,80 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                       }
                     });
                   },
-                  child: const Text('Clear', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  child: const Text(
+                    'Clear',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                 ),
               ],
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
 
-        // Transactions list
+        // Table-like ledger rows
         if (filtered.isEmpty)
           Container(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(28),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: AppColors.surfaceCard,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+              border: Border.all(color: AppColors.border),
             ),
-            child: const Text('No transactions match this filter', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text(
+              'No transactions in this view',
+              style: TextStyle(
+                fontFamily: AppTheme.fontSans,
+                color: AppColors.textSecondary,
+              ),
+            ),
           )
         else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filtered.length,
-            separatorBuilder: (ctx, idx) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final tx = filtered[index];
-              return _buildTransactionCard(tx);
-            },
-          ),
-
-        const SizedBox(height: 24),
-
-        if (unverifiedCount > 0)
           Container(
-            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.warningLight,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+              color: AppColors.surfaceCard,
+              borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+              border: Border.all(color: AppColors.border),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded, color: AppColors.warning, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '$unverifiedCount transaction(s) have unverified categories. Tap any card to edit its merchant name or category before importing.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.warning),
-                  ),
-                ),
-              ],
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filtered.length,
+              separatorBuilder: (ctx, idx) =>
+                  const Divider(height: 1, indent: 48),
+              itemBuilder: (context, index) {
+                final tx = filtered[index];
+                return _buildTransactionRow(tx);
+              },
             ),
           ),
+
+        if (unverifiedCount > 0) ...[
+          const SizedBox(height: 12),
+          Text(
+            '$unverifiedCount transaction(s) have unverified categories. Tap row to edit category or merchant before import.',
+            style: const TextStyle(
+              fontFamily: AppTheme.fontSans,
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Center(
-          child: TextButton.icon(
-            icon: const Icon(Icons.arrow_back_rounded, size: 16),
+          child: TextButton(
             onPressed: () => setState(() {
               _state = _BankState.uploaded;
               _transactions.clear();
             }),
-            label: const Text('Upload Different Statement'),
+            child: const Text('Upload a different statement'),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 80),
       ],
     );
   }
@@ -928,65 +1036,58 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       label: Text(
         label,
         style: TextStyle(
+          fontFamily: AppTheme.fontSans,
           fontSize: 12,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           color: isSelected ? Colors.white : AppColors.textPrimary,
         ),
       ),
       selected: isSelected,
-      selectedColor: AppColors.primary,
-      backgroundColor: AppColors.surfaceCard,
+      selectedColor: AppColors.ink,
+      backgroundColor: AppColors.surfaceElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+        side: BorderSide(color: isSelected ? AppColors.ink : AppColors.border),
+      ),
       onSelected: (_) => setState(() => _selectedFilter = tab),
     );
   }
 
-  Widget _buildTransactionCard(_StatementItem tx) {
+  Widget _buildTransactionRow(_StatementItem tx) {
+    final fmt = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
+
     return InkWell(
       onTap: () => _editTransaction(tx),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: tx.isSelected
-                ? (tx.isVerified ? AppColors.border : AppColors.warning)
-                : AppColors.border.withValues(alpha: 0.4),
-            width: tx.isSelected ? 1.5 : 1,
-          ),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           children: [
             Checkbox(
               value: tx.isSelected,
-              activeColor: AppColors.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              activeColor: AppColors.ink,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(3),
+              ),
               onChanged: (val) {
                 setState(() => tx.isSelected = val ?? false);
               },
             ),
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: tx.isVerified ? AppColors.successLight : AppColors.warningLight,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                tx.isVerified ? Icons.check_circle_outline : Icons.help_outline_rounded,
-                color: tx.isVerified ? AppColors.success : AppColors.warning,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     tx.merchant,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    style: const TextStyle(
+                      fontFamily: AppTheme.fontSans,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -995,46 +1096,48 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                     children: [
                       Text(
                         _formatDate(tx.date),
-                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                      ),
-                      const Text('  •  ', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.accent.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            tx.category,
-                            style: const TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontSize: 11,
+                          color: AppColors.textTertiary,
                         ),
                       ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '· ${tx.category}',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: tx.isVerified
+                              ? AppColors.textSecondary
+                              : AppColors.warning,
+                        ),
+                      ),
+                      if (!tx.isVerified) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.help_outline_rounded,
+                          size: 12,
+                          color: AppColors.warning,
+                        ),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 115),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(
-                  '${tx.isDebit ? "-" : "+"}₹${NumberFormat('#,##,###.##', 'en_IN').format(tx.amount)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    color: tx.isDebit ? AppColors.danger : AppColors.success,
-                  ),
-                  textAlign: TextAlign.end,
-                ),
+            Text(
+              (tx.isDebit ? '− ' : '+ ') + fmt.format(tx.amount),
+              style: TextStyle(
+                fontFamily: AppTheme.fontSans,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: tx.isDebit ? AppColors.debit : AppColors.credit,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
+            const SizedBox(width: 8),
           ],
         ),
       ),
@@ -1042,13 +1145,13 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   }
 }
 
-class _FormatButton extends StatelessWidget {
+class _FormatTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _FormatButton({
+  const _FormatTile({
     required this.icon,
     required this.label,
     required this.isSelected,
@@ -1057,31 +1160,32 @@ class _FormatButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.accent.withValues(alpha: 0.1) : AppColors.surfaceCard,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? AppColors.surfaceCard : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
           border: Border.all(
-            color: isSelected ? AppColors.accent : AppColors.border,
-            width: isSelected ? 2 : 1,
+            color: isSelected ? AppColors.ink : AppColors.border,
+            width: 1.5,
           ),
         ),
-        child: Column(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 28, color: isSelected ? AppColors.accent : AppColors.textSecondary),
-            const SizedBox(height: 8),
+            Icon(icon, size: 18, color: AppColors.textPrimary),
+            const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? AppColors.accent : AppColors.textSecondary,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontSans,
                 fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),

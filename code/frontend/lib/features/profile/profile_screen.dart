@@ -1,5 +1,10 @@
+import 'package:intl/intl.dart';
+import '../../widgets/edit_income_dialog.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../bank_statement/bank_statements_screen.dart';
 import '../../models/user_model.dart';
 import '../../models/wishlist_model.dart';
@@ -10,6 +15,8 @@ import '../recurring/recurring_screen.dart';
 import '../split_expense/shared_expenses_screen.dart';
 import '../insights/insights_screen.dart';
 import '../splash/splash_screen.dart';
+import '../../widgets/app_logo.dart';
+import '../../widgets/user_avatar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -34,13 +41,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfileData({bool forceRefresh = false}) async {
     try {
       final results = await Future.wait([
-        ApiService.getCurrentUser(forceRefresh: forceRefresh).catchError((_) => const UserModel(
-              id: '',
-              name: 'User',
-              email: 'user@example.com',
-            )),
-        ApiService.getWishlistItems(forceRefresh: forceRefresh).catchError((_) => <WishlistItemModel>[]),
-        ApiService.detectRecurringExpenses(forceRefresh: forceRefresh).catchError((_) => <DetectedRecurringModel>[]),
+        ApiService.getCurrentUser(forceRefresh: forceRefresh).catchError(
+          (_) =>
+              const UserModel(id: '', name: 'User', email: 'user@example.com'),
+        ),
+        ApiService.getWishlistItems(forceRefresh: forceRefresh)
+            .catchError((_) => <WishlistItemModel>[]),
+        ApiService.detectRecurringExpenses(forceRefresh: forceRefresh)
+            .catchError((_) => <DetectedRecurringModel>[]),
       ]);
 
       if (mounted) {
@@ -54,35 +62,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showCurrencySelector() {
-    final currencies = ['INR (₹)', 'USD (\$)', 'EUR (€)', 'GBP (£)', 'AED (د.إ)'];
+    final currencies = [
+      'INR (₹)',
+      'USD (\$)',
+      'EUR (€)',
+      'GBP (£)',
+      'AED (د.إ)',
+    ];
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceCard,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor: AppColors.surfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLarge),
         ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Select Currency', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            ...currencies.map(
-              (c) => ListTile(
-                title: Text(c, style: const TextStyle(fontWeight: FontWeight.w600)),
-                trailing: _selectedCurrency == c
-                    ? const Icon(Icons.check_circle_rounded, color: AppColors.accent)
-                    : null,
-                onTap: () {
-                  setState(() => _selectedCurrency = c);
-                  Navigator.pop(ctx);
-                },
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select Currency',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      LucideIcons.x,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const Divider(height: 1, color: AppColors.border),
+              const SizedBox(height: 8),
+              ...currencies.map(
+                (c) => ListTile(
+                  dense: true,
+                  title: Text(
+                    c,
+                    style: TextStyle(
+                      fontWeight: _selectedCurrency == c
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  trailing: _selectedCurrency == c ? const
+                       Icon(
+                          LucideIcons.check,
+                          color: AppColors.primary,
+                          size: 18,
+                        )
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedCurrency = c);
+                    Navigator.pop(ctx);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -93,7 +143,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Log Out'),
-        content: const Text('Are you sure you want to log out of your account?'),
+        content: const Text(
+          'Are you sure you want to log out of your account?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -101,9 +153,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () async {
+              Navigator.pop(ctx);
               await ApiService.clearToken();
               if (!mounted) return;
-              Navigator.pop(ctx);
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
                 (route) => false,
@@ -123,42 +175,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
+      appBar: AppBar(title: const Text('Profile')),
       body: RefreshIndicator(
         onRefresh: _loadProfileData,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
           children: [
             // ─── User Profile Header ─────────────────────────────────
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.primaryDark,
-                    offset: Offset(0, 8),
-                  ),
-                ],
+                color: AppColors.surfaceCard,
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                border: Border.all(color: AppColors.border),
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    child: Text(
-                      user.initials,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                  UserAvatar(
+                    avatarUrl: user.avatarUrl,
+                    emailSeed: user.email,
+                    initials: user.initials,
+                    size: 68,
+                    borderRadius: AppTokens.radiusMedium,
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,33 +206,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           user.name,
                           style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           user.email,
                           style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.white70,
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(
+                        AppTokens.radiusSmall,
+                      ),
+                      border: Border.all(color: AppColors.border),
                     ),
                     child: const Text(
-                      'ACTIVE',
+                      'Active',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
                         fontSize: 11,
                       ),
                     ),
@@ -200,180 +246,241 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-          // ─── Financial Intelligence Section ───────────────────────
-          _SectionTitle(title: 'Financial Intelligence'),
-          _SettingsGroup(
-            children: [
-              _SettingsTile(
-                icon: Icons.bookmark_border_rounded,
-                iconColor: AppColors.catEntertainment,
-                title: 'Wishlist & Purchase Readiness',
-                subtitle: '$_wishlistCount items tracked',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const WishlistScreen()),
-                ).then((_) => _loadProfileData()),
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.repeat_rounded,
-                iconColor: AppColors.catBills,
-                title: 'Recurring Subscriptions & Bills',
-                subtitle: '$_recurringCount recurring charges',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const RecurringScreen()),
-                ).then((_) => _loadProfileData()),
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.group_outlined,
-                iconColor: AppColors.accent,
-                title: 'Shared Expenses & Debts',
-                subtitle: 'Manage group splits and settlement',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SharedExpensesScreen()),
+            // ─── Financial Tools ───────────────────────
+            const _SectionTitle(title: 'Ledger & Intelligence'),
+            _SettingsGroup(
+              children: [
+                _SettingsTile(
+                  icon: LucideIcons.heart,
+                  title: 'Wishlist & Purchase Readiness',
+                  subtitle: '$_wishlistCount items tracked',
+                  onTap: () => Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => const WishlistScreen(),
+                        ),
+                      )
+                      .then((_) => _loadProfileData()),
                 ),
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.warning_amber_rounded,
-                iconColor: AppColors.warning,
-                title: 'Spending Insights & Anomalies',
-                subtitle: 'Automated deviation detection',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.repeat,
+                  title: 'Recurring Subscriptions & Bills',
+                  subtitle: '$_recurringCount commitments',
+                  onTap: () => Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => const RecurringScreen(),
+                        ),
+                      )
+                      .then((_) => _loadProfileData()),
                 ),
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.account_balance_rounded,
-                iconColor: AppColors.catTravel,
-                title: 'Bank Statements',
-                subtitle: 'Upload & analyse PDF/CSV statements',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const BankStatementsScreen()),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // ─── Preferences Section ──────────────────────────────────
-          _SectionTitle(title: 'Preferences'),
-          _SettingsGroup(
-            children: [
-              _SettingsTile(
-                icon: Icons.currency_rupee_rounded,
-                iconColor: AppColors.success,
-                title: 'Currency',
-                subtitle: _selectedCurrency,
-                onTap: _showCurrencySelector,
-              ),
-              const Divider(height: 1, indent: 56),
-              SwitchListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                secondary: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.info.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.notifications_outlined, color: AppColors.info, size: 20),
-                ),
-                title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                subtitle: const Text('Bill reminders & unusual spend alerts', style: TextStyle(fontSize: 12)),
-                value: _notificationsEnabled,
-                activeColor: AppColors.accent,
-                onChanged: (val) => setState(() => _notificationsEnabled = val),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // ─── Account & Security ───────────────────────────────────
-          _SectionTitle(title: 'Account & Security'),
-          _SettingsGroup(
-            children: [
-              _SettingsTile(
-                icon: Icons.person_outline_rounded,
-                iconColor: AppColors.primaryLight,
-                title: 'Personal Information',
-                subtitle: 'Update email & name',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Account settings saved!')),
-                  );
-                },
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.lock_outline_rounded,
-                iconColor: AppColors.textSecondary,
-                title: 'Security & PIN',
-                subtitle: 'Biometrics & passkey configuration',
-                onTap: () {},
-              ),
-              const Divider(height: 1, indent: 56),
-              _SettingsTile(
-                icon: Icons.file_download_outlined,
-                iconColor: AppColors.info,
-                title: 'Export Financial Report',
-                subtitle: 'Download Excel / PDF summary',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Financial statement exported to Downloads!'),
-                      backgroundColor: AppColors.success,
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.users,
+                  title: 'Shared Expenses & Debts',
+                  subtitle: 'Manage group splits and settlement',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SharedExpensesScreen(),
                     ),
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // ─── Logout Button ────────────────────────────────────────
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.danger.withOpacity(0.3), width: 2),
-            ),
-            child: Material(
-              color: AppColors.dangerLight,
-              borderRadius: BorderRadius.circular(20),
-              clipBehavior: Clip.antiAlias,
-              child: ListTile(
-                leading: const Icon(Icons.logout_rounded, color: AppColors.danger),
-                title: const Text(
-                  'Log Out',
-                  style: TextStyle(
-                    color: AppColors.danger,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
                   ),
                 ),
-                onTap: _showLogoutDialog,
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.shieldCheck,
+                  title: 'Spending Insights & Anomalies',
+                  subtitle: 'Automated deviation detection',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                  ),
+                ),
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.fileSpreadsheet,
+                  title: 'Bank Statements',
+                  subtitle: 'Upload and parse statements',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BankStatementsScreen(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // ─── Preferences Section ──────────────────────────────────
+            const _SectionTitle(title: 'Preferences'),
+            _SettingsGroup(
+              children: [
+                _SettingsTile(
+                  icon: LucideIcons.wallet,
+                  title: 'Monthly Income',
+                  subtitle: '₹${NumberFormat.decimalPattern('en_IN').format(user.monthlyIncome)} / month',
+                  onTap: () async {
+                    final newIncome = await showEditIncomeDialog(
+                      context,
+                      currentIncome: user.monthlyIncome,
+                      onSuccess: _loadProfileData,
+                    );
+                    if (newIncome != null && mounted) {
+                      setState(() {
+                        _user = UserModel(
+                          id: user.id,
+                          name: user.name,
+                          email: user.email,
+                          avatarUrl: user.avatarUrl,
+                          currency: user.currency,
+                          monthlyIncome: newIncome,
+                        );
+                      });
+                    }
+                  },
+                ),
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.coins,
+                  title: 'Currency',
+                  subtitle: _selectedCurrency,
+                  onTap: _showCurrencySelector,
+                ),
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 2,
+                  ),
+                  secondary: const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: Center(
+                      child: Icon(
+                        LucideIcons.bell,
+                        color: AppColors.textPrimary,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  title: const Text(
+                    'Notifications',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  subtitle: const Text(
+                    'Alerts and reminders',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  value: _notificationsEnabled,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (val) =>
+                      setState(() => _notificationsEnabled = val),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // ─── Account & Security ───────────────────────────────────
+            const _SectionTitle(title: 'Account & Security'),
+            _SettingsGroup(
+              children: [
+                _SettingsTile(
+                  icon: LucideIcons.user,
+                  title: 'Personal Information',
+                  subtitle: 'Account details and credentials',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Account settings saved')),
+                    );
+                  },
+                ),
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.keyRound,
+                  title: 'Security & PIN',
+                  subtitle: 'Authentication configuration',
+                  onTap: () {},
+                ),
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.download,
+                  title: 'Export Financial Report',
+                  subtitle: 'Download Excel or CSV summary',
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Financial statement exported'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // ─── Logout Button ────────────────────────────────────────
+            InkWell(
+              onTap: _showLogoutDialog,
+              borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceCard,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                  border: Border.all(
+                    color: AppColors.danger.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.logOut,
+                      color: AppColors.danger,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Log Out',
+                      style: TextStyle(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-          // Version info
-          Center(
-            child: Text(
-              'Intelligent Expense Tracker v1.0.0 (Build 2026)',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
+            // App Branding & Version info
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const AppLogo(size: 52, borderRadius: AppTokens.radiusMedium),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Intelligent Expense Tracker · v1.0.0',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textTertiary, fontSize: 11),
                   ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -383,13 +490,14 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      padding: const EdgeInsets.only(left: 2, bottom: 8),
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
       ),
     );
   }
@@ -403,29 +511,23 @@ class _SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border, width: 2),
-      ),
-      child: Material(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(20),
-        clipBehavior: Clip.antiAlias,
-        child: Column(children: children),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        border: Border.all(color: AppColors.border),
       ),
+      child: Column(children: children),
     );
   }
 }
 
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
-  final Color iconColor;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
 
   const _SettingsTile({
     required this.icon,
-    required this.iconColor,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -435,25 +537,32 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(10),
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      leading: SizedBox(
+        width: 28,
+        height: 28,
+        child: Center(
+          child: Icon(icon, color: AppColors.textPrimary, size: 18),
         ),
-        child: Icon(icon, color: iconColor, size: 20),
       ),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          color: AppColors.textPrimary,
+        ),
       ),
       subtitle: Text(
         subtitle,
-        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
       ),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textTertiary),
+      trailing: const Icon(
+        LucideIcons.chevronRight,
+        size: 18,
+        color: AppColors.textTertiary,
+      ),
     );
   }
 }

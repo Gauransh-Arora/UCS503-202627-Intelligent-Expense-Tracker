@@ -1,74 +1,127 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// Design tokens for "Intelligent Expense Tracker" (Duolingo-Inspired Theme).
+///
+/// Palette: Forest Green & Warm Off-White
+/// - Friendly, engaging, approachable fintech companion
+/// - Dark forest green (#164B35) for primary authority
+/// - Deep green (#103D2C) for chunky button bottom depth
+/// - Warm off-white (#F8F8F0) background canvas
+/// - Soft mint (#DDF1E3) and light sage (#E8EFE6) for supportive surfaces
+/// - Harmonized, playful semantic tones (expense #D96B63, income #31966A)
 class AppColors {
   AppColors._();
 
-  // Primary palette (Blue-first)
-  static const Color primary = Color(0xFF2F80ED); // Primary blue
-  static const Color primaryDark = Color(0xFF1769D1); // Dark blue
-  static const Color primaryLight = Color(0xFFEAF3FF); // Light blue
-  static const Color accent = Color(0xFF2F80ED); // Same as primary for consistency
-  static const Color accentLight = Color(0xFFEAF3FF);
+  // ─── Brand & Core Forest Tokens ──────────────────────────────────────────
+  /// Dark forest green - primary actions and active navigation states
+  static const Color primary = Color(0xFF164B35);
+  /// Deep green - tactile button bottom depth & high-contrast headers
+  static const Color primaryDark = Color(0xFF103D2C);
+  /// Main vibrant green - key highlights and progress indicators
+  static const Color primaryMain = Color(0xFF238653);
+  /// Bright accent green - energetic rewards, streak badges & active states
+  static const Color primaryBright = Color(0xFF58B77A);
 
-  // Semantic colors
-  static const Color success = Color(0xFF22C55E); // Green for success only
-  static const Color successLight = Color(0xFFDCFCE7);
-  static const Color warning = Color(0xFFF59E0B); // Warm yellow/orange
-  static const Color warningLight = Color(0xFFFEF3C7);
-  static const Color danger = Color(0xFFEF4444); // Restrained red
-  static const Color dangerLight = Color(0xFFFEE2E2);
-  static const Color info = Color(0xFF3B82F6);
-  static const Color infoLight = Color(0xFFDBEAFE);
+  // Aliases for compatibility
+  static const Color ink = primary;
+  static const Color inkLight = primaryDark;
+  static const Color accent = primaryMain;
+  static const Color accentMuted = mint;
+  static const Color accentSubtle = sage;
 
-  // Backgrounds
-  static const Color background = Color(0xFFF8FAFC); // Warm very-light neutral
+  // ─── Canvas & Surfaces (Warm Off-White) ───────────────────────────────────
+  /// Warm off-white page background
+  static const Color background = Color(0xFFF8F8F0);
+  /// Pale cream surface for layered sections
+  static const Color surfaceCream = Color(0xFFF1F3E9);
+  /// Clean white card surface
   static const Color surfaceCard = Color(0xFFFFFFFF);
-  static const Color surfaceElevated = Color(0xFFF5F9FF); // Very light blue
+  /// Soft mint for friendly pill highlights & interactive tiles
+  static const Color mint = Color(0xFFDDF1E3);
+  /// Light sage for divider outlines and card borders
+  static const Color sage = Color(0xFFE8EFE6);
 
-  // Text
-  static const Color textPrimary = Color(0xFF172033);
-  static const Color textSecondary = Color(0xFF667085);
-  static const Color textTertiary = Color(0xFF94A3B8);
+  static const Color surfaceElevated = surfaceCream;
+  static const Color surfaceMuted = sage;
+
+  // ─── Typography & Content ────────────────────────────────────────────────
+  /// Deep forest ink text
+  static const Color textPrimary = Color(0xFF20352A);
+  /// Muted sage text for subtitles and metadata
+  static const Color textSecondary = Color(0xFF78857C);
+  /// Light muted text for placeholders and disabled states
+  static const Color textTertiary = Color(0xFF9EABA1);
+  /// Text on dark surfaces
   static const Color textOnPrimary = Color(0xFFFFFFFF);
+  static const Color textOnAccent = Color(0xFFFFFFFF);
 
-  // Borders
-  static const Color border = Color(0xFFE6EAF0);
-  static const Color borderFocus = Color(0xFF2F80ED); // Focus color is primary blue
+  // ─── Borders & Tactile Chunky Depth ──────────────────────────────────────
+  static const Color border = Color(0xFFE0E8DE);
+  static const Color borderSubtle = Color(0xFFE8EFE6);
+  static const Color borderStrong = Color(0xFFC8D7C5);
+  static const Color borderFocus = primaryMain;
 
-  // Category colors
-  static const Color catFood = Color(0xFFFF6B6B);
-  static const Color catGroceries = Color(0xFF10B981);
-  static const Color catTravel = Color(0xFF4ECDC4);
-  static const Color catShopping = Color(0xFFFFBE0B);
-  static const Color catBills = Color(0xFF8338EC);
-  static const Color catHealth = Color(0xFF06D6A0);
-  static const Color catEntertainment = Color(0xFFFF006E);
-  static const Color catEducation = Color(0xFF3A86FF);
-  static const Color catRent = Color(0xFFF97316);
-  static const Color catSubscriptions = Color(0xFF6366F1);
-  static const Color catOther = Color(0xFF8B8B8B);
+  /// Dark green bevel depth for chunky primary buttons
+  static const Color buttonDepth = Color(0xFF103D2C);
+  /// Soft bevel depth for chunky secondary/white buttons
+  static const Color buttonDepthLight = Color(0xFFD4DEC2);
+  /// Card tactile bottom shadow
+  static const Color cardDepth = Color(0x1F20352A);
 
-  // Gradient
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF4092FF), Color(0xFF1769D1)], // Brighter blue to darker blue
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  // ─── Semantic Tokens (Harmonized) ────────────────────────────────────────
+  /// Expense / Debit: Warm crimson
+  static const Color expense = Color(0xFFD96B63);
+  static const Color expenseLight = Color(0xFFFBECEB);
+  static const Color debit = expense;
+  static const Color debitLight = expenseLight;
+  static const Color danger = expense;
+  static const Color dangerLight = expenseLight;
 
-  static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFF4092FF), Color(0xFF1769D1)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  /// Income / Credit / Success: Friendly emerald
+  static const Color income = Color(0xFF31966A);
+  static const Color incomeLight = Color(0xFFEBF7F1);
+  static const Color credit = income;
+  static const Color creditLight = incomeLight;
+  static const Color success = income;
+  static const Color successLight = incomeLight;
 
-  static const LinearGradient successGradient = LinearGradient(
-    colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  /// Warning / Anomaly: Sunny amber
+  static const Color warning = Color(0xFFE8B957);
+  static const Color warningLight = Color(0xFFFDF7EA);
 
+  /// Info / Metadata: Approachable sky blue
+  static const Color info = Color(0xFF6C9BC7);
+  static const Color infoLight = Color(0xFFEEF4FA);
+
+  // ─── Category System (Coherent Forest Harmonized Palette) ────────────────
+  static const List<Color> categorySwatches = [
+    Color(0xFF238653), // Forest Green
+    Color(0xFF6C9BC7), // Sky Blue
+    Color(0xFFE8B957), // Warm Amber
+    Color(0xFFD96B63), // Coral Red
+    Color(0xFF8B68AA), // Muted Purple
+    Color(0xFF31966A), // Emerald
+    Color(0xFFC47D4C), // Terracotta
+    Color(0xFF4A7C59), // Sage Green
+  ];
+
+  static const Color catFood = Color(0xFFC47D4C);
+  static const Color catGroceries = Color(0xFF31966A);
+  static const Color catTravel = Color(0xFF6C9BC7);
+  static const Color catShopping = Color(0xFFE8B957);
+  static const Color catBills = Color(0xFF238653);
+  static const Color catHealth = Color(0xFFD96B63);
+  static const Color catEntertainment = Color(0xFF8B68AA);
+  static const Color catEducation = Color(0xFF4A7C59);
+  static const Color catRent = Color(0xFF164B35);
+  static const Color catSubscriptions = Color(0xFF6C9BC7);
+  static const Color catOther = Color(0xFF78857C);
+
+  /// Dynamic category color with stable hash fallback.
   static Color categoryColor(String category) {
-    switch (category.toLowerCase()) {
+    final clean = category.trim().toLowerCase();
+    switch (clean) {
       case 'food':
       case 'food & dining':
         return catFood;
@@ -99,43 +152,46 @@ class AppColors {
       case 'subscription':
         return catSubscriptions;
       default:
-        return catOther;
+        if (clean.isEmpty) return catOther;
+        final hash = clean.runes.fold<int>(0, (prev, elem) => prev + elem);
+        return categorySwatches[hash % categorySwatches.length];
     }
   }
 
+  /// Category icon using Lucide icons.
   static IconData categoryIcon(String category) {
-    switch (category.toLowerCase()) {
+    switch (category.trim().toLowerCase()) {
       case 'food':
       case 'food & dining':
-        return Icons.fastfood_rounded;
+        return LucideIcons.utensils;
       case 'groceries':
       case 'grocery':
-        return Icons.shopping_cart_rounded;
+        return LucideIcons.shoppingCart;
       case 'travel':
       case 'transport':
       case 'transportation':
-        return Icons.directions_car_rounded;
+        return LucideIcons.car;
       case 'shopping':
-        return Icons.shopping_bag_rounded;
+        return LucideIcons.shoppingBag;
       case 'bills':
       case 'utilities':
-        return Icons.lightbulb_rounded;
+        return LucideIcons.receipt;
       case 'health':
       case 'healthcare':
       case 'medical':
-        return Icons.local_pharmacy_rounded;
+        return LucideIcons.heartPulse;
       case 'entertainment':
-        return Icons.movie_rounded;
+        return LucideIcons.film;
       case 'education':
-        return Icons.school_rounded;
+        return LucideIcons.graduationCap;
       case 'rent':
       case 'housing':
-        return Icons.home_rounded;
+        return LucideIcons.home;
       case 'subscriptions':
       case 'subscription':
-        return Icons.subscriptions_rounded;
+        return LucideIcons.refreshCw;
       default:
-        return Icons.monetization_on_rounded;
+        return LucideIcons.tag;
     }
   }
 }

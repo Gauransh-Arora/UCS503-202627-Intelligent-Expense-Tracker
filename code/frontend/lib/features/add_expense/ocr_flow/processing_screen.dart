@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_tokens.dart';
 import '../../../services/api_service.dart';
 import 'ocr_review_screen.dart';
 
@@ -11,73 +14,56 @@ class ProcessingScreen extends StatefulWidget {
   State<ProcessingScreen> createState() => _ProcessingScreenState();
 }
 
-class _ProcessingScreenState extends State<ProcessingScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _pulseCtrl;
-  late AnimationController _progressCtrl;
-
-  final List<_ExtractionStep> _steps = const [
-    _ExtractionStep(label: 'Merchant Name', icon: Icons.storefront_rounded),
-    _ExtractionStep(label: 'Total Amount', icon: Icons.payments_rounded),
-    _ExtractionStep(label: 'Date & Time', icon: Icons.calendar_today_rounded),
-    _ExtractionStep(label: 'Line Items', icon: Icons.receipt_rounded),
-    _ExtractionStep(label: 'Category', icon: Icons.label_outline_rounded),
+class _ProcessingScreenState extends State<ProcessingScreen> {
+  final List<String> _stages = const [
+    'Uploading document',
+    'Locating merchant & transaction date',
+    'Detecting line items & total',
+    'Categorizing expense',
   ];
 
-  int _completedSteps = 0;
+  int _currentStage = 0;
 
   @override
   void initState() {
     super.initState();
-
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
-
-    _progressCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 15000), // Max 15s wait
-    )..forward();
-
     _processDocument();
   }
 
   Future<void> _processDocument() async {
     try {
-      // Step 1: Upload
-      if (mounted) setState(() => _completedSteps = 1);
+      if (mounted) setState(() => _currentStage = 0);
       final docId = await ApiService.uploadDocument(widget.filePath);
 
-      // Step 2: Process OCR
-      if (mounted) setState(() => _completedSteps = 2);
+      if (mounted) setState(() => _currentStage = 1);
       final ocrResult = await ApiService.processDocument(docId);
-      
-      if (mounted) setState(() => _completedSteps = 5);
+
+      if (mounted) setState(() => _currentStage = 3);
+
+      // Attach local image path for the review screen to display side-by-side
+      final Map<String, dynamic> enrichedResult = Map<String, dynamic>.from(
+        ocrResult,
+      );
+      enrichedResult['local_image_path'] = widget.filePath;
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => OcrReviewScreen(ocrData: ocrResult),
+          builder: (_) => OcrReviewScreen(ocrData: enrichedResult),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to process image: \$e'),
-          backgroundColor: AppColors.danger,
+          content: Text(
+            'Document processing failed: ${e.toString().replaceAll('Exception: ', '')}',
+          ),
+          backgroundColor: AppColors.debit,
         ),
       );
-      Navigator.pop(context); // Go back to preview
+      Navigator.pop(context); // Return to preview
     }
-  }
-
-  @override
-  void dispose() {
-    _pulseCtrl.dispose();
-    _progressCtrl.dispose();
-    super.dispose();
   }
 
   @override
@@ -85,159 +71,112 @@ class _ProcessingScreenState extends State<ProcessingScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Animated logo
-              AnimatedBuilder(
-                animation: _pulseCtrl,
-                builder: (_, __) => Container(
-                  width: 110,
-                  height: 110,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accent
-                        .withOpacity(0.1 + _pulseCtrl.value * 0.1),
-                    border: Border.all(
-                      color: AppColors.accent
-                          .withOpacity(0.4 + _pulseCtrl.value * 0.4),
-                      width: 2,
-                    ),
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                    border: Border.all(color: AppColors.border, width: 1),
                   ),
                   child: const Center(
-                    child: Icon(Icons.search_rounded, size: 48, color: AppColors.primary),
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.ink,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 20),
 
-              Text(
-                'Analyzing your receipt...',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Our AI is extracting the details',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 36),
-
-              // Progress bar
-              AnimatedBuilder(
-                animation: _progressCtrl,
-                builder: (_, __) => ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: _progressCtrl.value,
-                    minHeight: 6,
-                    backgroundColor: AppColors.border,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppColors.accent),
+                const Text(
+                  'Extracting Document Details',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 6),
+                const Text(
+                  'Reading values from invoice and categorizing entries',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 28),
 
-              // Extraction steps
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceCard,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Extracting:',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    const SizedBox(height: 12),
-                    ..._steps.asMap().entries.map((entry) {
+                // Processing steps checklist
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceCard,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                    border: Border.all(color: AppColors.border, width: 1),
+                  ),
+                  child: Column(
+                    children: _stages.asMap().entries.map((entry) {
                       final i = entry.key;
-                      final step = entry.value;
-                      final isDone = i < _completedSteps;
-                      final isActive = i == _completedSteps;
+                      final label = entry.value;
+                      final isComplete = i <= _currentStage;
 
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Row(
                           children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isDone
-                                    ? AppColors.success
-                                    : isActive
-                                        ? AppColors.accent.withOpacity(0.2)
-                                        : AppColors.border,
-                              ),
-                              child: Center(
-                                child: isDone
-                                    ? const Icon(Icons.check_rounded,
-                                        color: Colors.white, size: 14)
-                                    : isActive
-                                        ? SizedBox(
-                                            width: 12,
-                                            height: 12,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: AppColors.accent,
-                                            ),
-                                          )
-                                        : const Icon(Icons.circle_outlined,
-                                            size: 14,
-                                            color: AppColors.textTertiary),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
                             Icon(
-                              step.icon,
-                              size: 18,
-                              color: isDone ? AppColors.primary : AppColors.textTertiary,
+                              isComplete
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              size: 16,
+                              color: isComplete
+                                  ? AppColors.accent
+                                  : AppColors.textTertiary,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              step.label,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: isDone
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: isDone
-                                    ? AppColors.textPrimary
-                                    : AppColors.textTertiary,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontSans,
+                                  fontSize: 13,
+                                  fontWeight: isComplete
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
+                                  color: isComplete
+                                      ? AppColors.textPrimary
+                                      : AppColors.textTertiary,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       );
-                    }),
-                  ],
+                    }).toList(),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
-
-class _ExtractionStep {
-  final String label;
-  final IconData icon;
-  const _ExtractionStep({required this.label, required this.icon});
 }

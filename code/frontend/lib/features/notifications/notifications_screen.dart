@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../models/notification_model.dart';
 import '../../services/api_service.dart';
+import '../../services/local_notification_service.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -71,7 +75,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     try {
       await ApiService.markAllNotificationsAsRead();
       setState(() {
-        _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+        _notifications = _notifications
+            .map((n) => n.copyWith(isRead: true))
+            .toList();
         _unreadCount = 0;
       });
       if (!mounted) return;
@@ -84,10 +90,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppColors.danger,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
       );
     }
   }
@@ -100,10 +103,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       setState(() => _isTriggering = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Scan complete: ${result.generatedCount} smart alert(s) generated'),
+          content: Text(
+            'Scan complete: ${result.generatedCount} alert(s) generated',
+          ),
           backgroundColor: AppColors.primary,
         ),
       );
+      if (result.notifications.isNotEmpty) {
+        LocalNotificationService.showFromNotificationItems(
+          result.notifications,
+        );
+      }
       _loadNotifications();
     } catch (e) {
       if (!mounted) return;
@@ -121,18 +131,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     switch (type.toLowerCase()) {
       case 'spending_alert':
       case 'anomaly':
-        return Icons.warning_amber_rounded;
+        return LucideIcons.alertTriangle;
       case 'recurring_reminder':
       case 'subscription':
-        return Icons.autorenew_rounded;
+        return LucideIcons.repeat;
       case 'shared_debt':
       case 'split':
-        return Icons.people_outline_rounded;
+        return LucideIcons.users;
       case 'wishlist_ready':
       case 'wishlist':
-        return Icons.bookmark_border_rounded;
+        return LucideIcons.heart;
       default:
-        return Icons.notifications_none_rounded;
+        return LucideIcons.bell;
     }
   }
 
@@ -166,43 +176,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             if (_unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Text(
                   '$_unreadCount',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ],
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
         actions: [
           IconButton(
-            tooltip: 'Run Smart Detection',
+            tooltip: 'Run Scan',
             icon: _isTriggering
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.radar_rounded),
+                : const Icon(LucideIcons.rotateCcw, size: 20),
             onPressed: _isTriggering ? null : _triggerAutoScan,
           ),
           if (_unreadCount > 0)
             IconButton(
               tooltip: 'Mark All Read',
-              icon: const Icon(Icons.done_all_rounded),
+              icon: const Icon(LucideIcons.checkCheck, size: 20),
               onPressed: _markAllAsRead,
             ),
         ],
@@ -211,7 +218,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         children: [
           // Filter Tabs
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 _buildFilterChip('All', 0),
@@ -224,15 +231,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           // Notification List
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
                 : RefreshIndicator(
                     onRefresh: () => _loadNotifications(forceRefresh: true),
                     child: _notifications.isEmpty
                         ? _buildEmptyState()
                         : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
                             itemCount: _notifications.length,
-                            separatorBuilder: (_, index) => const SizedBox(height: 10),
+                            separatorBuilder: (_, index) =>
+                                const SizedBox(height: 6),
                             itemBuilder: (context, index) {
                               final item = _notifications[index];
                               return _buildNotificationCard(item);
@@ -253,10 +267,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _loadNotifications();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : AppColors.surfaceCard,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,
           ),
@@ -264,9 +278,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? Colors.white : AppColors.textPrimary,
           ),
         ),
       ),
@@ -279,33 +293,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return InkWell(
       onTap: () => _markAsRead(item),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: item.isRead ? AppColors.surfaceCard : AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(16),
+          color: item.isRead
+              ? AppColors.surfaceCard
+              : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
           border: Border.all(
-            color: item.isRead ? AppColors.border : AppColors.primary.withValues(alpha: 0.3),
-            width: item.isRead ? 1 : 1.5,
+            color: item.isRead
+                ? AppColors.border
+                : AppColors.primary.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: typeColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(typeIcon, color: typeColor, size: 22),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: Center(child: Icon(typeIcon, color: typeColor, size: 18)),
             ),
-            const SizedBox(width: 14),
-
-            // Content
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,16 +327,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: Text(
                           item.title,
                           style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: item.isRead ? FontWeight.w600 : FontWeight.w700,
+                            fontSize: 13,
+                            fontWeight: item.isRead
+                                ? FontWeight.w600
+                                : FontWeight.w600,
                             color: AppColors.textPrimary,
                           ),
                         ),
                       ),
                       if (!item.isRead)
                         Container(
-                          width: 8,
-                          height: 8,
+                          width: 6,
+                          height: 6,
                           decoration: const BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
@@ -334,16 +346,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     item.message,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       color: AppColors.textSecondary,
                       height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     item.timeAgo,
                     style: const TextStyle(
@@ -361,57 +373,48 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                size: 36,
-                color: AppColors.primary,
-              ),
+    return Container(
+      margin: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'No Notifications',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _selectedFilter == 1
+                ? 'No unread alerts.'
+                : 'Alerts for unusual spending or debt will appear here.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
             ),
-            const SizedBox(height: 16),
-            Text(
-              _selectedFilter == 1 ? 'No Unread Notifications' : 'No Notifications Yet',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Smart alerts for unusual spending, subscriptions, and shared debts will appear here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: _triggerAutoScan,
-              icon: const Icon(Icons.radar_rounded, size: 18),
-              label: const Text('Scan For Smart Alerts'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: _triggerAutoScan,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
               ),
             ),
-          ],
-        ),
+            child: const Text(
+              'Scan For Alerts',
+              style: TextStyle(fontSize: 12, color: AppColors.textPrimary),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,5 +1,8 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../services/api_service.dart';
 
 class ChatMessage {
@@ -28,7 +31,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
 
   final List<ChatMessage> _messages = [
     ChatMessage(
-      text: 'Hi there! I am your AI Expense Assistant. Ask me anything about your spending, recurring bills, debts, or savings.',
+      text: 'Ask questions about your transactions, categories, recurring commitments, or balances.',
       isUser: false,
       timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
     ),
@@ -46,18 +49,20 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
   @override
   void initState() {
     super.initState();
-    ApiService.getCurrentUser().then((user) {
-      if (mounted && user.name.trim().isNotEmpty) {
-        final name = user.name.trim().split(' ').first;
-        setState(() {
-          _messages[0] = ChatMessage(
-            text: 'Hi $name! I am your AI Expense Assistant. Ask me anything about your spending, recurring bills, debts, or savings.',
-            isUser: false,
-            timestamp: DateTime.now(),
-          );
-        });
-      }
-    }).catchError((_) {});
+    ApiService.getCurrentUser()
+        .then((user) {
+          if (mounted) {
+            setState(() {
+              _messages[0] = ChatMessage(
+                text:
+                    'Query ledger records for transactions, categories, recurring commitments, or balances.',
+                isUser: false,
+                timestamp: DateTime.now(),
+              );
+            });
+          }
+        })
+        .catchError((_) {});
   }
 
   @override
@@ -72,7 +77,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
       }
@@ -85,11 +90,9 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
 
     _textCtrl.clear();
     setState(() {
-      _messages.add(ChatMessage(
-        text: text,
-        isUser: true,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        ChatMessage(text: text, isUser: true, timestamp: DateTime.now()),
+      );
       _isTyping = true;
     });
     _scrollToBottom();
@@ -99,22 +102,26 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
       if (!mounted) return;
       setState(() {
         _isTyping = false;
-        _messages.add(ChatMessage(
-          text: response.answer,
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          ChatMessage(
+            text: response.answer,
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
       });
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isTyping = false;
-        _messages.add(ChatMessage(
-          text: 'I could not reach the server right now. Please ensure your backend is connected.',
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          ChatMessage(
+            text: 'Unable to reach the server. Please verify your connection.',
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
       });
       _scrollToBottom();
     }
@@ -128,14 +135,19 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
         title: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+                border: Border.all(color: AppColors.border),
               ),
               child: const Center(
-                child: Icon(Icons.smart_toy_rounded, size: 18, color: Colors.white),
+                child: Icon(
+                  LucideIcons.search,
+                  size: 16,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -143,30 +155,24 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Ask Your Expenses',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  'Ask Expenses',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  'Natural Language Financial AI',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  'Ledger queries',
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: AppColors.textSecondary, fontSize: 11),
                 ),
               ],
             ),
           ],
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Column(
         children: [
           // ─── Quick Query Chips ──────────────────────────────────
           Container(
-            height: 44,
+            height: 36,
             margin: const EdgeInsets.symmetric(vertical: 8),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
@@ -175,21 +181,31 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
               itemBuilder: (context, i) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text(
-                      _suggestions[i],
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
+                  child: GestureDetector(
+                    onTap: () => _sendMessage(_suggestions[i]),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceCard,
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.radiusSmall,
+                        ),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Center(
+                        child: Text(
+                          _suggestions[i],
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
                       ),
                     ),
-                    backgroundColor: AppColors.surfaceElevated,
-                    side: const BorderSide(color: AppColors.border, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    onPressed: () => _sendMessage(_suggestions[i]),
                   ),
                 );
               },
@@ -212,33 +228,37 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
           // ─── Typing Indicator ───────────────────────────────────
           if (_isTyping)
             Padding(
-              padding: const EdgeInsets.only(left: 20, bottom: 8),
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceCard,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
                     border: Border.all(color: AppColors.border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(
-                        width: 14,
-                        height: 14,
+                        width: 12,
+                        height: 12,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                          strokeWidth: 1.5,
                           color: AppColors.primary,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Analyzing financial records...',
+                        'Querying ledger records...',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -252,13 +272,11 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
               16,
               8,
               16,
-              MediaQuery.of(context).viewInsets.bottom + 16,
+              MediaQuery.of(context).viewInsets.bottom + 12,
             ),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.surfaceCard,
-              border: const Border(
-                top: BorderSide(color: AppColors.border),
-              ),
+              border: Border(top: BorderSide(color: AppColors.border)),
             ),
             child: Row(
               children: [
@@ -267,42 +285,58 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
                     controller: _textCtrl,
                     textInputAction: TextInputAction.send,
                     onSubmitted: _sendMessage,
+                    style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'Ask anything about your spending...',
-                      hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      hintText: 'Ask about your transactions...',
+                      hintStyle: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(
                             color: AppColors.textTertiary,
+                            fontSize: 13,
                           ),
                       filled: true,
                       fillColor: AppColors.surfaceElevated,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.radiusSmall,
+                        ),
                         borderSide: const BorderSide(color: AppColors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.radiusSmall,
+                        ),
                         borderSide: const BorderSide(color: AppColors.border),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.radiusSmall,
+                        ),
                         borderSide: const BorderSide(
-                            color: AppColors.primary, width: 2),
+                          color: AppColors.primary,
+                          width: 1.5,
+                        ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
+                        horizontal: 14,
+                        vertical: 10,
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  decoration: const BoxDecoration(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
                     color: AppColors.primary,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_upward_rounded,
-                        color: Colors.white, size: 20),
+                    icon: const Icon(
+                      LucideIcons.arrowUp,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     onPressed: () => _sendMessage(_textCtrl.text),
                   ),
                 ),
@@ -324,60 +358,52 @@ class _ChatBubble extends StatelessWidget {
     final isUser = message.isUser;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser) ...[
             Container(
-              width: 30,
-              height: 30,
+              width: 26,
+              height: 26,
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                shape: BoxShape.circle,
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+                border: Border.all(color: AppColors.border),
               ),
               child: const Center(
-                child: Icon(Icons.smart_toy_rounded,
-                    size: 16, color: AppColors.primary),
+                child: Icon(
+                  LucideIcons.search,
+                  size: 14,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
             const SizedBox(width: 8),
           ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isUser ? AppColors.primary : AppColors.surfaceCard,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(18),
-                  topRight: const Radius.circular(18),
-                  bottomLeft: Radius.circular(isUser ? 18 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 18),
-                ),
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
                 border: isUser ? null : Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               child: isUser
                   ? Text(
                       message.text,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 14,
+                        fontSize: 13,
                         height: 1.4,
                       ),
                     )
                   : _FormattedMessageText(text: message.text),
             ),
           ),
-          if (isUser) const SizedBox(width: 8),
         ],
       ),
     );
@@ -396,15 +422,17 @@ class _FormattedMessageText extends StatelessWidget {
 
     for (int i = 0; i < parts.length; i++) {
       final isBold = i % 2 == 1;
-      spans.add(TextSpan(
-        text: parts[i],
-        style: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-          height: 1.45,
-          fontWeight: isBold ? FontWeight.w700 : FontWeight.normal,
+      spans.add(
+        TextSpan(
+          text: parts[i],
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 13,
+            height: 1.45,
+            fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
+          ),
         ),
-      ));
+      );
     }
 
     return RichText(text: TextSpan(children: spans));

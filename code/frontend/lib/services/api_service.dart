@@ -15,6 +15,8 @@ import '../models/intelligence_model.dart';
 import '../models/ai_model.dart';
 import '../models/user_model.dart';
 import '../models/category_model.dart';
+import 'local_notification_service.dart';
+
 
 /// Cache container with timestamp and TTL support.
 class _CacheEntry<T> {
@@ -22,7 +24,7 @@ class _CacheEntry<T> {
   final DateTime timestamp;
   final Duration ttl;
 
-  _CacheEntry(this.data, this.ttl) : timestamp = DateTime.now();
+_CacheEntry(this.data, this.ttl) : timestamp = DateTime.now();
 
   bool get isValid => DateTime.now().difference(timestamp) < ttl;
 }
@@ -30,7 +32,7 @@ class _CacheEntry<T> {
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.34.235.140:8000',
+    defaultValue: 'http://172.16.216.51:8000',
   );
   static const String _tokenKey = 'jwt_token';
   static const Duration _defaultTimeout = Duration(seconds: 15);
@@ -228,6 +230,35 @@ class ApiService {
     );
   }
 
+  static Future<UserModel> updateProfile({
+    String? name,
+    String? email,
+    double? monthlyIncome,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/me');
+    final headers = await _authHeaders(jsonContent: true);
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (email != null) body['email'] = email;
+    if (monthlyIncome != null) body['monthly_income'] = monthlyIncome;
+
+    final response = await _client
+        .patch(
+          uri,
+          headers: headers,
+          body: json.encode(body),
+        )
+        .timeout(_defaultTimeout);
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+            notifyDataChanged();
+      return UserModel.fromJson(data);
+    } else {
+      throw Exception('Failed to update profile: ${response.body}');
+    }
+  }
+
   // ─── Document Uploads ────────────────────────────────────────────────────────
 
   static Future<String> uploadDocument(String filePath) async {
@@ -323,6 +354,18 @@ class ApiService {
     if (response.statusCode == 201 || response.statusCode == 200) {
       if (notify) {
         notifyDataChanged();
+        try {
+          final merchant = txData['merchant_name']?.toString() ?? 'Merchant';
+          final amt = (txData['amount'] is num)
+              ? (txData['amount'] as num).toDouble()
+              : double.tryParse(txData['amount']?.toString() ?? '0') ?? 0.0;
+          if (amt > 0) {
+            LocalNotificationService.showExpenseCapturedAlert(
+              merchant: merchant,
+              amount: amt,
+            );
+          }
+        } catch (_) {}
       }
       return json.decode(response.body) as Map<String, dynamic>;
     } else {
@@ -478,18 +521,30 @@ class ApiService {
     final uri = Uri.parse('$baseUrl/bank-statements/$statementId/parse');
     final token = await getToken();
 
-    final response = await _client
-        .post(
-          uri,
-          headers: {if (token != null) 'Authorization': 'Bearer $token'},
-        )
-        .timeout(const Duration(seconds: 45));
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: {if (token != null) 'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 180));
 
-    if (response.statusCode == 200) {
-      invalidateCache('bank_statements');
-      return json.decode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Parsing failed: ${response.body}');
+      if (response.statusCode == 200) {
+        invalidateCache('bank_statements');
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Parsing failed: ${response.body}');
+      }
+    } catch (e) {
+      // If client timed out or connection dropped, check if statement is already parsed on backend
+      try {
+        final detail = await getBankStatement(statementId, forceRefresh: true);
+        if (detail['status'] == 'parsed' && detail['parsed_rows'] != null) {
+          invalidateCache('bank_statements');
+          return detail;
+        }
+      } catch (_) {}
+      rethrow;
     }
   }
 

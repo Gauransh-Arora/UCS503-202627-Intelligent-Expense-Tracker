@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../core/utils/num_parser.dart';
 import '../../models/category_model.dart';
 import '../../models/expense_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/primary_button.dart';
+import '../../widgets/split_with_friends_selector.dart';
+
 
 class ManualExpenseScreen extends StatefulWidget {
   final ExpenseModel? editExpense;
@@ -44,11 +49,17 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
   List<String> _categoryOptions = List<String>.from(AppConstants.categories);
 
   final List<Map<String, dynamic>> _items = [];
+  SplitSelectionData? _splitData;
+
 
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _amountCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
+
     if (widget.editExpense != null) {
       final e = widget.editExpense!;
       _amountCtrl.text = e.amount.toStringAsFixed(0);
@@ -57,16 +68,22 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
       _selectedDate = e.date;
       _selectedCategory = e.category;
       _selectedPaymentMethod = e.paymentMethod;
-      _items.addAll(e.items.map((i) => {
-            'name': i.name,
-            'quantity': i.quantity,
-            'price': i.price,
-          }));
+      _items.addAll(
+        e.items.map(
+          (i) => {'name': i.name, 'quantity': i.quantity, 'price': i.price},
+        ),
+      );
     } else {
       // Pre-fill from shared UPI text
-      if (widget.prefillAmount != null) _amountCtrl.text = widget.prefillAmount!;
-      if (widget.prefillMerchant != null) _merchantCtrl.text = widget.prefillMerchant!;
-      if (widget.prefillNote != null) _notesCtrl.text = widget.prefillNote!;
+      if (widget.prefillAmount != null) {
+        _amountCtrl.text = widget.prefillAmount!;
+      }
+      if (widget.prefillMerchant != null) {
+        _merchantCtrl.text = widget.prefillMerchant!;
+      }
+      if (widget.prefillNote != null) {
+        _notesCtrl.text = widget.prefillNote!;
+      }
       if (widget.prefillRawText != null) {
         _selectedPaymentMethod = 'UPI';
       }
@@ -89,7 +106,7 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
       lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: AppColors.accent),
+          colorScheme: const ColorScheme.light(primary: AppColors.ink),
         ),
         child: child!,
       ),
@@ -103,7 +120,14 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Add Item'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        title: const Text(
+          'Add Line Item',
+          style: TextStyle(fontFamily: AppTheme.fontSans, fontSize: 16),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -114,20 +138,24 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: priceCtrl,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(labelText: 'Price (₹)'),
             ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () {
               if (nameCtrl.text.isNotEmpty && priceCtrl.text.isNotEmpty) {
                 setState(() {
                   _items.add({
-                    'name': nameCtrl.text,
+                    'name': nameCtrl.text.trim(),
                     'quantity': 1,
                     'price': double.tryParse(priceCtrl.text) ?? 0,
                   });
@@ -143,35 +171,37 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
   }
 
   void _loadCategories() {
-    ApiService.getCategories().then((cats) {
-      if (cats.isNotEmpty && mounted) {
-        setState(() {
-          _backendCategories = cats;
-          final names = cats
-              .map((c) => c.name.trim())
-              .where((n) => n.isNotEmpty)
-              .toSet()
-              .toList();
-          if (names.isNotEmpty) {
-            _categoryOptions = names;
+    ApiService.getCategories()
+        .then((cats) {
+          if (cats.isNotEmpty && mounted) {
+            setState(() {
+              _backendCategories = cats;
+              final names = cats
+                  .map((c) => c.name.trim())
+                  .where((n) => n.isNotEmpty)
+                  .toSet()
+                  .toList();
+              if (names.isNotEmpty) {
+                _categoryOptions = names;
+              }
+              if (!_categoryOptions.contains(_selectedCategory)) {
+                final selLower = _selectedCategory.toLowerCase();
+                final match = _categoryOptions.where((c) {
+                  final cLower = c.toLowerCase();
+                  return cLower == selLower ||
+                      cLower.contains(selLower) ||
+                      selLower.contains(cLower);
+                }).firstOrNull;
+                if (match != null) {
+                  _selectedCategory = match;
+                } else if (_categoryOptions.isNotEmpty) {
+                  _selectedCategory = _categoryOptions.first;
+                }
+              }
+            });
           }
-          if (!_categoryOptions.contains(_selectedCategory)) {
-            final selLower = _selectedCategory.toLowerCase();
-            final match = _categoryOptions.where((c) {
-              final cLower = c.toLowerCase();
-              return cLower == selLower ||
-                  cLower.contains(selLower) ||
-                  selLower.contains(cLower);
-            }).firstOrNull;
-            if (match != null) {
-              _selectedCategory = match;
-            } else if (_categoryOptions.isNotEmpty) {
-              _selectedCategory = _categoryOptions.first;
-            }
-          }
-        });
-      }
-    }).catchError((_) {});
+        })
+        .catchError((_) {});
   }
 
   Future<void> _save() async {
@@ -185,19 +215,23 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
       final paymentMethod = rawMethod.contains('credit')
           ? 'credit_card'
           : (rawMethod.contains('debit')
-              ? 'debit_card'
-              : (rawMethod.contains('cash')
-                  ? 'cash'
-                  : (rawMethod.contains('net') || rawMethod.contains('bank')
-                      ? 'net_banking'
-                      : 'upi')));
+                ? 'debit_card'
+                : (rawMethod.contains('cash')
+                      ? 'cash'
+                      : (rawMethod.contains('net') || rawMethod.contains('bank')
+                            ? 'net_banking'
+                            : 'upi')));
 
-      final itemsPayload = _items.map((i) => {
-            'name': i['name'],
-            'quantity': asInt(i['quantity'], 1),
-            'unit_price': asDouble(i['price']),
-            'total_price': asDouble(i['price']) * asInt(i['quantity'], 1),
-          }).toList();
+      final itemsPayload = _items
+          .map(
+            (i) => {
+              'name': i['name'],
+              'quantity': asInt(i['quantity'], 1),
+              'unit_price': asDouble(i['price']),
+              'total_price': asDouble(i['price']) * asInt(i['quantity'], 1),
+            },
+          )
+          .toList();
 
       CategoryModel? matchedCat;
       for (final c in _backendCategories) {
@@ -216,7 +250,9 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
           'payment_method': paymentMethod,
           'category_name': _selectedCategory,
           if (matchedCat != null) 'category_id': matchedCat.id,
-          'description': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+          'description': _notesCtrl.text.trim().isNotEmpty
+              ? _notesCtrl.text.trim()
+              : null,
         };
         await ApiService.updateTransaction(widget.editExpense!.id, payload);
       } else {
@@ -228,19 +264,47 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
           'payment_method': paymentMethod,
           'category_name': _selectedCategory,
           if (matchedCat != null) 'category_id': matchedCat.id,
-          'description': _notesCtrl.text.trim().isNotEmpty ? _notesCtrl.text.trim() : null,
+          'description': _notesCtrl.text.trim().isNotEmpty
+              ? _notesCtrl.text.trim()
+              : null,
           'items': itemsPayload,
         };
         await ApiService.createTransaction(payload);
+        if (_splitData != null && _splitData!.isEnabled && _splitData!.selectedFriends.isNotEmpty) {
+          try {
+            await SplitWithFriendsSelector.createSplitIfEnabled(
+              isEnabled: _splitData!.isEnabled,
+              splitType: _splitData!.splitType,
+              selectedFriends: _splitData!.selectedFriends,
+              participantShares: _splitData!.participantShares,
+              title: _merchantCtrl.text.trim().isNotEmpty
+                  ? _merchantCtrl.text.trim()
+                  : 'Expense Split',
+              totalAmount: amount,
+              description: _notesCtrl.text.trim().isNotEmpty
+                  ? _notesCtrl.text.trim()
+                  : null,
+            );
+          } catch (splitErr) {
+            debugPrint('[ManualExpenseScreen] Split error: $splitErr');
+          }
+        }
+
       }
 
       if (!mounted) return;
+      final isSplitDone = _splitData != null && _splitData!.isEnabled && _splitData!.selectedFriends.isNotEmpty;
+      final splitFriendsCount = _splitData?.selectedFriends.length ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.editExpense != null
-              ? 'Expense updated successfully'
-              : 'Expense saved successfully'),
-          backgroundColor: AppColors.success,
+          content: Text(
+            widget.editExpense != null
+                ? 'Expense updated'
+                : (isSplitDone
+                    ? 'Expense recorded & split with $splitFriendsCount friend${splitFriendsCount > 1 ? "s" : ""}'
+                    : 'Expense recorded'),
+          ),
+          backgroundColor: AppColors.credit,
         ),
       );
       Navigator.of(context).pop(true);
@@ -249,8 +313,10 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save: ${e.toString().replaceAll('Exception: ', '')}'),
-          backgroundColor: AppColors.danger,
+          content: Text(
+            'Failed to save: ${e.toString().replaceAll('Exception: ', '')}',
+          ),
+          backgroundColor: AppColors.debit,
         ),
       );
     }
@@ -272,121 +338,148 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
           children: [
             // ── UPI raw-text banner ────────────────────────────────────────
             if (widget.prefillRawText != null) ...[
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A2744),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.accent.withOpacity(0.4)),
+                  color: AppColors.surfaceElevated,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+                  border: Border.all(color: AppColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(Icons.mobile_friendly_rounded,
-                            color: AppColors.accent, size: 16),
-                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.phone_android_rounded,
+                          color: AppColors.accent,
+                          size: 15,
+                        ),
+                        SizedBox(width: 6),
                         Text(
-                          'Shared UPI Message',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          'Parsed from shared text',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontSans,
+                            color: AppColors.accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       widget.prefillRawText!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
-                      maxLines: 4,
+                      style: const TextStyle(
+                        fontFamily: AppTheme.fontSans,
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
             ],
+
             // Amount
             _FormCard(
               title: 'Amount *',
               child: TextFormField(
                 controller: _amountCtrl,
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.danger,
+                  fontFamily: AppTheme.fontSans,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  fontFeatures: [FontFeature.tabularFigures()],
                 ),
                 decoration: const InputDecoration(
-                  hintText: '0',
+                  hintText: '0.00',
                   prefixText: '₹ ',
                   prefixStyle: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.danger,
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   fillColor: Colors.transparent,
                   filled: false,
+                  contentPadding: EdgeInsets.zero,
                 ),
-                validator: (v) => v == null || v.isEmpty ? 'Amount is required' : null,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Amount is required' : null,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Merchant
             _FormCard(
-              title: 'Merchant / Description',
+              title: 'Merchant / Payee',
               child: TextFormField(
                 controller: _merchantCtrl,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontSans,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
                 decoration: const InputDecoration(
-                  hintText: 'e.g., Swiggy, Uber, Amazon',
+                  hintText: 'e.g., Swiggy, Metro, Bookstore',
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   fillColor: Colors.transparent,
                   filled: false,
+                  contentPadding: EdgeInsets.zero,
                 ),
-                validator: (v) => v == null || v.isEmpty ? 'Merchant is required' : null,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Merchant is required' : null,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Date
             _FormCard(
               title: 'Date',
-              child: GestureDetector(
+              child: InkWell(
                 onTap: _pickDate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today_outlined,
-                          color: AppColors.accent, size: 20),
-                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        color: AppColors.textSecondary,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 10),
                       Text(
-                        DateFormat('dd MMM yyyy').format(_selectedDate),
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
+                        DateFormat('dd MMMM yyyy').format(_selectedDate),
+                        style: const TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Category
             _FormCard(
@@ -428,22 +521,34 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
                       contentPadding: EdgeInsets.zero,
                     ),
                     items: uniqueCategories
-                        .map((cat) => DropdownMenuItem<String>(
-                              value: cat,
-                              child: Row(
-                                children: [
-                                  Icon(AppColors.categoryIcon(cat), size: 16),
-                                  const SizedBox(width: 8),
-                                  Text(cat),
-                                ],
-                              ),
-                            ))
+                        .map(
+                          (cat) => DropdownMenuItem<String>(
+                            value: cat,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  AppColors.categoryIcon(cat),
+                                  size: 15,
+                                  color: AppColors.categoryColor(cat),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  cat,
+                                  style: const TextStyle(
+                                    fontFamily: AppTheme.fontSans,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                         .toList(),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Payment method
             _FormCard(
@@ -475,21 +580,32 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
                       contentPadding: EdgeInsets.zero,
                     ),
                     items: methods
-                        .map((p) => DropdownMenuItem<String>(value: p, child: Text(p)))
+                        .map(
+                          (p) => DropdownMenuItem<String>(
+                            value: p,
+                            child: Text(
+                              p,
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontSans,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        )
                         .toList(),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Items
+            // Line items section
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.surfaceCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                border: Border.all(color: AppColors.border, width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,51 +613,95 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Items (Optional)',
-                          style: Theme.of(context).textTheme.titleSmall),
+                      const Text(
+                        'Line Items (Optional)',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                       TextButton.icon(
                         onPressed: _addItem,
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Add Item'),
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text(
+                          'Add item',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          minimumSize: Size.zero,
+                        ),
                       ),
                     ],
                   ),
-                  if (_items.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    const Divider(),
+                  if (_items.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'No individual line items added.',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontSans,
+                          fontSize: 12,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    )
+                  else
                     ..._items.asMap().entries.map((entry) {
-                      final i = entry.key;
+                      final idx = entry.key;
                       final item = entry.value;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
                         child: Row(
                           children: [
                             Expanded(
-                              child: Text(item['name'],
-                                  style: Theme.of(context).textTheme.bodyMedium),
+                              child: Text(
+                                item['name'],
+                                style: const TextStyle(
+                                  fontFamily: AppTheme.fontSans,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
                             Text(
                               '₹${asDouble(item['price']).toStringAsFixed(0)}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontFamily: AppTheme.fontSans,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline,
-                                  color: AppColors.danger, size: 20),
-                              onPressed: () =>
-                                  setState(() => _items.removeAt(i)),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => setState(() => _items.removeAt(idx)),
+                              child: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: AppColors.textTertiary,
+                              ),
                             ),
                           ],
                         ),
                       );
                     }),
-                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            if (!isEdit) ...[
+              SplitWithFriendsSelector(
+                totalAmount: double.tryParse(_amountCtrl.text.trim()) ?? 0.0,
+                onChanged: (data) => _splitData = data,
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Notes
             _FormCard(
@@ -549,20 +709,25 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
               child: TextFormField(
                 controller: _notesCtrl,
                 maxLines: 2,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontSans,
+                  fontSize: 14,
+                ),
                 decoration: const InputDecoration(
-                  hintText: 'Optional note...',
+                  hintText: 'Optional remark...',
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   fillColor: Colors.transparent,
                   filled: false,
+                  contentPadding: EdgeInsets.zero,
                 ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
             PrimaryButton(
-              label: isEdit ? 'Update Expense' : 'Save Expense',
+              label: isEdit ? 'Update Expense' : 'Record Expense',
               isLoading: _isSaving,
               onPressed: _save,
             ),
@@ -581,21 +746,24 @@ class _FormCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+        border: Border.all(color: AppColors.border, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
+            style: const TextStyle(
+              fontFamily: AppTheme.fontSans,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 4),
           child,
