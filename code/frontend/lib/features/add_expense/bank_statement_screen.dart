@@ -256,26 +256,34 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     int imported = 0;
     int failed = 0;
 
-    for (int i = 0; i < selected.length; i++) {
-      if (!mounted) return;
-      final tx = selected[i];
-      setState(() => _importProgress = i + 1);
+    final payloadList = selected.map((tx) {
+      return <String, dynamic>{
+        'merchant_name': tx.merchant.trim().isNotEmpty ? tx.merchant.trim() : 'Bank Transaction',
+        'amount': tx.amount > 0 ? tx.amount : 1.0,
+        'currency': 'INR',
+        'transaction_date': tx.date.isNotEmpty ? tx.date : DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        'payment_method': 'bank',
+        'description': 'Imported from ${_fileName ?? "bank statement"}',
+        'category_name': tx.category,
+        if (tx.categoryId != null) 'category_id': tx.categoryId,
+      };
+    }).toList();
 
-      try {
-        await ApiService.createTransaction({
-          'merchant_name': tx.merchant.trim().isNotEmpty ? tx.merchant.trim() : 'Bank Transaction',
-          'amount': tx.amount > 0 ? tx.amount : 1.0,
-          'currency': 'INR',
-          'transaction_date': tx.date.isNotEmpty ? tx.date : DateFormat('yyyy-MM-dd').format(DateTime.now()),
-          'payment_method': 'bank',
-          'description': 'Imported from ${_fileName ?? "bank statement"}',
-          'category_name': tx.category,
-          if (tx.categoryId != null) 'category_id': tx.categoryId,
-        });
-        imported++;
-      } catch (_) {
-        failed++;
+    try {
+      final results = await ApiService.createBulkTransactions(payloadList);
+      imported = results.length;
+    } catch (_) {
+      for (int i = 0; i < payloadList.length; i++) {
+        if (!mounted) return;
+        setState(() => _importProgress = i + 1);
+        try {
+          await ApiService.createTransaction(payloadList[i], notify: false);
+          imported++;
+        } catch (_) {
+          failed++;
+        }
       }
+      ApiService.notifyDataChanged();
     }
 
     if (!mounted) return;

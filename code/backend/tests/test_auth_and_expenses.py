@@ -147,3 +147,23 @@ def test_transaction_crud_and_details(db_session, test_user, client, auth_header
     # Verify soft delete
     remaining = get_transactions(test_user.id, db_session)
     assert len(remaining) == 0
+
+
+def test_bulk_create_transactions(test_user, client, auth_headers):
+    payload = [
+        {
+            "merchant_name": f"Bulk Merchant {i}",
+            "amount": 100.0 * (i + 1),
+            "currency": "INR",
+            "transaction_date": "2026-10-15",
+            "payment_method": "bank",
+            "category_name": "Shopping",
+        }
+        for i in range(5)
+    ]
+    res = client.post("/transactions/bulk", json=payload, headers=auth_headers)
+    assert res.status_code == 201
+    data = res.json()
+    assert len(data) == 5
+    assert data[0]["merchant_name"] == "Bulk Merchant 0"
+    assert data[4]["merchant_name"] == "Bulk Merchant 4"

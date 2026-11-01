@@ -53,7 +53,7 @@ class ApiService {
   static final ValueNotifier<int> refreshNotifier = ValueNotifier<int>(0);
 
   static void notifyDataChanged() {
-    // Invalidate caches that depend on transaction/budget state
+    // Invalidate caches immediately
     invalidateCache('transactions');
     invalidateCache('analytics');
     invalidateCache('intelligence');
@@ -311,8 +311,9 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> createTransaction(
-    Map<String, dynamic> txData,
-  ) async {
+    Map<String, dynamic> txData, {
+    bool notify = true,
+  }) async {
     final uri = Uri.parse('$baseUrl/transactions/');
     final headers = await _authHeaders(jsonContent: true);
     final response = await _client
@@ -320,10 +321,32 @@ class ApiService {
         .timeout(_defaultTimeout);
 
     if (response.statusCode == 201 || response.statusCode == 200) {
-      notifyDataChanged();
+      if (notify) {
+        notifyDataChanged();
+      }
       return json.decode(response.body) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to create transaction: ${response.body}');
+    }
+  }
+
+  static Future<List<dynamic>> createBulkTransactions(
+    List<Map<String, dynamic>> txList, {
+    bool notify = true,
+  }) async {
+    final uri = Uri.parse('$baseUrl/transactions/bulk');
+    final headers = await _authHeaders(jsonContent: true);
+    final response = await _client
+        .post(uri, headers: headers, body: json.encode(txList))
+        .timeout(const Duration(seconds: 45));
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      if (notify) {
+        notifyDataChanged();
+      }
+      return json.decode(response.body) as List<dynamic>;
+    } else {
+      throw Exception('Failed to create bulk transactions: ${response.body}');
     }
   }
 

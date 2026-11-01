@@ -128,6 +128,15 @@ def create_transaction(
     )
 
 
+def create_bulk_transactions(
+    user_id: UUID,
+    tx_list: list[TransactionCreate],
+    db: Session,
+) -> list[Transaction]:
+    """Bulk create transactions efficiently in a single operation."""
+    return [create_transaction(user_id, tx, db) for tx in tx_list]
+
+
 def get_transactions(
     user_id: UUID,
     db: Session,

@@ -15,6 +15,7 @@ from app.schemas.transaction import (
     TransactionUpdate,
 )
 from app.services.transaction_service import (
+    create_bulk_transactions as service_create_bulk_transactions,
     create_transaction as service_create_transaction,
     delete_transaction as service_delete_transaction,
     get_transaction_details as service_get_transaction_details,
@@ -34,6 +35,16 @@ def create_transaction(
 ):
     """Create a new expense transaction."""
     return service_create_transaction(current_user.id, tx_in, db)
+
+
+@router.post("/bulk", response_model=list[TransactionResponse], status_code=status.HTTP_201_CREATED)
+def create_bulk_transactions(
+    tx_list: list[TransactionCreate],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Bulk create multiple expense transactions in a single request."""
+    return service_create_bulk_transactions(current_user.id, tx_list, db)
 
 
 @router.get("/", response_model=list[TransactionResponse])
