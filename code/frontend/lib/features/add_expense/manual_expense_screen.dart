@@ -147,11 +147,26 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
       if (cats.isNotEmpty && mounted) {
         setState(() {
           _backendCategories = cats;
-          _categoryOptions = cats.map((c) => c.name).toList();
-          if (!_categoryOptions.contains(_selectedCategory) && _categoryOptions.isNotEmpty) {
-            final match = cats.where((c) => c.name.toLowerCase() == _selectedCategory.toLowerCase()).firstOrNull;
+          final names = cats
+              .map((c) => c.name.trim())
+              .where((n) => n.isNotEmpty)
+              .toSet()
+              .toList();
+          if (names.isNotEmpty) {
+            _categoryOptions = names;
+          }
+          if (!_categoryOptions.contains(_selectedCategory)) {
+            final selLower = _selectedCategory.toLowerCase();
+            final match = _categoryOptions.where((c) {
+              final cLower = c.toLowerCase();
+              return cLower == selLower ||
+                  cLower.contains(selLower) ||
+                  selLower.contains(cLower);
+            }).firstOrNull;
             if (match != null) {
-              _selectedCategory = match.name;
+              _selectedCategory = match;
+            } else if (_categoryOptions.isNotEmpty) {
+              _selectedCategory = _categoryOptions.first;
             }
           }
         });
@@ -376,29 +391,56 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
             // Category
             _FormCard(
               title: 'Category',
-              child: DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                onChanged: (v) => setState(() => _selectedCategory = v!),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent,
-                  filled: false,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                items: _categoryOptions
-                    .map((cat) => DropdownMenuItem(
-                          value: cat,
-                          child: Row(
-                            children: [
-                              Icon(AppColors.categoryIcon(cat), size: 16),
-                              const SizedBox(width: 8),
-                              Text(cat),
-                            ],
-                          ),
-                        ))
-                    .toList(),
+              child: Builder(
+                builder: (context) {
+                  final uniqueCategories = _categoryOptions
+                      .map((c) => c.trim())
+                      .where((c) => c.isNotEmpty)
+                      .toSet()
+                      .toList();
+                  if (uniqueCategories.isEmpty) {
+                    uniqueCategories.addAll(AppConstants.categories);
+                  }
+                  if (!uniqueCategories.contains(_selectedCategory)) {
+                    final selLower = _selectedCategory.toLowerCase();
+                    final match = uniqueCategories.where((c) {
+                      final cLower = c.toLowerCase();
+                      return cLower == selLower ||
+                          cLower.contains(selLower) ||
+                          selLower.contains(cLower);
+                    }).firstOrNull;
+                    _selectedCategory = match ?? uniqueCategories.first;
+                  }
+
+                  return DropdownButtonFormField<String>(
+                    value: _selectedCategory,
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _selectedCategory = v);
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      fillColor: Colors.transparent,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    items: uniqueCategories
+                        .map((cat) => DropdownMenuItem<String>(
+                              value: cat,
+                              child: Row(
+                                children: [
+                                  Icon(AppColors.categoryIcon(cat), size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(cat),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 16),
@@ -406,20 +448,37 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
             // Payment method
             _FormCard(
               title: 'Payment Method',
-              child: DropdownButtonFormField<String>(
-                value: _selectedPaymentMethod,
-                onChanged: (v) => setState(() => _selectedPaymentMethod = v!),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent,
-                  filled: false,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                items: AppConstants.paymentMethods
-                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                    .toList(),
+              child: Builder(
+                builder: (context) {
+                  final methods = AppConstants.paymentMethods
+                      .map((m) => m.trim())
+                      .where((m) => m.isNotEmpty)
+                      .toSet()
+                      .toList();
+                  final currentMethod = methods.contains(_selectedPaymentMethod)
+                      ? _selectedPaymentMethod
+                      : (methods.isNotEmpty ? methods.first : 'UPI');
+
+                  return DropdownButtonFormField<String>(
+                    value: currentMethod,
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _selectedPaymentMethod = v);
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      fillColor: Colors.transparent,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    items: methods
+                        .map((p) => DropdownMenuItem<String>(value: p, child: Text(p)))
+                        .toList(),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 16),

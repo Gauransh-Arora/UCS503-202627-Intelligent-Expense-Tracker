@@ -909,7 +909,9 @@ class _BankStatementDetailScreenState
               // Category filter dropdown
               if (_allCategories.isNotEmpty)
                 DropdownButton<String?>(
-                  value: _selectedCategory,
+                  value: (_selectedCategory != null && _allCategories.contains(_selectedCategory))
+                      ? _selectedCategory
+                      : null,
                   hint: const Text('Category',
                       style: TextStyle(
                           fontSize: 12, color: AppColors.textSecondary)),
@@ -922,8 +924,8 @@ class _BankStatementDetailScreenState
                       child: Text('All categories',
                           style: TextStyle(fontSize: 12)),
                     ),
-                    ..._allCategories.map(
-                      (c) => DropdownMenuItem<String>(
+                    ..._allCategories.toSet().map(
+                      (c) => DropdownMenuItem<String?>(
                         value: c,
                         child: Text(c, style: const TextStyle(fontSize: 12)),
                       ),
