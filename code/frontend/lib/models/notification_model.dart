@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../core/utils/num_parser.dart';
 
 class NotificationItemModel {
   final String id;
@@ -31,11 +32,11 @@ class NotificationItemModel {
 
   factory NotificationItemModel.fromJson(Map<String, dynamic> json) {
     return NotificationItemModel(
-      id: json['id'] as String? ?? '',
-      userId: json['user_id'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      message: json['message'] as String? ?? '',
-      notificationType: json['notification_type'] as String? ?? 'system',
+      id: json['id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+      notificationType: json['notification_type']?.toString() ?? 'system',
       isRead: json['is_read'] as bool? ?? false,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
@@ -68,7 +69,7 @@ class AutoNotificationResult {
   factory AutoNotificationResult.fromJson(Map<String, dynamic> json) {
     final list = json['notifications'] as List? ?? [];
     return AutoNotificationResult(
-      generatedCount: json['generated_count'] as int? ?? list.length,
+      generatedCount: asInt(json['generated_count'], list.length),
       notifications: list
           .map((e) => NotificationItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),

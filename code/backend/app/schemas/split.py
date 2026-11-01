@@ -45,6 +45,13 @@ class SplitCreate(BaseModel):
     description: Optional[str] = None
     participants: list[ParticipantCreate]
 
+    @field_validator("split_type", mode="before")
+    @classmethod
+    def normalize_split_type(cls, v):
+        if str(v).lower() == "exact":
+            return SplitType.CUSTOM
+        return v
+
     @field_validator("total_amount")
     @classmethod
     def amount_positive(cls, v: Decimal) -> Decimal:

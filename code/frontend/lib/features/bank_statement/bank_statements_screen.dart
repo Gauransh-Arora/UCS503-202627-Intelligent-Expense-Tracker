@@ -55,7 +55,7 @@ class _BankStatementsScreenState extends State<BankStatementsScreen> {
       allowedExtensions: ['pdf', 'csv'],
       allowMultiple: false,
     );
-    if (result == null || result.isEmpty) return;
+    if (result.isEmpty) return;
 
     final file = result.first;
     if (file.path == null) return;

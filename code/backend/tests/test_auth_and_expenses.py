@@ -82,6 +82,7 @@ def test_transaction_crud_and_details(db_session, test_user, client, auth_header
         user_id=test_user.id,
         original_filename="receipt.jpg",
         file_url="/uploads/receipt.jpg",
+        mime_type="image/jpeg",
         document_type=DocumentType.RECEIPT.value,
         processing_status=ProcessingStatus.PROCESSED.value,
         ocr_confidence=0.95,
@@ -101,9 +102,9 @@ def test_transaction_crud_and_details(db_session, test_user, client, auth_header
         description="Coffee and muffin",
         category_id=food_cat.id,
         document_id=doc.id,
-        items=[
-            TransactionItemCreate(name="Cappuccino", quantity=1, unit_price=250.0, total_price=250.0),
-            TransactionItemCreate(name="Blueberry Muffin", quantity=1, unit_price=200.0, total_price=200.0),
+        items=[\
+            TransactionItemCreate(name="Cappuccino", quantity=1, unit_price=250.0, total_price=250.0),\
+            TransactionItemCreate(name="Blueberry Muffin", quantity=1, unit_price=200.0, total_price=200.0),\
         ],
     )
     tx = create_transaction(test_user.id, tx_in, db_session)

@@ -120,8 +120,12 @@ def create_transaction(
         )
 
     db.commit()
-    db.refresh(tx)
-    return tx
+    return (
+        db.query(Transaction)
+        .options(joinedload(Transaction.category), joinedload(Transaction.items))
+        .filter(Transaction.id == tx.id)
+        .first()
+    )
 
 
 def get_transactions(
@@ -229,8 +233,12 @@ def update_transaction(
             setattr(tx, field, value)
 
     db.commit()
-    db.refresh(tx)
-    return tx
+    return (
+        db.query(Transaction)
+        .options(joinedload(Transaction.category), joinedload(Transaction.items))
+        .filter(Transaction.id == tx.id)
+        .first()
+    )
 
 
 def delete_transaction(

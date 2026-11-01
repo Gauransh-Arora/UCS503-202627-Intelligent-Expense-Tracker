@@ -156,3 +156,40 @@ def test_friends_management_and_ledger(db_session, test_user, client, auth_heade
     deleted = delete_friend(friend.id, test_user.id, db_session)
     assert deleted is True
     assert len(get_friends(test_user.id, db_session)) == 0
+
+
+def test_split_custom_api_error_handling(client, auth_headers):
+    # Invalid custom split where amounts do not match total should return 400 Bad Request, not 500
+    res = client.post(
+        "/splits/",
+        json={
+            "title": "Dinner split error",
+            "total_amount": 707.70,
+            "split_type": "custom",
+            "participants": [
+                {"participant_name": "You", "amount_owed": 0.0, "is_payer": True},
+                {"participant_name": "Friend", "amount_owed": 354.0, "is_payer": False},
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert res.status_code == 400
+    assert "Custom amounts sum to" in res.json()["detail"]
+
+    # Valid custom split with slight rounding difference reconciled to payer
+    res_valid = client.post(
+        "/splits/",
+        json={
+            "title": "Dinner split valid",
+            "total_amount": 707.70,
+            "split_type": "custom",
+            "participants": [
+                {"participant_name": "You", "amount_owed": 354.0, "is_payer": True},
+                {"participant_name": "Friend", "amount_owed": 354.0, "is_payer": False},
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert res_valid.status_code == 201
+    created = res_valid.json()
+    assert float(created["total_amount"]) == 707.70

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../widgets/expense_card.dart';
 import '../../widgets/section_header.dart';
@@ -28,22 +29,37 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadDashboardData();
+    ApiService.refreshNotifier.addListener(_onRefreshNotified);
   }
 
-  void _loadDashboardData() {
+  void _onRefreshNotified() {
+    if (mounted) {
+      setState(() {
+        _loadDashboardData();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    ApiService.refreshNotifier.removeListener(_onRefreshNotified);
+    super.dispose();
+  }
+
+  void _loadDashboardData({bool forceRefresh = false}) {
     _dashboardDataFuture = Future.wait([
-      ApiService.getAnalyticsSummary(),
-      ApiService.getTransactions(limit: 5),
-      ApiService.getCurrentUser().catchError((_) => const UserModel(
-            id: '',
-            name: 'User',
-            email: '',
-          )),
-      ApiService.detectUnusualSpending().catchError((_) => <String>[]),
+      ApiService.getAnalyticsSummary(forceRefresh: forceRefresh),
+      ApiService.getTransactions(limit: 5, forceRefresh: forceRefresh),
+      ApiService.getCurrentUser(forceRefresh: forceRefresh).catchError(
+        (_) => const UserModel(id: '', name: 'User', email: ''),
+      ),
+      ApiService.detectUnusualSpending(forceRefresh: forceRefresh).catchError((_) => <String>[]),
     ]);
-    ApiService.getUnreadNotificationCount().then((count) {
-      if (mounted) setState(() => _unreadCount = count);
-    }).catchError((_) {});
+    ApiService.getUnreadNotificationCount(forceRefresh: forceRefresh)
+        .then((count) {
+          if (mounted) setState(() => _unreadCount = count);
+        })
+        .catchError((_) {});
   }
 
   String _greeting() {
@@ -62,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           setState(() {
-            _loadDashboardData();
+            _loadDashboardData(forceRefresh: true);
           });
           await _dashboardDataFuture;
         },
@@ -80,14 +96,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.textTertiary),
+                      const Icon(
+                        Icons.cloud_off_rounded,
+                        size: 48,
+                        color: AppColors.textTertiary,
+                      ),
                       const SizedBox(height: 16),
-                      Text('Unable to connect to server', style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Unable to connect to server',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         '${snapshot.error}'.replaceAll('Exception: ', ''),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
@@ -101,8 +127,11 @@ class _HomeScreenState extends State<HomeScreen> {
             }
 
             final summary = snapshot.data?[0] as AnalyticsSummary?;
-            final recentExpenses = snapshot.data?[1] as List<ExpenseModel>? ?? [];
-            final user = snapshot.data?[2] as UserModel? ?? const UserModel(id: '', name: 'User', email: '');
+            final recentExpenses =
+                snapshot.data?[1] as List<ExpenseModel>? ?? [];
+            final user =
+                snapshot.data?[2] as UserModel? ??
+                const UserModel(id: '', name: 'User', email: '');
             final anomalies = snapshot.data?[3] as List<dynamic>? ?? [];
 
             if (summary == null) {
@@ -155,6 +184,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   actions: [
                     IconButton(
+                      tooltip: 'Ask Your Expenses',
+                      icon: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AskExpensesScreen(),
+                        ),
+                      ),
+                    ),
+                    IconButton(
                       icon: Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -194,15 +244,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationsScreen(),
-                          ),
-                        ).then((_) {
-                          ApiService.getUnreadNotificationCount().then((count) {
-                            if (mounted) setState(() => _unreadCount = count);
-                          }).catchError((_) {});
-                        });
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationsScreen(),
+                              ),
+                            )
+                            .then((_) {
+                              ApiService.getUnreadNotificationCount()
+                                  .then((count) {
+                                    if (mounted)
+                                      setState(() => _unreadCount = count);
+                                  })
+                                  .catchError((_) {});
+                            });
                       },
                     ),
                     const SizedBox(width: 8),
@@ -223,7 +278,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         _InsightCard(
                           anomalies: anomalies,
                           onAskTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const AskExpensesScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const AskExpensesScreen(),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -234,14 +291,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             title: 'Spending by Category',
                             actionLabel: 'Details',
                             onAction: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+                              MaterialPageRoute(
+                                builder: (_) => const AnalyticsScreen(),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
-                          ...summary.byCategory.map((cat) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _CategoryBar(category: cat),
-                              )),
+                          ...summary.byCategory.map(
+                            (cat) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _CategoryBar(category: cat),
+                            ),
+                          ),
                           const SizedBox(height: 24),
                         ],
 
@@ -249,9 +310,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         SectionHeader(
                           title: 'Recent Expenses',
                           actionLabel: 'View All',
-                          onAction: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ExpensesScreen()),
-                          ).then((_) => _loadDashboardData()),
+                          onAction: () => Navigator.of(context)
+                              .push(
+                                MaterialPageRoute(
+                                  builder: (_) => const ExpensesScreen(),
+                                ),
+                              )
+                              .then((_) => _loadDashboardData()),
                         ),
                         const SizedBox(height: 16),
                         if (recentExpenses.isEmpty)
@@ -265,7 +330,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             child: Column(
                               children: [
-                                const Icon(Icons.receipt_long_outlined, size: 36, color: AppColors.textTertiary),
+                                const Icon(
+                                  Icons.receipt_long_outlined,
+                                  size: 36,
+                                  color: AppColors.textTertiary,
+                                ),
                                 const SizedBox(height: 10),
                                 Text(
                                   'No expenses recorded yet',
@@ -281,17 +350,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           )
                         else
-                          ...recentExpenses.map((expense) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: ExpenseCard(
-                                  expense: expense,
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => ExpenseDetailScreen(expense: expense),
-                                    ),
-                                  ).then((_) => _loadDashboardData()),
-                                ),
-                              )),
+                          ...recentExpenses.map(
+                            (expense) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: ExpenseCard(
+                                expense: expense,
+                                onTap: () => Navigator.of(context)
+                                    .push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ExpenseDetailScreen(
+                                          expense: expense,
+                                        ),
+                                      ),
+                                    )
+                                    .then((_) => _loadDashboardData()),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -323,10 +398,7 @@ class _SpendingSummaryCard extends StatelessWidget {
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(24),
         boxShadow: const [
-          BoxShadow(
-            color: AppColors.primaryDark,
-            offset: Offset(0, 8),
-          ),
+          BoxShadow(color: AppColors.primaryDark, offset: Offset(0, 8)),
         ],
       ),
       child: Column(
@@ -344,7 +416,10 @@ class _SpendingSummaryCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -352,15 +427,21 @@ class _SpendingSummaryCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      isUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                      isUp
+                          ? Icons.arrow_upward_rounded
+                          : Icons.arrow_downward_rounded,
                       size: 14,
-                      color: isUp ? const Color(0xFFFFB3B3) : const Color(0xFF86EFAC),
+                      color: isUp
+                          ? const Color(0xFFFFB3B3)
+                          : const Color(0xFF86EFAC),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '$pctChange%',
                       style: TextStyle(
-                        color: isUp ? const Color(0xFFFFB3B3) : const Color(0xFF86EFAC),
+                        color: isUp
+                            ? const Color(0xFFFFB3B3)
+                            : const Color(0xFF86EFAC),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -436,8 +517,10 @@ class _SummaryMetric extends StatelessWidget {
             children: [
               Icon(icon, size: 14, color: iconColor),
               const SizedBox(width: 4),
-              Text(label,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -469,68 +552,87 @@ class _InsightCard extends StatelessWidget {
     final subtitle = hasAnomaly && anomalies.first.toString().isNotEmpty
         ? anomalies.first.toString()
         : 'All category expenses are within your usual historical range this month.';
-    final cardColor = hasAnomaly ? AppColors.warningLight : AppColors.primaryLight;
+    final cardColor = hasAnomaly
+        ? AppColors.warningLight
+        : AppColors.primaryLight;
     final borderColor = hasAnomaly ? AppColors.warning : AppColors.primary;
-    final iconData = hasAnomaly ? Icons.warning_rounded : Icons.check_circle_outline_rounded;
+    final iconData = hasAnomaly
+        ? Icons.warning_rounded
+        : Icons.check_circle_outline_rounded;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor.withOpacity(0.4)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: borderColor.withOpacity(0.18),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Icon(iconData, size: 22, color: borderColor),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: borderColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: onAskTap,
-            icon: Container(
-              padding: const EdgeInsets.all(6),
+    return InkWell(
+      onTap: onAskTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: borderColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
+                color: borderColor.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 18,
-                color: borderColor,
+              child: Center(child: Icon(iconData, size: 22, color: borderColor)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: borderColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textPrimary),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: borderColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 14,
+                    color: borderColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Ask AI',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: borderColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -561,9 +663,8 @@ class _CategoryBar extends StatelessWidget {
             ),
             Text(
               category.formattedAmount,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),

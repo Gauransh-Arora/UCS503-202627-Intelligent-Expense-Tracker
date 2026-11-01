@@ -1,5 +1,5 @@
 """
-Unit Tests for Normalization, Categorization Feedback, Splits, Intelligence & Duplicate Detection.
+Unit Tests for Categorization Feedback, Splits, Intelligence & Duplicate Detection.
 """
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -15,10 +15,6 @@ from app.services.categorization_service import (
     categorize_transaction,
     learn_user_category_preference,
 )
-from app.services.extraction_service import (
-    normalize_amount_str,
-    normalize_date,
-)
 from app.services.intelligence_service import (
     FinancialIntelligenceService,
     detect_unusual_spending,
@@ -32,33 +28,7 @@ from app.services.split_service import (
 )
 
 
-# ── 1. Amount & Date Normalization ──────────────────────────────────────────
-
-def test_amount_normalization_variants():
-    """Test diverse currency symbols, comma grouping, and European notation."""
-    assert normalize_amount_str("₹1,234.50") == Decimal("1234.50")
-    assert normalize_amount_str("Rs. 1234") == Decimal("1234.00")
-    assert normalize_amount_str("Rs 1234.75") == Decimal("1234.75")
-    assert normalize_amount_str("INR 1,23,456.00") == Decimal("123456.00")
-    assert normalize_amount_str("1.234,50") == Decimal("1234.50")
-    assert normalize_amount_str("450") == Decimal("450.00")
-    assert normalize_amount_str("   $ 99.99  ") == Decimal("99.99")
-    assert normalize_amount_str("invalid") is None
-    assert normalize_amount_str("") is None
-
-
-def test_date_normalization_variants():
-    """Test ISO, UK/Indian day-first, abbreviated month, and concatenated dates."""
-    assert normalize_date("Transaction on 2026-03-05 at 14:00") == "2026-03-05"
-    assert normalize_date("Dated 05/03/2026") == "2026-03-05"
-    assert normalize_date("Paid 5 Mar 2026") == "2026-03-05"
-    assert normalize_date("Bill date 05-Mar-26") == "2026-03-05"
-    assert normalize_date("14Oct2026,1:18pm") == "2026-10-14"
-    assert normalize_date("10 September 2026, 12:28pm") == "2026-09-10"
-    assert normalize_date("No date here") is None
-
-
-# ── 2. Categorization & User Override Feedback ──────────────────────────────
+# ── 1. Categorization & User Override Feedback ──────────────────────────────
 
 def test_categorization_and_user_learning(db_session, test_user):
     """Test keyword rules and user feedback override precedence."""
@@ -97,7 +67,7 @@ def test_categorization_and_user_learning(db_session, test_user):
     assert other_cat == "Food"
 
 
-# ── 3. Split Calculators & Exact Sum-to-Total ─────────────────────────────────
+# ── 2. Split Calculators & Exact Sum-to-Total ─────────────────────────────────
 
 def test_split_calculators_rounding_and_validation():
     """Test exact penny reconciliation and rejection of invalid shares."""
@@ -144,7 +114,7 @@ def test_split_calculators_rounding_and_validation():
         ])
 
 
-# ── 4. Statistical Unusual Spending & Minimum History Guard ───────────────────
+# ── 3. Statistical Unusual Spending & Minimum History Guard ───────────────────
 
 def test_statistical_unusual_spending_guard(db_session, test_user):
     """Test that unusual spending requires sufficient history and flags statistically large outliers."""
@@ -206,7 +176,7 @@ def test_statistical_unusual_spending_guard(db_session, test_user):
     assert any("Luxury Boutique" in a or "3,500" in a for a in alerts)
 
 
-# ── 5. Purchase Readiness Boundary Verdicts ───────────────────────────────────
+# ── 4. Purchase Readiness Boundary Verdicts ───────────────────────────────────
 
 def test_purchase_readiness_boundaries():
     """Test boundary conditions for Comfortable, Possible, and Not Recommended verdicts."""
@@ -223,7 +193,7 @@ def test_purchase_readiness_boundaries():
     assert generate_purchase_verdict(item_price=500, discretionary_budget=0, readiness_score=0) == "Not Recommended Currently"
 
 
-# ── 6. NLQ Intent Mapping & Honest Refusal ────────────────────────────────────
+# ── 5. NLQ Intent Mapping & Honest Refusal ────────────────────────────────────
 
 def test_nlq_safe_mapping_and_honest_refusal(db_session, test_user):
     """Test safe structured query execution and refusal of out-of-scope questions."""
@@ -257,7 +227,7 @@ def test_nlq_safe_mapping_and_honest_refusal(db_session, test_user):
     assert "I can't answer that yet" in res3.answer
 
 
-# ── 7. Bank Statement Duplicate Detection ─────────────────────────────────────
+# ── 6. Bank Statement Duplicate Detection ─────────────────────────────────────
 
 def test_duplicate_detection_logic(db_session, test_user):
     """Test flagging duplicates within statement file and against existing confirmed history."""

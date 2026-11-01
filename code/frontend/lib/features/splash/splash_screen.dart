@@ -45,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _checkAuthAndNavigate() async {
     // Wait for the animation to finish + check token
     final results = await Future.wait([
-      Future.delayed(const Duration(milliseconds: 2500)),
+      Future.delayed(const Duration(milliseconds: 1200)),
       ApiService.getToken(),
     ]);
     

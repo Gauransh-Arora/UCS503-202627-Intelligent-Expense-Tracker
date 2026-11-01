@@ -31,21 +31,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfileData();
   }
 
-  Future<void> _loadProfileData() async {
+  Future<void> _loadProfileData({bool forceRefresh = false}) async {
     try {
-      final user = await ApiService.getCurrentUser().catchError((_) => const UserModel(
-            id: '',
-            name: 'User',
-            email: 'user@example.com',
-          ));
-      final wishlist = await ApiService.getWishlistItems().catchError((_) => <WishlistItemModel>[]);
-      final recurring = await ApiService.detectRecurringExpenses().catchError((_) => <DetectedRecurringModel>[]);
+      final results = await Future.wait([
+        ApiService.getCurrentUser(forceRefresh: forceRefresh).catchError((_) => const UserModel(
+              id: '',
+              name: 'User',
+              email: 'user@example.com',
+            )),
+        ApiService.getWishlistItems(forceRefresh: forceRefresh).catchError((_) => <WishlistItemModel>[]),
+        ApiService.detectRecurringExpenses(forceRefresh: forceRefresh).catchError((_) => <DetectedRecurringModel>[]),
+      ]);
 
       if (mounted) {
         setState(() {
-          _user = user;
-          _wishlistCount = wishlist.length;
-          _recurringCount = recurring.length;
+          _user = results[0] as UserModel;
+          _wishlistCount = (results[1] as List<WishlistItemModel>).length;
+          _recurringCount = (results[2] as List<DetectedRecurringModel>).length;
         });
       }
     } catch (_) {}

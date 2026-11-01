@@ -1,8 +1,9 @@
-"""Documents router — upload files, trigger OCR processing, discard drafts."""
+"""Documents router — upload files, trigger Vision LLM processing, discard drafts."""
+from decimal import Decimal
 import os
+from pathlib import Path
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -19,8 +20,7 @@ from app.services.categorization_service import (
     categorize_transaction,
     find_or_create_category,
 )
-from app.services.extraction_service import extract_transaction_data
-from app.services.ocr_service import run_ocr
+from app.services.vision_service import is_vision_available, parse_receipt_with_vision
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -41,7 +41,7 @@ async def upload_document(
     """
     Upload a receipt, bill, or UPI screenshot.
     File is saved to disk and a Document record is created with 'uploaded' status.
-    Call POST /documents/{id}/process to run OCR.
+    Call POST /documents/{id}/process to run Vision LLM parsing.
     """
     valid_extensions = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".pdf"}
     ext = Path(file.filename or "file").suffix.lower()
@@ -109,7 +109,7 @@ def process_document(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Run OCR and heuristic document parsing on uploaded file.
+    Run Multimodal Vision LLM parsing on uploaded file.
     Returns structured draft details with per-field confidence for user review.
     Does NOT create a permanent expense transaction.
     """
@@ -128,15 +128,50 @@ def process_document(
     db.commit()
 
     try:
-        raw_text = run_ocr(doc.file_url)
-        doc.ocr_text = raw_text
+        extracted = None
+        raw_text = ""
 
-        extracted = extract_transaction_data(raw_text)
+        # Multimodal Vision LLM extraction
+        if is_vision_available():
+            file_to_parse = doc.file_url
+            if not os.path.exists(file_to_parse):
+                candidates = [
+                    Path(file_to_parse),
+                    Path("code/backend") / file_to_parse,
+                    Path(__file__).resolve().parent.parent.parent / file_to_parse,
+                ]
+                for cand in candidates:
+                    if cand.exists():
+                        file_to_parse = str(cand)
+                        break
+
+            vision_res = parse_receipt_with_vision(file_to_parse)
+            if vision_res:
+                extracted = vision_res
+                raw_text = vision_res.get("raw_text") or (
+                    f"{vision_res.get('merchant_name', '')} "
+                    f"Amount: {vision_res.get('amount', '')} "
+                    f"Date: {vision_res.get('date', '')}"
+                )
+                doc.ocr_text = raw_text
+
+        if not extracted:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unable to extract receipt details using Vision model. Please ensure GEMINI_API_KEY is configured.",
+            )
 
         # Suggest category
         category_name = None
         category_id = None
-        if extracted.get("merchant_name"):
+        suggested_cat = extracted.get("category")
+        if suggested_cat:
+            cat = find_or_create_category(suggested_cat, db)
+            if cat:
+                category_id = cat.id
+                category_name = cat.name
+
+        if not category_id and extracted.get("merchant_name"):
             cat_id = categorize_merchant(extracted["merchant_name"], current_user.id, db)
             if cat_id:
                 cat = db.query(Category).filter(Category.id == cat_id).first()
@@ -156,51 +191,90 @@ def process_document(
                 category_id = cat.id
                 category_name = cat.name
 
-        doc.processing_status = ProcessingStatus.PROCESSED.value
-        doc.ocr_confidence = extracted.get("confidence", 0.0)
-        db.commit()
+        # Parse line items if present
+        line_items = []
+        for item in extracted.get("items", []):
+            qty = int(item.get("quantity") or 1)
+            u_price = item.get("unit_price") or item.get("price")
+            t_price = item.get("total_price") or (float(u_price) * qty if u_price is not None else None)
+            if u_price is None and t_price is not None:
+                u_price = round(float(t_price) / max(1, qty), 2)
 
-        items = [
-            ExtractedItem(
-                name=i["name"],
-                quantity=i.get("quantity", 1),
-                unit_price=i.get("unit_price", 0.0),
-                total_price=i["total_price"],
+            line_items.append(
+                ExtractedItem(
+                    name=item.get("name") or "Unknown Item",
+                    quantity=qty,
+                    unit_price=Decimal(str(u_price)) if u_price is not None else None,
+                    total_price=Decimal(str(t_price)) if t_price is not None else None,
+                    price=Decimal(str(t_price)) if t_price is not None else None,
+                )
             )
-            for i in extracted.get("items", [])
-        ]
+
+        doc.processing_status = ProcessingStatus.PROCESSED.value
+        doc.ocr_confidence = extracted.get("confidence", 0.95)
+        db.commit()
 
         return OCRResult(
             document_id=doc.id,
             raw_text=raw_text,
             merchant_name=extracted.get("merchant_name"),
-            amount=extracted.get("amount"),
-            tax_amount=extracted.get("tax_amount"),
+            amount=Decimal(str(extracted["amount"])) if extracted.get("amount") is not None else None,
+            tax_amount=Decimal(str(extracted["tax_amount"])) if extracted.get("tax_amount") is not None else None,
             date=extracted.get("date"),
-            items=items,
-            category_suggestion=category_name,
+            transaction_date=extracted.get("date"),
+            currency=extracted.get("currency", settings.DEFAULT_CURRENCY),
+            payment_method=extracted.get("payment_method"),
+            confidence=extracted.get("confidence", 0.95),
+            field_confidences=extracted.get("field_confidences", {}),
             suggested_category_id=category_id,
-            reference_number=extracted.get("reference_number"),
+            suggested_category=category_name,
+            category_suggestion=category_name,
+            reference_number=extracted.get("reference"),
             payment_status=extracted.get("payment_status", "success"),
             payment_direction=extracted.get("payment_direction", "debit"),
-            confidence=extracted.get("confidence", 0.0),
-            field_confidences=extracted.get("field_confidences", {}),
-            validation_flags=extracted.get("validation_flags", []),
+            items=line_items,
         )
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        try:
-            db.rollback()
-            doc.processing_status = ProcessingStatus.FAILED.value
-            db.commit()
-        except Exception:
-            pass
+    except HTTPException:
+        doc.processing_status = ProcessingStatus.FAILED.value
+        db.commit()
+        raise
+    except Exception as exc:
+        doc.processing_status = ProcessingStatus.FAILED.value
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"OCR processing failed: {str(e)}",
+            detail=f"Vision parsing failed: {exc}",
         )
+
+
+@router.delete("/{document_id}/discard", status_code=status.HTTP_200_OK)
+def discard_document(
+    document_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Discard an uploaded document and its parsed draft without creating a transaction.
+    Removes the file from disk and marks the record as discarded.
+    """
+    doc = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == current_user.id,
+    ).first()
+
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    if doc.file_url and os.path.exists(doc.file_url):
+        try:
+            os.remove(doc.file_url)
+        except OSError:
+            pass
+
+    doc.processing_status = ProcessingStatus.DISCARDED.value
+    db.commit()
+    return {"message": "Document discarded successfully", "document_id": str(document_id)}
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -209,41 +283,39 @@ def get_document(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get document metadata and status."""
+    """Get metadata for an uploaded document."""
     doc = db.query(Document).filter(
         Document.id == document_id,
         Document.user_id == current_user.id,
     ).first()
+
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
     return doc
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-def discard_document(
+def delete_document(
     document_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Discard unconfirmed document draft and remove physical file from disk.
-    Leaves no trace in permanent records.
-    """
+    """Permanently delete a document record and its underlying file."""
     doc = db.query(Document).filter(
         Document.id == document_id,
         Document.user_id == current_user.id,
     ).first()
+
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    # Delete physical file
-    try:
-        if doc.file_url:
-            p = Path(doc.file_url)
-            if p.exists():
-                p.unlink()
-    except Exception:
-        pass
+    if doc.file_url and os.path.exists(doc.file_url):
+        try:
+            os.remove(doc.file_url)
+        except OSError:
+            pass
 
     db.delete(doc)
     db.commit()
+    return None

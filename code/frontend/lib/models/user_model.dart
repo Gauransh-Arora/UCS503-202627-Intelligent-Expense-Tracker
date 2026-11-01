@@ -30,10 +30,10 @@ class UserModel {
       };
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: json['id'],
-        name: json['name'],
-        email: json['email'],
-        avatarUrl: json['avatarUrl'],
-        currency: json['currency'] ?? 'INR',
+        id: json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? 'User',
+        email: json['email']?.toString() ?? '',
+        avatarUrl: json['avatarUrl']?.toString() ?? json['avatar_url']?.toString(),
+        currency: json['currency']?.toString() ?? 'INR',
       );
 }

@@ -1,13 +1,12 @@
-"""Document model — stores uploaded receipts, bills, UPI screenshots, bank statements."""
+"""Document model — represents uploaded receipts, bills, and statements."""
+import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Text, Float, Uuid
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-
-import enum
 
 
 class DocumentType(str, enum.Enum):
@@ -21,25 +20,24 @@ class ProcessingStatus(str, enum.Enum):
     UPLOADED = "uploaded"
     PROCESSING = "processing"
     PROCESSED = "processed"
-    VERIFIED = "verified"
     FAILED = "failed"
+    CONFIRMED = "confirmed"
+    DISCARDED = "discarded"
 
 
 class Document(Base):
+    """An uploaded document file belonging to a user."""
     __tablename__ = "documents"
 
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    # File info
-    original_filename = Column(Text, nullable=True)
-    file_url = Column(Text, nullable=True)
-    mime_type = Column(String(100), nullable=True)
-
-    # Document classification
+    original_filename = Column(String(255), nullable=False)
+    file_url = Column(String(512), nullable=False)
+    mime_type = Column(String(100), default="image/jpeg", nullable=True)
     document_type = Column(String(50), default="receipt", nullable=False)
 
-    # OCR results
+    # Parsing results
     ocr_text = Column(Text, nullable=True)
     processing_status = Column(String(50), default="pending", nullable=False)
     ocr_confidence = Column(Float, nullable=True)
@@ -55,21 +53,21 @@ class Document(Base):
     transactions = relationship("Transaction", back_populates="document")
 
     def extract_or_parse(self) -> dict:
-        """Run OCR and extract candidate transaction draft fields."""
-        from app.services.ocr_service import run_ocr
-        from app.services.extraction_service import extract_transaction_data
+        """Run Vision LLM and extract candidate transaction draft fields."""
+        from app.services.vision_service import is_vision_available, parse_receipt_with_vision
 
         if not self.file_url:
             raise ValueError("No file URL associated with this document.")
-        raw_text = run_ocr(self.file_url)
-        self.ocr_text = raw_text
-        parsed = extract_transaction_data(raw_text)
-        self.ocr_confidence = parsed.get("confidence", 0.0)
-        self.processing_status = ProcessingStatus.PROCESSED.value
-        return parsed
+        if is_vision_available():
+            parsed = parse_receipt_with_vision(self.file_url) or {}
+            self.ocr_text = parsed.get("raw_text") or ""
+            self.ocr_confidence = parsed.get("confidence", 0.95)
+            self.processing_status = ProcessingStatus.PROCESSED.value
+            return parsed
+        return {}
 
     def get_confidence(self) -> float:
-        """Return overall OCR confidence score (0.0 to 1.0)."""
+        """Return overall confidence score (0.0 to 1.0)."""
         return float(self.ocr_confidence or 0.0)
 
     def __repr__(self) -> str:

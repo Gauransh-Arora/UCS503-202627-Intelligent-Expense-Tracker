@@ -200,7 +200,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
             isDebit: isDebit,
             category: cat,
             categoryId: _matchCategoryId(cat),
-            isSelected: isDebit, // Default to selecting debit expenses
+            isSelected: true, // Everything selected by default
             isVerified: isVerified,
             originalDescription: desc,
           ),
@@ -395,6 +395,8 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedCount = _transactions.where((t) => t.isSelected).length;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -405,10 +407,48 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 350),
           child: _buildBody(),
+        ),
+      ),
+      bottomNavigationBar: _state == _BankState.review
+          ? _buildBottomBar(selectedCount)
+          : null,
+    );
+  }
+
+  Widget _buildBottomBar(int selectedCount) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        MediaQuery.of(context).padding.bottom + 12,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceCard,
+        border: const Border(
+          top: BorderSide(color: AppColors.border, width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: PrimaryButton(
+          label: _isImporting
+              ? 'Importing $_importProgress of $_importTotal...'
+              : 'Import Selected ($selectedCount)',
+          icon: const Icon(Icons.download_done_rounded, color: Colors.white, size: 20),
+          isLoading: _isImporting,
+          onPressed: _isImporting || selectedCount == 0 ? null : _importSelected,
         ),
       ),
     );
@@ -691,46 +731,62 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_transactions.length} Found',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        '$recognizedCount recognized • $unverifiedCount need review',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  if (_totalDebits > 0 || _totalCredits > 0)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_totalDebits > 0)
-                          Text(
-                            '₹${NumberFormat('#,##,###').format(_totalDebits)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                            ),
+                        Text(
+                          '${_transactions.length} Found',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
                           ),
-                        const Text(
-                          'Total Debits',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
-                        if (_totalCredits > 0)
-                          Text(
-                            '+₹${NumberFormat('#,##,###').format(_totalCredits)} credits',
-                            style: const TextStyle(color: Colors.white70, fontSize: 11),
-                          ),
+                        Text(
+                          '$recognizedCount recognized • $unverifiedCount need review',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  if (_totalDebits > 0 || _totalCredits > 0)
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (_totalDebits > 0)
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                '₹${NumberFormat('#,##,###').format(_totalDebits)}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          const Text(
+                            'Total Debits',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          if (_totalCredits > 0)
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                '+₹${NumberFormat('#,##,###').format(_totalCredits)} credits',
+                                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                maxLines: 1,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -842,17 +898,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
               ],
             ),
           ),
-        const SizedBox(height: 20),
-
-        PrimaryButton(
-          label: _isImporting
-              ? 'Importing $_importProgress of $_importTotal...'
-              : 'Import Selected ($selectedCount)',
-          icon: const Icon(Icons.download_done_rounded, color: Colors.white, size: 20),
-          isLoading: _isImporting,
-          onPressed: _isImporting || selectedCount == 0 ? null : _importSelected,
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Center(
           child: TextButton.icon(
             icon: const Icon(Icons.arrow_back_rounded, size: 16),
@@ -863,6 +909,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
             label: const Text('Upload Different Statement'),
           ),
         ),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -943,15 +990,19 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                         style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                       ),
                       const Text('  •  ', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          tx.category,
-                          style: const TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w600),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.accent.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            tx.category,
+                            style: const TextStyle(fontSize: 10, color: AppColors.accent, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                     ],
@@ -960,12 +1011,20 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '${tx.isDebit ? "-" : "+"}₹${tx.amount.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: tx.isDebit ? AppColors.danger : AppColors.success,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 115),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${tx.isDebit ? "-" : "+"}₹${NumberFormat('#,##,###.##', 'en_IN').format(tx.amount)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: tx.isDebit ? AppColors.danger : AppColors.success,
+                  ),
+                  textAlign: TextAlign.end,
+                ),
               ),
             ),
           ],

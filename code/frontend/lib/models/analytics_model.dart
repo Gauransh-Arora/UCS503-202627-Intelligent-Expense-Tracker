@@ -209,7 +209,7 @@ class CategoryComparisonItem {
   });
 
   factory CategoryComparisonItem.fromJson(Map<String, dynamic> json) => CategoryComparisonItem(
-        categoryName: json['category_name'] as String? ?? 'General',
+        categoryName: json['category_name']?.toString() ?? 'General',
         currentAmount: asDouble(json['current_amount']),
         previousAmount: asDouble(json['previous_amount']),
         differenceAmount: asDouble(json['difference_amount']),
@@ -237,12 +237,12 @@ class SpendingSummaryResponse {
   });
 
   factory SpendingSummaryResponse.fromJson(Map<String, dynamic> json) => SpendingSummaryResponse(
-        summaryText: json['summary_text'] as String? ?? '',
-        period: json['period'] as String? ?? '',
-        totalSpent: asDouble(json['total_spent']),
+        summaryText: json['summary_text']?.toString() ?? '',
+        period: json['period']?.toString() ?? '',
+        totalSpent: asDouble(json['total_spent'] ?? json['total_amount']),
         transactionCount: asInt(json['transaction_count']),
-        topCategory: json['top_category'] as String?,
-        topMerchant: json['top_merchant'] as String?,
+        topCategory: json['top_category']?.toString(),
+        topMerchant: json['top_merchant']?.toString(),
         keyInsights: (json['key_insights'] as List? ?? []).map((e) => e.toString()).toList(),
       );
 }
@@ -261,7 +261,7 @@ class SpendingTrend {
   });
 
   factory SpendingTrend.fromJson(Map<String, dynamic> json) => SpendingTrend(
-        month: json['month'] as String? ?? '',
+        month: json['month']?.toString() ?? '',
         year: asInt(json['year'], DateTime.now().year),
         totalAmount: asDouble(json['total_amount']),
         transactionCount: asInt(json['transaction_count']),
@@ -282,8 +282,8 @@ class ItemSpendingSummary {
   });
 
   factory ItemSpendingSummary.fromJson(Map<String, dynamic> json) => ItemSpendingSummary(
-        itemName: json['item_name'] as String? ?? '',
-        totalSpent: asDouble(json['total_spent']),
+        itemName: json['item_name']?.toString() ?? '',
+        totalSpent: asDouble(json['total_amount'] ?? json['total_spent']),
         totalQuantity: asInt(json['total_quantity'], 1),
         transactionCount: asInt(json['transaction_count'], 1),
       );

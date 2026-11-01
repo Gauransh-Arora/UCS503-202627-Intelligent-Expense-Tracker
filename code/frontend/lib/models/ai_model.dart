@@ -13,9 +13,9 @@ class NLQueryResponseModel {
 
   factory NLQueryResponseModel.fromJson(Map<String, dynamic> json) {
     return NLQueryResponseModel(
-      question: json['question'] as String? ?? '',
-      answer: json['answer'] as String? ?? 'No response available.',
-      queryType: json['query_type'] as String?,
+      question: json['question']?.toString() ?? '',
+      answer: json['answer']?.toString() ?? 'No response available.',
+      queryType: json['query_type']?.toString(),
       data: json['data'],
     );
   }

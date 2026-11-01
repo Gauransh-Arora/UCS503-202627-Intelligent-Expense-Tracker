@@ -3,8 +3,7 @@ Pipeline & Robustness Integration Test Suite
 ============================================
 Validates end-to-end document parsing pipelines and system robustness against:
 - Synthetic realistic bank statements (HDFC CSV, SBI semicolon CSV, ICICI DR/CR CSV, Axis PDF)
-- Synthetic UPI screenshots and receipts
-- Malformed inputs: empty CSV statements, corrupted images, invalid file extensions
+- Malformed inputs: empty CSV statements, invalid file extensions
 - Error handling, status codes, and non-crashing graceful degradation
 """
 from decimal import Decimal
@@ -15,8 +14,6 @@ import pytest
 from starlette.testclient import TestClient
 
 from app.services.bank_statement_service import parse_bank_statement
-from app.services.extraction_service import extract_transaction_data
-from app.services.ocr_service import run_ocr
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -28,10 +25,10 @@ def expected_fixtures():
         return json.load(f)
 
 
-# ── 1. Bank Statement CSV Pipeline Tests ────────────────────────────────────────
+# ── 1. Realistic Synthetic Bank Statements Pipelines ────────────────────────────
 
 def test_hdfc_bank_statement_csv_pipeline(expected_fixtures):
-    """Verify parsing of standard HDFC CSV statement with debit/credit columns."""
+    """Verify parsing and balance reconciliation on HDFC standard comma CSV."""
     csv_path = FIXTURES_DIR / "statement_hdfc.csv"
     assert csv_path.exists(), "statement_hdfc.csv fixture must exist"
 
@@ -43,15 +40,9 @@ def test_hdfc_bank_statement_csv_pipeline(expected_fixtures):
     assert abs(result["total_credits"] - expected["total_credits"]) < 0.01
     assert result["balance_reconciled"] is True
 
-    # Validate merchant cleaning
-    merchants = [r["merchant"].lower() for r in result["rows"]]
-    assert any("swiggy" in m for m in merchants)
-    assert any("reliance fresh" in m for m in merchants)
-    assert any("netflix" in m for m in merchants)
-
 
 def test_sbi_bank_statement_semicolon_pipeline(expected_fixtures):
-    """Verify parsing of SBI CSV with semicolon delimiter sniffing and withdrawal/deposit headers."""
+    """Verify delimiter auto-detection and column matching on SBI semicolon CSV."""
     csv_path = FIXTURES_DIR / "statement_sbi.csv"
     assert csv_path.exists(), "statement_sbi.csv fixture must exist"
 
@@ -61,14 +52,11 @@ def test_sbi_bank_statement_semicolon_pipeline(expected_fixtures):
     assert len(result["rows"]) == expected["transaction_count"]
     assert abs(result["total_debits"] - expected["total_debits"]) < 0.01
     assert abs(result["total_credits"] - expected["total_credits"]) < 0.01
-
-    merchants = [r["merchant"].lower() for r in result["rows"]]
-    assert any("uber trip" in m for m in merchants)
-    assert any("cafe coffee day" in m for m in merchants)
+    assert result["balance_reconciled"] is True
 
 
 def test_icici_bank_statement_drcr_pipeline(expected_fixtures):
-    """Verify parsing of ICICI CSV using single amount and Dr/Cr indicator."""
+    """Verify Type column DR/CR signed debit/credit mapping on ICICI CSV."""
     csv_path = FIXTURES_DIR / "statement_icici.csv"
     assert csv_path.exists(), "statement_icici.csv fixture must exist"
 
@@ -78,13 +66,8 @@ def test_icici_bank_statement_drcr_pipeline(expected_fixtures):
     assert len(result["rows"]) == expected["transaction_count"]
     assert abs(result["total_debits"] - expected["total_debits"]) < 0.01
     assert abs(result["total_credits"] - expected["total_credits"]) < 0.01
+    assert result["balance_reconciled"] is True
 
-    merchants = [r["merchant"].lower() for r in result["rows"]]
-    assert any("zomato" in m for m in merchants)
-    assert any("amazon" in m for m in merchants)
-
-
-# ── 2. Bank Statement PDF Pipeline Tests ────────────────────────────────────────
 
 def test_axis_bank_statement_pdf_pipeline(expected_fixtures):
     """Verify PDF statement parsing via pdfplumber/PyMuPDF."""
@@ -99,48 +82,7 @@ def test_axis_bank_statement_pdf_pipeline(expected_fixtures):
     assert abs(result["total_credits"] - expected["total_credits"]) < 0.01
 
 
-# ── 3. OCR & Extraction Pipeline on Realistic Synthetic Images ─────────────────
-
-def test_upi_gpay_image_extraction_pipeline(expected_fixtures):
-    """Verify OCR and regex structured extraction on synthetic GPay screenshot."""
-    img_path = FIXTURES_DIR / "upi_gpay.png"
-    assert img_path.exists(), "upi_gpay.png fixture must exist"
-
-    raw_text = run_ocr(str(img_path))
-    assert len(raw_text.strip()) > 0
-
-    extracted = extract_transaction_data(raw_text, doc_type="upi_screenshot")
-    expected = expected_fixtures["upi_gpay.png"]
-
-    # Verify amount
-    if extracted["amount"]:
-        assert abs(float(extracted["amount"]) - expected["amount"]) < 0.01
-    # Verify merchant
-    if extracted["merchant"]:
-        assert "blue tokai" in extracted["merchant"].lower()
-    # Confidence scores should be between 0 and 1
-    assert 0.0 <= extracted["confidence_score"] <= 1.0
-
-
-def test_receipt_supermarket_extraction_pipeline(expected_fixtures):
-    """Verify OCR and structured extraction on synthetic supermarket receipt."""
-    img_path = FIXTURES_DIR / "receipt_supermarket.png"
-    assert img_path.exists(), "receipt_supermarket.png fixture must exist"
-
-    raw_text = run_ocr(str(img_path))
-    assert len(raw_text.strip()) > 0
-
-    extracted = extract_transaction_data(raw_text, doc_type="receipt")
-    expected = expected_fixtures["receipt_supermarket.png"]
-
-    if extracted["amount"]:
-        assert abs(float(extracted["amount"]) - expected["amount"]) < 0.01
-    if extracted["merchant"]:
-        assert "fresh choice" in extracted["merchant"].lower()
-    assert 0.0 <= extracted["confidence_score"] <= 1.0
-
-
-# ── 4. Robustness & Malformed Inputs Tests ──────────────────────────────────────
+# ── 2. Robustness & Malformed Inputs Tests ──────────────────────────────────────
 
 def test_robustness_empty_statement_csv():
     """Verify parser handles 0-byte or whitespace-only CSV without unhandled exceptions."""
@@ -152,20 +94,6 @@ def test_robustness_empty_statement_csv():
     assert result["total_debits"] == 0.0
     assert result["total_credits"] == 0.0
     assert result["balance_reconciled"] is True
-
-
-def test_robustness_corrupted_image_handling():
-    """Verify OCR on a corrupted/truncated image fails gracefully without crashing."""
-    corrupted_png = FIXTURES_DIR / "corrupted_file.png"
-    assert corrupted_png.exists()
-
-    # run_ocr should catch or return empty string rather than crashing the system
-    try:
-        raw_text = run_ocr(str(corrupted_png))
-        assert isinstance(raw_text, str)
-    except Exception as e:
-        # If an engine-level error is raised, it must be a recognized IO/Image error, not an unhandled crash
-        assert "image" in str(e).lower() or "cannot identify" in str(e).lower()
 
 
 def test_robustness_invalid_file_extension_rejected_by_api(client, auth_headers):

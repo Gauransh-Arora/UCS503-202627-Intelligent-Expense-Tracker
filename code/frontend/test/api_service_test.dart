@@ -1,12 +1,33 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intelligent_expense_tracker/services/api_service.dart';
 import 'package:intelligent_expense_tracker/models/expense_model.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('ApiService & Models Unit Tests', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
     test('ApiService baseUrl is dynamic and non-empty', () {
       expect(ApiService.baseUrl, isNotEmpty);
       expect(ApiService.baseUrl.startsWith('http'), isTrue);
+    });
+
+    test('ApiService token memory caching and clearing', () async {
+      await ApiService.saveToken('test_token_xyz');
+      expect(await ApiService.getToken(), 'test_token_xyz');
+
+      await ApiService.clearToken();
+      expect(await ApiService.getToken(), isNull);
+    });
+
+    test('ApiService notifyDataChanged increments refreshNotifier and clears caches', () {
+      final initialVal = ApiService.refreshNotifier.value;
+      ApiService.notifyDataChanged();
+      expect(ApiService.refreshNotifier.value, initialVal + 1);
     });
 
     test('ExpenseModel serializes and deserializes accurately', () {

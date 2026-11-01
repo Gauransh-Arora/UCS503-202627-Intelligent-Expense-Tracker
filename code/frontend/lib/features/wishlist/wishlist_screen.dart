@@ -25,19 +25,20 @@ class _WishlistScreenState extends State<WishlistScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceRefresh = false}) async {
     setState(() => _isLoading = true);
     try {
-      final items = await ApiService.getWishlistItems();
-      DiscretionaryBudgetModel? budget;
-      try {
-        budget = await ApiService.calculateDiscretionaryBudget();
-      } catch (_) {}
+      final results = await Future.wait([
+        ApiService.getWishlistItems(forceRefresh: forceRefresh),
+        ApiService.calculateDiscretionaryBudget(forceRefresh: forceRefresh)
+            .then<DiscretionaryBudgetModel?>((b) => b)
+            .catchError((_) => null),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _items = items;
-        _budgetInfo = budget;
+        _items = results[0] as List<WishlistItemModel>;
+        _budgetInfo = results[1] as DiscretionaryBudgetModel?;
         _isLoading = false;
       });
     } catch (e) {
@@ -232,7 +233,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadData,
+        onRefresh: () => _loadData(forceRefresh: true),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
@@ -263,17 +264,17 @@ class _WishlistScreenState extends State<WishlistScreen> {
                                 'Monthly Discretionary Budget',
                                 style: TextStyle(color: Colors.white70, fontSize: 13),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'Smart AI Forecast',
-                                  style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                                ),
-                              ),
+                              // Container(
+                              //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              //   decoration: BoxDecoration(
+                              //     color: Colors.white.withValues(alpha: 0.2),
+                              //     borderRadius: BorderRadius.circular(12),
+                              //   ),
+                              //   // child: const Text(
+                              //   //   'Smart AI Forecast',
+                              //   //   style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                              //   // ),
+                              // ),
                             ],
                           ),
                           const SizedBox(height: 6),

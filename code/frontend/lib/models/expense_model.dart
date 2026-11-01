@@ -75,7 +75,7 @@ class ExpenseModel {
       if (name.isNotEmpty && name != 'null') return name;
     }
     if (category is Map) {
-      final name = category['name']?.toString()?.trim();
+      final name = category['name']?.toString().trim();
       if (name != null && name.isNotEmpty && name != 'null') return name;
     }
     if (category != null) {

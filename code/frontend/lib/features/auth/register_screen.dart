@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
-import '../splash/splash_screen.dart';
 import '../../navigation/main_navigation.dart';
 import '../../widgets/primary_button.dart';
 import '../../services/api_service.dart';
@@ -34,7 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    
+
     try {
       await ApiService.register(
         _nameCtrl.text,
@@ -83,9 +83,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Start your intelligent expense journey today',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                  style: Theme.of(context).textTheme.bodyLarge
+                      ?.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 36),
 
@@ -97,8 +96,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: 'Full Name',
                     prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Please enter your name' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Please enter your name'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -110,8 +110,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: 'Email Address',
                     prefixIcon: Icon(Icons.mail_outline_rounded),
                   ),
-                  validator: (v) =>
-                      v == null || !v.contains('@') ? 'Enter a valid email' : null,
+                  validator: (v) => v == null || !v.contains('@')
+                      ? 'Enter a valid email'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -123,9 +124,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                       onPressed: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
                     ),
@@ -144,9 +147,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: 'Confirm Password',
                     prefixIcon: const Icon(Icons.lock_outline_rounded),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscureConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined),
+                      icon: Icon(
+                        _obscureConfirm
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
                       onPressed: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
                     ),

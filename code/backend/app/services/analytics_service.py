@@ -83,9 +83,11 @@ def get_merchant_wise_spending(
     user_id: UUID,
     db: Session,
     limit: int = 10,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
 ) -> list[MerchantSummary]:
     """Merchant-level analysis: top merchants by total spending."""
-    rows = (
+    q = (
         db.query(
             Transaction.merchant_name,
             func.sum(Transaction.amount).label("total"),
@@ -96,7 +98,14 @@ def get_merchant_wise_spending(
             Transaction.user_id == user_id,
             Transaction.is_deleted == False,
         )
-        .group_by(Transaction.merchant_name)
+    )
+    if month:
+        q = q.filter(extract("month", Transaction.transaction_date) == month)
+    if year:
+        q = q.filter(extract("year", Transaction.transaction_date) == year)
+
+    rows = (
+        q.group_by(Transaction.merchant_name)
         .order_by(func.sum(Transaction.amount).desc())
         .limit(limit)
         .all()
@@ -372,10 +381,16 @@ def generate_spending_summary(
     )
 
 
-def get_dashboard_statistics(user_id: UUID, db: Session) -> AnalyticsSummary:
+def get_dashboard_statistics(
+    user_id: UUID,
+    db: Session,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+) -> AnalyticsSummary:
     """Aggregated dashboard metrics."""
     now = datetime.now(timezone.utc)
-    curr_month, curr_year = now.month, now.year
+    curr_month = month or now.month
+    curr_year = year or now.year
 
     prev_month = curr_month - 1 if curr_month > 1 else 12
     prev_year = curr_year if curr_month > 1 else curr_year - 1
@@ -413,7 +428,7 @@ def get_dashboard_statistics(user_id: UUID, db: Session) -> AnalyticsSummary:
         avg_monthly_spending=avg_monthly,
         total_transactions=total_txn,
         top_categories=get_category_wise_spending(user_id, db, month=curr_month, year=curr_year)[:5],
-        top_merchants=get_merchant_wise_spending(user_id, db, limit=5),
+        top_merchants=get_merchant_wise_spending(user_id, db, limit=5, month=curr_month, year=curr_year),
         spending_trend=trend,
         unusual_spending_alerts=alerts,
     )

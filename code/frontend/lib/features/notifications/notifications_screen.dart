@@ -23,17 +23,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _loadNotifications();
   }
 
-  Future<void> _loadNotifications() async {
+  Future<void> _loadNotifications({bool forceRefresh = false}) async {
     setState(() => _isLoading = true);
     try {
-      final notifs = await ApiService.getNotifications(
-        unreadOnly: _selectedFilter == 1,
-      );
-      final unread = await ApiService.getUnreadNotificationCount();
+      final results = await Future.wait([
+        ApiService.getNotifications(
+          unreadOnly: _selectedFilter == 1,
+          forceRefresh: forceRefresh,
+        ),
+        ApiService.getUnreadNotificationCount(forceRefresh: forceRefresh),
+      ]);
       if (!mounted) return;
       setState(() {
-        _notifications = notifs;
-        _unreadCount = unread;
+        _notifications = results[0] as List<NotificationItemModel>;
+        _unreadCount = results[1] as int;
         _isLoading = false;
       });
     } catch (e) {
@@ -223,7 +226,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
-                    onRefresh: _loadNotifications,
+                    onRefresh: () => _loadNotifications(forceRefresh: true),
                     child: _notifications.isEmpty
                         ? _buildEmptyState()
                         : ListView.separated(

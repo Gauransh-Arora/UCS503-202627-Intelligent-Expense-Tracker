@@ -33,7 +33,13 @@ def create_expense_split(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new expense split with computed participant amounts."""
-    return service_create_expense_split(current_user.id, split_in, db)
+    try:
+        return service_create_expense_split(current_user.id, split_in, db)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 # Alias
@@ -80,11 +86,17 @@ def record_settlement(
     current_user: User = Depends(get_current_user),
 ):
     """Record that a participant has settled their debt."""
-    return service_record_settlement(
-        user_id=current_user.id,
-        settlement_in=settlement_in,
-        db=db,
-    )
+    try:
+        return service_record_settlement(
+            user_id=current_user.id,
+            settlement_in=settlement_in,
+            db=db,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.get("/{split_id}", response_model=SplitResponse)

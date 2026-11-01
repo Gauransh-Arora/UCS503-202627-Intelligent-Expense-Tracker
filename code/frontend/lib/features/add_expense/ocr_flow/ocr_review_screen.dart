@@ -4,7 +4,6 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/num_parser.dart';
 import '../../../widgets/primary_button.dart';
-import '../../../models/expense_model.dart';
 import '../../../services/api_service.dart';
 
 class OcrReviewScreen extends StatefulWidget {
@@ -31,12 +30,12 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
     final data = widget.ocrData;
     _merchantCtrl = TextEditingController(text: data['merchant_name'] ?? '');
     _amountCtrl = TextEditingController(text: data['amount']?.toString() ?? '');
-    
+
     // Parse date if available
     _selectedDate = data['date'] ?? 'Unknown Date';
     _selectedCategory = data['category_suggestion'] ?? 'Food & Dining';
     _confidence = asDouble(data['confidence'], 0.0);
-    
+
     _items = List<Map<String, dynamic>>.from(data['items'] ?? []);
   }
 
@@ -254,8 +253,8 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
                         .toList(),
                     // Fallback to first category if the suggested one isn't in the list
                     onChanged: (v) => setState(() => _selectedCategory = v!),
-                    value: AppConstants.categories.contains(_selectedCategory) 
-                        ? _selectedCategory 
+                    value: AppConstants.categories.contains(_selectedCategory)
+                        ? _selectedCategory
                         : AppConstants.categories.first,
                   ),
                 ),

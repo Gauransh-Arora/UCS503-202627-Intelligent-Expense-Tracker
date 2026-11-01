@@ -3,7 +3,7 @@ Financial Intelligence Service — unusual spending detection, subscriptions det
 wishlist management, discretionary budget calculation, and purchase readiness evaluation.
 """
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import math
 import statistics
@@ -92,14 +92,20 @@ def detect_unusual_spending(user_id: UUID, db: Session) -> list[str]:
                 f"⚠️ {cat_name} spending (₹{curr_total:,.2f}) is noticeably higher than your historical baseline (avg ₹{mean:,.2f}, +{ratio:.1f}x normal)."
             )
 
-    # Single transaction spikes this month
+    # Single transaction spikes in recent period (last 30 days or current calendar month)
+    recent_cutoff = (now - timedelta(days=30)).date()
     curr_txns = (
         db.query(Transaction)
         .filter(
             Transaction.user_id == user_id,
             Transaction.is_deleted == False,
-            extract("month", Transaction.transaction_date) == curr_month,
-            extract("year", Transaction.transaction_date) == curr_year,
+            (
+                (Transaction.transaction_date >= recent_cutoff) |
+                (
+                    (extract("month", Transaction.transaction_date) == curr_month) &
+                    (extract("year", Transaction.transaction_date) == curr_year)
+                )
+            ),
         )
         .all()
     )
@@ -307,6 +313,52 @@ def generate_purchase_verdict(
     return VerdictStr("Not Recommended Currently")
 
 
+
+
+def _generate_dynamic_purchase_advice(
+    item_name: str,
+    item_price: Decimal,
+    discretionary: Decimal,
+    avg_monthly: Decimal,
+    monthly_recurring: Decimal,
+    readiness_score: float,
+    verdict: str,
+    estimated_months: Optional[float],
+) -> list[str]:
+    """Use Gemini to generate personalized, dynamic financial guidance for wishlist items."""
+    if not settings.GEMINI_API_KEY:
+        return []
+    try:
+        from google import genai
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        prompt = f"""You are a personal financial advisor assessing purchase readiness.
+Item: {item_name}
+Expected Price: ₹{item_price:,.2f}
+Monthly Discretionary Budget: ₹{discretionary:,.2f}
+Average Monthly Spending: ₹{avg_monthly:,.2f}
+Fixed Recurring Obligations: ₹{monthly_recurring:,.2f}
+Affordability Readiness Score: {readiness_score:.0f}/100
+Verdict: {verdict}
+Estimated Months to Save: {estimated_months if estimated_months is not None else 'N/A'}
+
+Provide 2 concise, highly actionable financial bullet points giving personalized savings strategy and practical budgeting advice specifically for this item and numbers. Do NOT use emojis. Return ONLY a JSON list of strings, for example:
+["Point 1", "Point 2"]
+"""
+        res = client.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=prompt,
+        )
+        import json, re
+        raw = res.text.strip()
+        match = re.search(r'\[.*\]', raw, re.DOTALL)
+        if match:
+            tips = json.loads(match.group(0))
+            if isinstance(tips, list):
+                return [str(t).strip() for t in tips if str(t).strip()][:3]
+    except Exception:
+        pass
+    return []
+
 def calculate_purchase_readiness(
     item: WishlistItem,
     user_id: UUID,
@@ -349,6 +401,20 @@ def calculate_purchase_readiness(
         estimated_months=estimated_months,
     )
     notes.append(f"Final purchase verdict: {verdict}.")
+
+    # Dynamic AI advisor guidance
+    ai_advice = _generate_dynamic_purchase_advice(
+        item_name=item.name,
+        item_price=item_price,
+        discretionary=discretionary,
+        avg_monthly=avg_monthly,
+        monthly_recurring=budget_info.monthly_recurring,
+        readiness_score=readiness,
+        verdict=verdict,
+        estimated_months=estimated_months,
+    )
+    if ai_advice:
+        notes.extend(ai_advice)
 
     # Persist readiness & verdict to item
     item.purchase_readiness = readiness

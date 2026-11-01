@@ -23,26 +23,20 @@ class _InsightsScreenState extends State<InsightsScreen> {
     _loadInsights();
   }
 
-  Future<void> _loadInsights() async {
+  Future<void> _loadInsights({bool forceRefresh = false}) async {
     setState(() => _isLoading = true);
     try {
-      final alerts = await ApiService.detectUnusualSpending();
-      SpendingSummaryResponse? summary;
-      MonthlyComparison? comparison;
-
-      try {
-        summary = await ApiService.generateSpendingSummary();
-      } catch (_) {}
-
-      try {
-        comparison = await ApiService.compareMonthlySpending();
-      } catch (_) {}
+      final results = await Future.wait([
+        ApiService.detectUnusualSpending(forceRefresh: forceRefresh).catchError((_) => <String>[]),
+        ApiService.generateSpendingSummary(forceRefresh: forceRefresh).then<SpendingSummaryResponse?>((v) => v).catchError((_) => null),
+        ApiService.compareMonthlySpending(forceRefresh: forceRefresh).then<MonthlyComparison?>((v) => v).catchError((_) => null),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _unusualAlerts = alerts;
-        _spendingSummary = summary;
-        _monthlyComparison = comparison;
+        _unusualAlerts = results[0] as List<String>;
+        _spendingSummary = results[1] as SpendingSummaryResponse?;
+        _monthlyComparison = results[2] as MonthlyComparison?;
         _isLoading = false;
       });
     } catch (e) {
@@ -72,7 +66,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadInsights,
+              onRefresh: () => _loadInsights(forceRefresh: true),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
                 children: [

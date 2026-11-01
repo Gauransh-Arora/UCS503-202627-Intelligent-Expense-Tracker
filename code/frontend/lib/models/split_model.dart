@@ -92,11 +92,11 @@ class FriendModel {
 
   factory FriendModel.fromJson(Map<String, dynamic> json) {
     return FriendModel(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? 'Friend',
-      email: json['email'] as String?,
-      phone: json['phone'] as String?,
-      avatarUrl: json['avatar_url'] as String?,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Friend',
+      email: json['email']?.toString(),
+      phone: json['phone']?.toString(),
+      avatarUrl: json['avatar_url']?.toString(),
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
     );
   }
@@ -132,14 +132,14 @@ class FriendBalanceItemModel {
 
   factory FriendBalanceItemModel.fromJson(Map<String, dynamic> json) {
     return FriendBalanceItemModel(
-      friendName: json['friend_name'] as String? ?? 'Contact',
-      friendId: json['friend_id'] as String?,
+      friendName: json['friend_name']?.toString() ?? 'Contact',
+      friendId: json['friend_id']?.toString(),
       netBalance: asDouble(json['net_balance']),
       totalOwedByFriend: asDouble(json['total_owed_by_friend']),
       totalSettledByFriend: asDouble(json['total_settled_by_friend']),
       totalOwedByUser: asDouble(json['total_owed_by_user']),
       totalSettledByUser: asDouble(json['total_settled_by_user']),
-      status: json['status'] as String? ?? 'settled',
+      status: json['status']?.toString() ?? 'settled',
     );
   }
 
@@ -194,14 +194,14 @@ class FriendLedgerItemModel {
 
   factory FriendLedgerItemModel.fromJson(Map<String, dynamic> json) {
     return FriendLedgerItemModel(
-      id: json['id'] as String? ?? '',
-      type: json['type'] as String? ?? 'split',
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'split',
       date: json['date'] != null
           ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
           : DateTime.now(),
-      description: json['description'] as String? ?? '',
+      description: json['description']?.toString() ?? '',
       amount: asDouble(json['amount']),
-      role: json['role'] as String? ?? '',
+      role: json['role']?.toString() ?? '',
     );
   }
 
@@ -229,7 +229,7 @@ class FriendLedgerModel {
     return FriendLedgerModel(
       friend: FriendModel.fromJson(json['friend'] as Map<String, dynamic>? ?? {}),
       currentBalance: asDouble(json['current_balance']),
-      status: json['status'] as String? ?? 'settled',
+      status: json['status']?.toString() ?? 'settled',
       ledgerEntries: list
           .map((e) => FriendLedgerItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -260,12 +260,12 @@ class SettlementItemModel {
 
   factory SettlementItemModel.fromJson(Map<String, dynamic> json) {
     return SettlementItemModel(
-      id: json['id'] as String? ?? '',
-      splitId: json['split_id'] as String?,
-      payerName: json['payer_name'] as String? ?? '',
-      payeeName: json['payee_name'] as String? ?? '',
+      id: json['id']?.toString() ?? '',
+      splitId: json['split_id']?.toString(),
+      payerName: json['payer_name']?.toString() ?? '',
+      payeeName: json['payee_name']?.toString() ?? '',
       amount: asDouble(json['amount']),
-      status: json['status'] as String? ?? 'settled',
+      status: json['status']?.toString() ?? 'settled',
       settledAt: json['settled_at'] != null ? DateTime.tryParse(json['settled_at'].toString()) : null,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
@@ -303,12 +303,12 @@ class SplitItemModel {
   factory SplitItemModel.fromJson(Map<String, dynamic> json) {
     final list = json['participants'] as List? ?? [];
     return SplitItemModel(
-      id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? 'Expense Split',
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Expense Split',
       totalAmount: asDouble(json['total_amount']),
-      currency: json['currency'] as String? ?? 'INR',
-      splitType: json['split_type'] as String? ?? 'equal',
-      description: json['description'] as String?,
+      currency: json['currency']?.toString() ?? 'INR',
+      splitType: json['split_type']?.toString() ?? 'equal',
+      description: json['description']?.toString(),
       participants: list
           .map((e) => ParticipantItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -336,8 +336,8 @@ class ParticipantItemModel {
 
   factory ParticipantItemModel.fromJson(Map<String, dynamic> json) {
     return ParticipantItemModel(
-      id: json['id'] as String? ?? '',
-      participantName: json['participant_name'] as String? ?? '',
+      id: json['id']?.toString() ?? '',
+      participantName: json['participant_name']?.toString() ?? '',
       amountOwed: asDouble(json['amount_owed']),
       percentage: asDoubleOrNull(json['percentage']),
       isPayer: json['is_payer'] as bool? ?? false,

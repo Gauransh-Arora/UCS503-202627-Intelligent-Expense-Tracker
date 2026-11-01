@@ -31,16 +31,18 @@ class _RecurringScreenState extends State<RecurringScreen>
     super.dispose();
   }
 
-  Future<void> _loadIntelligenceData() async {
+  Future<void> _loadIntelligenceData({bool forceRefresh = false}) async {
     setState(() => _isLoading = true);
     try {
-      final subs = await ApiService.detectSubscriptions();
-      final bills = await ApiService.detectRecurringExpenses();
+      final results = await Future.wait([
+        ApiService.detectSubscriptions(forceRefresh: forceRefresh),
+        ApiService.detectRecurringExpenses(forceRefresh: forceRefresh),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _subscriptions = subs;
-        _recurringBills = bills;
+        _subscriptions = results[0] as List<SubscriptionResponseModel>;
+        _recurringBills = results[1] as List<DetectedRecurringModel>;
         _isLoading = false;
       });
     } catch (e) {
@@ -85,7 +87,7 @@ class _RecurringScreenState extends State<RecurringScreen>
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadIntelligenceData,
+              onRefresh: () => _loadIntelligenceData(forceRefresh: true),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
                 children: [

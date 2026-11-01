@@ -34,14 +34,14 @@ class SubscriptionResponseModel {
 
   factory SubscriptionResponseModel.fromJson(Map<String, dynamic> json) {
     return SubscriptionResponseModel(
-      merchantName: json['merchant_name'] as String? ?? 'Subscription',
+      merchantName: json['merchant_name']?.toString() ?? 'Subscription',
       monthlyAmount: asDouble(json['monthly_amount']),
       annualAmount: asDouble(json['annual_amount']),
-      frequency: json['frequency'] as String? ?? 'monthly',
+      frequency: json['frequency']?.toString() ?? 'monthly',
       confidence: asDouble(json['confidence'], 1.0),
-      categoryName: json['category_name'] as String?,
+      categoryName: json['category_name']?.toString(),
       typicalDay: asIntOrNull(json['typical_day']),
-      status: json['status'] as String? ?? 'active',
+      status: json['status']?.toString() ?? 'active',
     );
   }
 }
@@ -70,10 +70,10 @@ class DetectedRecurringModel {
 
   factory DetectedRecurringModel.fromJson(Map<String, dynamic> json) {
     return DetectedRecurringModel(
-      merchantName: json['merchant_name'] as String? ?? json['merchant'] as String? ?? 'Recurring',
+      merchantName: json['merchant_name']?.toString() ?? json['merchant']?.toString() ?? 'Recurring',
       amount: asDouble(json['amount'] ?? json['typical_amount']),
-      frequency: json['frequency'] as String? ?? 'monthly',
-      category: json['category'] as String? ?? json['category_name'] as String?,
+      frequency: json['frequency']?.toString() ?? 'monthly',
+      category: json['category']?.toString() ?? json['category_name']?.toString(),
       nextExpected: json['next_expected_date'] != null
           ? DateTime.tryParse(json['next_expected_date'].toString())
           : (json['next_expected'] != null ? DateTime.tryParse(json['next_expected'].toString()) : null),

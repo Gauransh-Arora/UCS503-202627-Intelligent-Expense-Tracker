@@ -141,3 +141,7 @@ class TransactionDetailResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("amount", when_used="json")
+    def serialize_amount(self, v: Decimal) -> float:
+        return float(v)

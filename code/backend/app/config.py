@@ -1,23 +1,21 @@
-"""
-Application configuration using pydantic-settings.
-All values are loaded from the .env file.
-"""
+"""Application configuration settings."""
+from pathlib import Path
+from typing import Optional
+
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = "sqlite:///./expenses.db"
+    """Application runtime configuration."""
 
-    # JWT
-    SECRET_KEY: str = "change-me-in-production-use-a-long-random-secret"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    # Core Database
+    DATABASE_URL: str = "sqlite:///./expenses.db"
 
     # File uploads
     UPLOAD_DIR: str = "uploads"
-    MAX_UPLOAD_SIZE_MB: int = 15
-    SUPPORTED_MIME_TYPES: list[str] = [
+    MAX_UPLOAD_SIZE_MB: int = 10
+    ALLOWED_MIME_TYPES: list[str] = [
         "image/jpeg",
         "image/png",
         "image/webp",
@@ -30,9 +28,10 @@ class Settings(BaseSettings):
     DEFAULT_CURRENCY: str = "INR"
     DEFAULT_LOCALE: str = "en_IN"
 
-    # OCR & Extraction
-    OCR_PROVIDER: str = "paddleocr"
-    OCR_CONFIDENCE_THRESHOLD: float = 0.60
+    # Extraction Settings (Multimodal Vision LLM)
+    EXTRACTION_PROVIDER: str = "gemini"
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
 
     # Recurring Detection Tolerances
     RECURRING_AMOUNT_TOLERANCE_PCT: float = 0.15
@@ -43,16 +42,20 @@ class Settings(BaseSettings):
     MIN_HISTORY_MONTHS_FOR_ANOMALY: int = 2
     MIN_TRANSACTIONS_FOR_ANOMALY: int = 5
 
-    # Wishlist & Purchase Readiness
-    READINESS_COMFORTABLE_RATIO: float = 1.0
-    READINESS_POSSIBLE_RATIO: float = 2.5
+    # Wishlist & Discretionary Budget
+    READINESS_COMFORTABLE_RATIO: float = 0.50
+    READINESS_POSSIBLE_RATIO: float = 1.00
 
-    # Duplicate Detection
-    DUPLICATE_AMOUNT_TOLERANCE: float = 0.01
-    DUPLICATE_DATE_TOLERANCE_DAYS: int = 2
+    # JWT Authentication
+    SECRET_KEY: str = Field(
+        default="intelligent-expense-tracker-dev-secret-key-change-in-production-2026",
+        description="HMAC secret key for JWT token encoding/decoding",
+    )
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(Path(__file__).resolve().parent.parent / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

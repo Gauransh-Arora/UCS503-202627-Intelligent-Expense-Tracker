@@ -4,6 +4,7 @@ Bank Statement Parser Service
 Parses uploaded bank-statement PDFs and CSVs into structured row data.
 
 Features:
+  - Multimodal Vision LLM parsing via Google Gemini (zero-OCR direct tabular extraction)
   - Delimiter & encoding sniffing for CSVs
   - Flexible column header synonym matching using bank_column_synonyms.json
   - Smart merchant extraction from messy Indian/international bank narrations (UPI, NEFT, IMPS, POS, ACH)
@@ -25,6 +26,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.category import Category
 from app.models.transaction import Transaction, TransactionStatus
 
@@ -39,6 +41,9 @@ _DATE_FORMATS = [
     "%d-%b-%Y",
     "%d/%b/%Y",
     "%d %B %Y",
+    "%d %b %y",
+    "%d-%b-%y",
+    "%d/%b/%y",
     "%d-%m-%y",
     "%d/%m/%y",
     "%Y/%m/%d",
@@ -494,10 +499,24 @@ def mark_duplicates(
 
 
 def parse_bank_statement(file_path: str, user_id: Optional[Any] = None, db: Optional[Session] = None) -> dict[str, Any]:
-    """Parse a bank statement file (PDF or CSV)."""
+    """Parse a bank statement file (PDF or CSV) using Vision LLM with local fallback."""
     path = Path(file_path)
     ext = path.suffix.lower()
 
+    # 1. Primary for PDF: Multimodal Vision LLM
+    if ext == ".pdf" and getattr(settings, "EXTRACTION_PROVIDER", "gemini") == "gemini":
+        try:
+            from app.services.vision_service import is_vision_available, parse_bank_statement_with_vision
+            if is_vision_available():
+                vision_res = parse_bank_statement_with_vision(file_path)
+                if vision_res and vision_res.get("rows"):
+                    if user_id and db:
+                        vision_res["rows"] = mark_duplicates(user_id, vision_res["rows"], db)
+                    return vision_res
+        except Exception as exc:
+            logger.warning(f"Vision bank statement parsing fell back to local parser: {exc}")
+
+    # 2. Local fallback parser (and for CSVs)
     raw_text = ""
     if ext == ".csv":
         rows, meta = _parse_csv(file_path)

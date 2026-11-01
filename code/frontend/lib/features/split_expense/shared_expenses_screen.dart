@@ -33,18 +33,20 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
     super.dispose();
   }
 
-  Future<void> _loadAllData() async {
+  Future<void> _loadAllData({bool forceRefresh = false}) async {
     setState(() => _isLoading = true);
     try {
-      final balance = await ApiService.calculateUserBalance();
-      final settlements = await ApiService.getSettlementHistory();
-      final friends = await ApiService.getFriends();
+      final results = await Future.wait([
+        ApiService.calculateUserBalance(forceRefresh: forceRefresh),
+        ApiService.getSettlementHistory(forceRefresh: forceRefresh),
+        ApiService.getFriends(forceRefresh: forceRefresh),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _userBalance = balance;
-        _settlements = settlements;
-        _friends = friends;
+        _userBalance = results[0] as UserBalanceModel;
+        _settlements = results[1] as List<SettlementItemModel>;
+        _friends = results[2] as List<FriendModel>;
         _isLoading = false;
       });
     } catch (e) {
@@ -485,7 +487,7 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
               children: [
                 // ─── TAB 1: BALANCES ─────────────────────────────────────────
                 RefreshIndicator(
-                  onRefresh: _loadAllData,
+                  onRefresh: () => _loadAllData(forceRefresh: true),
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
                     children: [
@@ -580,7 +582,7 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
 
                 // ─── TAB 2: SETTLEMENTS HISTORY ──────────────────────────────
                 RefreshIndicator(
-                  onRefresh: _loadAllData,
+                  onRefresh: () => _loadAllData(forceRefresh: true),
                   child: _settlements.isEmpty
                       ? _buildEmptySettlements()
                       : ListView.separated(
@@ -641,7 +643,7 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
 
                 // ─── TAB 3: CONTACTS & FRIENDS ───────────────────────────────
                 RefreshIndicator(
-                  onRefresh: _loadAllData,
+                  onRefresh: () => _loadAllData(forceRefresh: true),
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
                     children: [

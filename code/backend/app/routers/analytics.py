@@ -36,11 +36,13 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 @router.get("/summary", response_model=AnalyticsSummary)
 @router.get("/dashboard", response_model=AnalyticsSummary)
 def get_dashboard_statistics(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """High-level aggregated dashboard statistics."""
-    return service_get_dashboard_statistics(current_user.id, db)
+    return service_get_dashboard_statistics(current_user.id, db, month=month, year=year)
 
 
 # Alias
@@ -80,11 +82,13 @@ category_analytics = get_category_wise_spending
 @router.get("/merchants", response_model=list[MerchantSummary])
 def get_merchant_wise_spending(
     limit: int = Query(10, le=50),
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Merchant-level spending analysis."""
-    return service_get_merchant_wise_spending(current_user.id, db, limit=limit)
+    return service_get_merchant_wise_spending(current_user.id, db, limit=limit, month=month, year=year)
 
 
 # Alias

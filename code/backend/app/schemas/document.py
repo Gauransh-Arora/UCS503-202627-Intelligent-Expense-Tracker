@@ -25,24 +25,29 @@ class DocumentResponse(BaseModel):
 class ExtractedItem(BaseModel):
     name: str
     quantity: int = 1
-    unit_price: Decimal
-    total_price: Decimal
+    unit_price: Optional[Decimal] = None
+    total_price: Optional[Decimal] = None
+    price: Optional[Decimal] = None
 
-    @field_serializer("unit_price", "total_price", when_used="json")
-    def serialize_prices(self, v: Decimal) -> float:
-        return float(v)
+    @field_serializer("unit_price", "total_price", "price", when_used="json")
+    def serialize_prices(self, v: Optional[Decimal]) -> Optional[float]:
+        return float(v) if v is not None else None
 
 
 class OCRResult(BaseModel):
-    """Structured data extracted from OCR raw text with per-field confidence."""
+    """Structured data extracted from OCR/Vision raw text with per-field confidence."""
     document_id: UUID
     raw_text: str
     merchant_name: Optional[str] = None
     amount: Optional[Decimal] = None
     tax_amount: Optional[Decimal] = None
     date: Optional[str] = None
+    transaction_date: Optional[str] = None
+    currency: Optional[str] = "INR"
+    payment_method: Optional[str] = None
     items: list[ExtractedItem] = []
     category_suggestion: Optional[str] = None
+    suggested_category: Optional[str] = None
     suggested_category_id: Optional[UUID] = None
     reference_number: Optional[str] = None
     payment_status: str = "success"

@@ -70,7 +70,7 @@ class _SplitScreenState extends State<SplitScreen> {
         final val = double.tryParse(_controllers[p.id]?.text ?? '') ?? 0;
         allocated += val;
       }
-      return (allocated - total).abs() < 1;
+      return (allocated - total).abs() <= 1.0;
     }
 
     if (_splitMethod == AppConstants.splitPercentage) {
@@ -78,7 +78,7 @@ class _SplitScreenState extends State<SplitScreen> {
         final val = double.tryParse(_controllers[p.id]?.text ?? '') ?? 0;
         allocated += val;
       }
-      return (allocated - 100).abs() < 0.1;
+      return (allocated - 100).abs() <= 0.1;
     }
 
     return false;
@@ -99,7 +99,7 @@ class _SplitScreenState extends State<SplitScreen> {
         final val = double.tryParse(_controllers[p.id]?.text ?? '') ?? 0;
         allocated += val;
       }
-      return 100 - allocated;
+      return 100.0 - allocated;
     }
     return 0;
   }
@@ -116,7 +116,7 @@ class _SplitScreenState extends State<SplitScreen> {
     if (n == 0) return;
     final each = widget.expense.amount / n;
     for (final p in _allParticipants) {
-      _controllers[p.id]?.text = each.toStringAsFixed(0);
+      _controllers[p.id]?.text = each.toStringAsFixed(2);
     }
   }
 
@@ -134,7 +134,7 @@ class _SplitScreenState extends State<SplitScreen> {
 
         return {
           'participant_name': p.name,
-          'amount_owed': isPayer ? 0.0 : amount,
+          'amount_owed': amount,
           'percentage': percentage,
           'is_payer': isPayer,
         };
@@ -145,7 +145,7 @@ class _SplitScreenState extends State<SplitScreen> {
         totalAmount: widget.expense.amount,
         splitType: _splitMethod == AppConstants.splitPercentage
             ? 'percentage'
-            : (_splitMethod == AppConstants.splitCustom ? 'exact' : 'equal'),
+            : (_splitMethod == AppConstants.splitCustom ? 'custom' : 'equal'),
         description: 'Split for ${widget.expense.merchant}',
         participants: participantsList,
       );
@@ -323,21 +323,45 @@ class _SplitScreenState extends State<SplitScreen> {
                 label: 'Equal',
                 isSelected: _splitMethod == AppConstants.splitEqual,
                 onTap: () {
-                  setState(() => _splitMethod = AppConstants.splitEqual);
-                  _updateEqualSplit();
+                  setState(() {
+                    _splitMethod = AppConstants.splitEqual;
+                    _updateEqualSplit();
+                  });
                 },
               ),
               const SizedBox(width: 8),
               _MethodChip(
                 label: 'Percentage',
                 isSelected: _splitMethod == AppConstants.splitPercentage,
-                onTap: () => setState(() => _splitMethod = AppConstants.splitPercentage),
+                onTap: () {
+                  setState(() {
+                    _splitMethod = AppConstants.splitPercentage;
+                    final n = _allParticipants.length;
+                    if (n > 0) {
+                      final each = (100.0 / n).toStringAsFixed(1);
+                      for (final p in _allParticipants) {
+                        _controllers[p.id]?.text = each;
+                      }
+                    }
+                  });
+                },
               ),
               const SizedBox(width: 8),
               _MethodChip(
                 label: 'Custom',
                 isSelected: _splitMethod == AppConstants.splitCustom,
-                onTap: () => setState(() => _splitMethod = AppConstants.splitCustom),
+                onTap: () {
+                  setState(() {
+                    _splitMethod = AppConstants.splitCustom;
+                    final n = _allParticipants.length;
+                    if (n > 0) {
+                      final each = (widget.expense.amount / n).toStringAsFixed(2);
+                      for (final p in _allParticipants) {
+                        _controllers[p.id]?.text = each;
+                      }
+                    }
+                  });
+                },
               ),
             ],
           ),
@@ -381,7 +405,7 @@ class _SplitScreenState extends State<SplitScreen> {
                           ),
                           if (_splitMethod == AppConstants.splitEqual)
                             Text(
-                              '₹${(widget.expense.amount / _allParticipants.length).toStringAsFixed(0)}',
+                              '₹${(widget.expense.amount / _allParticipants.length).toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
@@ -438,7 +462,7 @@ class _SplitScreenState extends State<SplitScreen> {
                         ),
                         Text(
                           _splitMethod == AppConstants.splitCustom
-                              ? '₹${widget.expense.amount.toStringAsFixed(0)}'
+                              ? '₹${widget.expense.amount.toStringAsFixed(2)}'
                               : '100%',
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
@@ -449,22 +473,22 @@ class _SplitScreenState extends State<SplitScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _remainingCustom() == 0 ? 'Balanced' : 'Remaining',
+                          _remainingCustom().abs() < 0.01 ? 'Balanced' : 'Remaining',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: _remainingCustom() == 0
+                            color: _remainingCustom().abs() < 0.01
                                 ? AppColors.success
                                 : AppColors.danger,
                           ),
                         ),
                         Text(
                           _splitMethod == AppConstants.splitCustom
-                              ? '₹${_remainingCustom().toStringAsFixed(0)}'
-                              : '${_remainingCustom().toStringAsFixed(1)}%',
+                              ? '₹${_remainingCustom().abs().toStringAsFixed(2)}'
+                              : '${_remainingCustom().abs().toStringAsFixed(1)}%',
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
-                            color: _remainingCustom() == 0
+                            color: _remainingCustom().abs() < 0.01
                                 ? AppColors.success
                                 : AppColors.danger,
                           ),

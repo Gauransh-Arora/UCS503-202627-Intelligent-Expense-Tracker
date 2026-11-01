@@ -462,7 +462,7 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
                                   style: Theme.of(context).textTheme.bodyMedium),
                             ),
                             Text(
-                              '₹${(item['price'] as double).toStringAsFixed(0)}',
+                              '₹${asDouble(item['price']).toStringAsFixed(0)}',
                               style: Theme.of(context)
                                   .textTheme
                                   .bodyMedium

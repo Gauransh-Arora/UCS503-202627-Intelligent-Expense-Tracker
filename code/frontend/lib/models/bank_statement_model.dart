@@ -85,7 +85,7 @@ class BankStatementSummary {
 
   factory BankStatementSummary.fromJson(Map<String, dynamic> json) =>
       BankStatementSummary(
-        id: json['id'] as String,
+        id: json['id']?.toString() ?? '',
         originalFilename: json['original_filename'] as String? ?? 'Statement',
         bankName: json['bank_name'] as String?,
         accountNumber: json['account_number'] as String?,
@@ -140,7 +140,7 @@ class BankStatementDetail extends BankStatementSummary {
   factory BankStatementDetail.fromJson(Map<String, dynamic> json) {
     final rawRows = json['parsed_rows'] as List<dynamic>? ?? [];
     return BankStatementDetail(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       originalFilename: json['original_filename'] as String? ?? 'Statement',
       bankName: json['bank_name'] as String?,
       accountNumber: json['account_number'] as String?,

@@ -3,7 +3,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, Uuid
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -21,6 +21,9 @@ class NotificationType(str, enum.Enum):
 
 class Notification(Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notifications_user_unread", "user_id", "is_read"),
+    )
 
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

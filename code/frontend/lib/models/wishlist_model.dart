@@ -74,22 +74,22 @@ class WishlistItemModel {
 
   factory WishlistItemModel.fromJson(Map<String, dynamic> json) {
     return WishlistItemModel(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '',
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
       expectedPrice: asDouble(json['expected_price'] ?? json['price']),
-      currency: json['currency'] as String? ?? 'INR',
-      description: json['description'] as String?,
-      priority: json['priority'] as String? ?? 'medium',
-      url: json['url'] as String?,
+      currency: json['currency']?.toString() ?? 'INR',
+      description: json['description']?.toString(),
+      priority: json['priority']?.toString() ?? 'medium',
+      url: json['url']?.toString(),
       purchaseReadiness: asDoubleOrNull(json['purchase_readiness']),
       estimatedMonths: asDoubleOrNull(json['estimated_months']),
-      verdict: json['verdict'] as String?,
+      verdict: json['verdict']?.toString(),
       discretionaryBudget: asDoubleOrNull(json['discretionary_budget']),
       isPurchased: json['is_purchased'] as bool? ?? false,
       addedAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
-      analysis: json['description'] as String? ?? json['analysis'] as String?,
+      analysis: json['description']?.toString() ?? json['analysis']?.toString(),
     );
   }
 
@@ -128,14 +128,14 @@ class ReadinessResponseModel {
 
   factory ReadinessResponseModel.fromJson(Map<String, dynamic> json) {
     return ReadinessResponseModel(
-      wishlistItemId: json['wishlist_item_id'] as String? ?? '',
-      name: json['name'] as String? ?? '',
+      wishlistItemId: json['wishlist_item_id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
       expectedPrice: asDouble(json['expected_price']),
       purchaseReadiness: asDouble(json['purchase_readiness']),
       estimatedMonths: asDoubleOrNull(json['estimated_months']),
       monthlyDiscretionary: asDouble(json['monthly_discretionary']),
       avgMonthlySpending: asDouble(json['avg_monthly_spending']),
-      verdict: json['verdict'] as String? ?? 'Possible',
+      verdict: json['verdict']?.toString() ?? 'Possible',
       analysisNotes: (json['analysis_notes'] as List? ?? []).map((e) => e.toString()).toList(),
     );
   }

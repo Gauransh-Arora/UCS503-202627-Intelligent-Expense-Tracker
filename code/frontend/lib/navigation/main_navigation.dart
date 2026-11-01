@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../core/theme/app_colors.dart';
 import '../features/home/home_screen.dart';
 import '../features/expenses/expenses_screen.dart';
@@ -16,8 +17,8 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  void _openAddExpense() {
-    showModalBottomSheet(
+  void _openAddExpense() async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -89,7 +90,11 @@ class _MainNavigationState extends State<MainNavigation> {
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.add_rounded, color: Colors.white, size: 32),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                          size: 32,
+                        ),
                       ),
                     ),
                   ),

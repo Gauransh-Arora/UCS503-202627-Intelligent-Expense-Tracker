@@ -1,7 +1,8 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_colors.dart';
-import '../../../widgets/primary_button.dart';
 import 'processing_screen.dart';
 
 class ImagePreviewScreen extends StatelessWidget {
@@ -51,7 +52,11 @@ class ImagePreviewScreen extends StatelessWidget {
                       ),
                     )
                   else ...[
-                    const Icon(Icons.receipt_long_rounded, color: Colors.white70, size: 80),
+                    const Icon(
+                      Icons.receipt_long_rounded,
+                      color: Colors.white70,
+                      size: 80,
+                    ),
                     const SizedBox(height: 20),
                     const Text(
                       'Receipt Preview',
@@ -69,7 +74,10 @@ class ImagePreviewScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -77,11 +85,18 @@ class ImagePreviewScreen extends StatelessWidget {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 14),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.greenAccent,
+                          size: 14,
+                        ),
                         SizedBox(width: 6),
                         Text(
                           'Image looks clear',
-                          style: TextStyle(color: Colors.greenAccent, fontSize: 13),
+                          style: TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -105,7 +120,8 @@ class ImagePreviewScreen extends StatelessWidget {
                       side: const BorderSide(color: Colors.white54),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: const Text('Retake'),
                   ),
@@ -118,7 +134,8 @@ class ImagePreviewScreen extends StatelessWidget {
                       if (filePath != null) {
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute(
-                            builder: (_) => ProcessingScreen(filePath: filePath!),
+                            builder: (_) =>
+                                ProcessingScreen(filePath: filePath!),
                           ),
                         );
                       }
@@ -127,7 +144,8 @@ class ImagePreviewScreen extends StatelessWidget {
                       backgroundColor: AppColors.accent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: const Text(
                       'Continue →',

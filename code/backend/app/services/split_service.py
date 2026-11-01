@@ -137,7 +137,8 @@ def calculate_custom_split(
 ) -> list[dict[str, Any]]:
     """
     Calculate shares for custom-amount splits.
-    Validates custom amounts sum to the total amount exactly.
+    Validates custom amounts sum to the total amount.
+    Reconciles minor rounding differences (up to ₹1.00) to the designated payer.
     """
     total_dec = Decimal(str(total_amount)).quantize(Decimal("0.01"))
     total_custom = sum(
@@ -145,18 +146,24 @@ def calculate_custom_split(
         for p in participants
     )
 
-    if total_custom != total_dec:
+    diff = total_dec - total_custom
+    # Allow reconciliation of minor fractional/integer rounding discrepancies up to ₹1.00
+    if abs(diff) > Decimal("1.00"):
         raise ValueError(
             f"Custom amounts sum to ₹{total_custom} but split total is ₹{total_dec}"
         )
 
     result = []
-    for p in participants:
+    payer_idx = len(participants) - 1
+    for i, p in enumerate(participants):
         amt = MoneyAmount(Decimal(str(p.amount_owed if hasattr(p, "amount_owed") else p.get("amount_owed", 0.0) or 0.0)).quantize(Decimal("0.01")))
         p_name = p.participant_name if hasattr(p, "participant_name") else p["participant_name"]
         p_uid = getattr(p, "participant_user_id", None) or (p.get("participant_user_id") if isinstance(p, dict) else None)
         is_payer = getattr(p, "is_payer", False) or (p.get("is_payer", False) if isinstance(p, dict) else False)
         friend_id = getattr(p, "friend_id", None) or (p.get("friend_id") if isinstance(p, dict) else None)
+
+        if is_payer:
+            payer_idx = i
 
         pct = (amt / total_dec * Decimal("100.00")).quantize(Decimal("0.01")) if total_dec > 0 else Decimal("0.00")
         result.append({
@@ -168,6 +175,13 @@ def calculate_custom_split(
             "is_payer": is_payer,
         })
 
+    # Reconcile any small rounding difference to the designated payer or last participant
+    if diff != Decimal("0.00") and result:
+        result[payer_idx]["amount_owed"] = MoneyAmount(result[payer_idx]["amount_owed"] + diff)
+        if total_dec > 0:
+            result[payer_idx]["percentage"] = (result[payer_idx]["amount_owed"] / total_dec * Decimal("100.00")).quantize(Decimal("0.01"))
+
+    assert sum(r["amount_owed"] for r in result) == total_dec
     return result
 
 

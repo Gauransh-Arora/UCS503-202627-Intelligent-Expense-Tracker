@@ -12,6 +12,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -47,6 +48,10 @@ TransactionStatus = VerificationStatus
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = (
+        Index("ix_transactions_user_deleted_date", "user_id", "is_deleted", "transaction_date"),
+        Index("ix_transactions_user_deleted_cat", "user_id", "is_deleted", "category_id"),
+    )
 
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -101,7 +106,17 @@ class Transaction(Base):
     @property
     def category_name(self) -> str | None:
         """Name of the associated category, if available."""
-        return self.category.name if self.category else None
+        if self.category and self.category.name:
+            return self.category.name
+        if self.category_id:
+            from sqlalchemy.orm import object_session
+            session = object_session(self)
+            if session:
+                from app.models.category import Category
+                cat = session.get(Category, self.category_id)
+                if cat:
+                    return cat.name
+        return None
 
     def validate_required(self) -> bool:
         """Validate required transaction fields."""

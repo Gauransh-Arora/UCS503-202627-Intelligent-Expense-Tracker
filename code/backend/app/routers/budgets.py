@@ -78,16 +78,24 @@ def create_or_update_budget_plan(
 
 @router.get("/", response_model=list[BudgetPlanResponse])
 def list_budget_plans(
+    month: Optional[str | int] = None,
+    year: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """List all budget plans for the authenticated user."""
-    plans = (
-        db.query(BudgetPlan)
-        .filter(BudgetPlan.user_id == current_user.id)
-        .order_by(BudgetPlan.month.desc())
-        .all()
-    )
+    query = db.query(BudgetPlan).filter(BudgetPlan.user_id == current_user.id)
+
+    if month is not None:
+        if year is not None and (isinstance(month, int) or str(month).isdigit()):
+            target_month = f"{year:04d}-{int(month):02d}"
+        else:
+            target_month = str(month)
+        query = query.filter(BudgetPlan.month == target_month)
+    elif year is not None:
+        query = query.filter(BudgetPlan.month.startswith(f"{year:04d}-"))
+
+    plans = query.order_by(BudgetPlan.month.desc()).all()
 
     results = []
     for p in plans:
