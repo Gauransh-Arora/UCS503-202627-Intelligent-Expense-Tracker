@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/routing/app_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_tokens.dart';
@@ -307,7 +308,11 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
           backgroundColor: AppColors.credit,
         ),
       );
-      Navigator.of(context).pop(true);
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(true);
+      } else {
+        AppRouter.router.go(AppConstants.routeHome);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
@@ -331,7 +336,13 @@ class _ManualExpenseScreenState extends State<ManualExpenseScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              AppRouter.router.go(AppConstants.routeHome);
+            }
+          },
         ),
         title: Text(isEdit ? 'Edit Expense' : 'Add Expense Manually'),
       ),

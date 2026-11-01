@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/routing/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -13,6 +15,14 @@ class ImagePreviewScreen extends StatelessWidget {
   final String? filePath;
   const ImagePreviewScreen({super.key, required this.source, this.filePath});
 
+  void _handleBack(BuildContext context) {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      AppRouter.router.go(AppConstants.routeHome);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -20,7 +30,7 @@ class ImagePreviewScreen extends StatelessWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => _handleBack(context),
         ),
         title: const Text('Review Image'),
       ),
@@ -84,7 +94,7 @@ class ImagePreviewScreen extends StatelessWidget {
                   Expanded(
                     child: SecondaryButton(
                       label: 'Retake',
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => _handleBack(context),
                     ),
                   ),
                   const SizedBox(width: 12),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/routing/app_router.dart';
 import '../../../services/api_service.dart';
 import 'ocr_review_screen.dart';
 
@@ -62,7 +64,11 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
           backgroundColor: AppColors.debit,
         ),
       );
-      Navigator.pop(context); // Return to preview
+      if (Navigator.of(context).canPop()) {
+        Navigator.pop(context);
+      } else {
+        AppRouter.router.go(AppConstants.routeHome);
+      }
     }
   }
 

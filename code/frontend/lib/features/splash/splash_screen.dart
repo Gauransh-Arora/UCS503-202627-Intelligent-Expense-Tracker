@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_constants.dart';
+import '../../core/routing/app_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
-import '../../navigation/main_navigation.dart';
-import '../auth/register_screen.dart';
 import '../../widgets/primary_button.dart';
 import '../../services/api_service.dart';
 import '../../services/share_intent_service.dart';
@@ -45,8 +45,11 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkAuthAndNavigate() async {
     final results = await Future.wait([
-      Future.delayed(const Duration(milliseconds: 700)),
+      Future.delayed(const Duration(milliseconds: 500)),
       ApiService.getToken(),
+      ShareIntentService.waitForInitialShare(
+        timeout: const Duration(milliseconds: 800),
+      ),
     ]);
 
     final token = results[1] as String?;
@@ -54,34 +57,9 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     if (token != null && token.isNotEmpty) {
-      final hasShare = ShareIntentService.hasPendingShare;
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const MainNavigation(),
-          transitionDuration: hasShare
-              ? Duration.zero
-              : const Duration(milliseconds: 300),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
-      if (hasShare) {
-        ShareIntentService.onAppReady();
-      } else {
-        Future.delayed(
-          const Duration(milliseconds: 350),
-          () => ShareIntentService.onAppReady(),
-        );
-      }
+      ShareIntentService.navigatePendingShareOrHome(context);
     } else {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-          transitionDuration: const Duration(milliseconds: 300),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
-      );
+      AppRouter.router.go(AppConstants.routeLogin);
     }
   }
 
@@ -182,18 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await ApiService.login(_emailCtrl.text, _passwordCtrl.text);
       if (!mounted) return;
-      final hasShare = ShareIntentService.hasPendingShare;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainNavigation()),
-      );
-      if (hasShare) {
-        ShareIntentService.onAppReady();
-      } else {
-        Future.delayed(
-          const Duration(milliseconds: 350),
-          () => ShareIntentService.onAppReady(),
-        );
-      }
+      ShareIntentService.navigatePendingShareOrHome(context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -331,11 +298,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ?.copyWith(color: AppColors.textSecondary),
                         ),
                         TextButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const RegisterScreen(),
-                            ),
-                          ),
+                          onPressed: () =>
+                              AppRouter.router.push(AppConstants.routeRegister),
                           child: const Text('Create Account'),
                         ),
                       ],

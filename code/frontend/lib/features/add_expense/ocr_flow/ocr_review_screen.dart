@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/routing/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_tokens.dart';
@@ -134,7 +135,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
           backgroundColor: AppColors.credit,
         ),
       );
-      Navigator.of(context).popUntil((r) => r.isFirst);
+      AppRouter.router.go(AppConstants.routeHome);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isConfirming = false);
@@ -159,7 +160,11 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Draft discarded')));
-    Navigator.of(context).pop();
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      AppRouter.router.go(AppConstants.routeHome);
+    }
   }
 
   void _editItem(int index) {
@@ -230,7 +235,13 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
         title: const Text('Verify Extracted Data'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              AppRouter.router.go(AppConstants.routeHome);
+            }
+          },
         ),
       ),
       body: ListView(

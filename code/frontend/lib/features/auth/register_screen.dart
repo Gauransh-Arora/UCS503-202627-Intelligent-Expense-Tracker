@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
-import '../../navigation/main_navigation.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/app_logo.dart';
 import '../../services/api_service.dart';
+import '../../services/share_intent_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -44,10 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _passwordCtrl.text,
       );
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainNavigation()),
-        (_) => false,
-      );
+      ShareIntentService.navigatePendingShareOrHome(context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -102,9 +99,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     labelText: 'Full Name',
                     prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Please enter your name'
-                      : null,
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Enter your name' : null,
                 ),
                 const SizedBox(height: 14),
 
@@ -113,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'Email Address',
+                    labelText: 'Email',
                     prefixIcon: Icon(Icons.mail_outline_rounded, size: 20),
                   ),
                   validator: (v) => v == null || !v.contains('@')
@@ -144,12 +140,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   validator: (v) => v == null || v.length < 6
-                      ? 'At least 6 characters required'
+                      ? 'Password must be at least 6 characters'
                       : null,
                 ),
                 const SizedBox(height: 14),
 
-                // Confirm password
+                // Confirm Password
                 TextFormField(
                   controller: _confirmCtrl,
                   obscureText: _obscureConfirm,
@@ -192,7 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ?.copyWith(color: AppColors.textSecondary),
                       ),
                       TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Navigator.pop(context),
                         child: const Text('Sign In'),
                       ),
                     ],

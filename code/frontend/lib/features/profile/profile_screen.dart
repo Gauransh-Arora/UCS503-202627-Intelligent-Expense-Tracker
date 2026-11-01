@@ -14,7 +14,8 @@ import '../wishlist/wishlist_screen.dart';
 import '../recurring/recurring_screen.dart';
 import '../split_expense/shared_expenses_screen.dart';
 import '../insights/insights_screen.dart';
-import '../splash/splash_screen.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/routing/app_router.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/user_avatar.dart';
 
@@ -156,10 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.pop(ctx);
               await ApiService.clearToken();
               if (!mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
+              AppRouter.router.go(AppConstants.routeLogin);
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             child: const Text('Log Out'),
