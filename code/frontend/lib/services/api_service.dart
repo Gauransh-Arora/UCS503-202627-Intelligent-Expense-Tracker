@@ -30,7 +30,7 @@ class _CacheEntry<T> {
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://172.16.216.51:8000',
+    defaultValue: 'http://10.34.235.140:8000',
   );
   static const String _tokenKey = 'jwt_token';
   static const Duration _defaultTimeout = Duration(seconds: 15);
