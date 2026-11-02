@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:intelligent_expense_tracker/core/routing/app_router.dart';
 import 'package:intelligent_expense_tracker/navigation/main_navigation.dart';
 import 'package:intelligent_expense_tracker/features/home/home_screen.dart';
 import 'package:intelligent_expense_tracker/features/expenses/expenses_screen.dart';

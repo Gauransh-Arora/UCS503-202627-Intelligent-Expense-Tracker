@@ -18,6 +18,7 @@ import '../notifications/notifications_screen.dart';
 import '../add_expense/add_expense_modal.dart';
 import '../split_expense/shared_expenses_screen.dart';
 import '../../services/api_service.dart';
+import '../../services/local_notification_service.dart';
 import '../../models/expense_model.dart';
 import '../../models/analytics_model.dart';
 import '../../models/user_model.dart';
@@ -66,6 +67,22 @@ class _HomeScreenState extends State<HomeScreen> {
     ApiService.getUnreadNotificationCount(forceRefresh: forceRefresh)
         .then((count) {
           if (mounted) setState(() => _unreadCount = count);
+        })
+        .catchError((_) {});
+
+    // Check for mid-month / 25th wishlist affordability and other auto-alerts
+    ApiService.triggerAutoNotifications()
+        .then((result) {
+          if (result.notifications.isNotEmpty) {
+            LocalNotificationService.showFromNotificationItems(
+              result.notifications,
+            );
+            if (mounted) {
+              setState(() {
+                _unreadCount += result.generatedCount;
+              });
+            }
+          }
         })
         .catchError((_) {});
   }

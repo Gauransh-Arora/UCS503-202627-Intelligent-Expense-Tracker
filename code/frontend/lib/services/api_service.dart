@@ -30,9 +30,13 @@ _CacheEntry(this.data, this.ttl) : timestamp = DateTime.now();
 }
 
 class ApiService {
+  // static const String baseUrl = String.fromEnvironment(
+  //   'API_BASE_URL',
+  //   defaultValue: 'http://172.16.216.51:8000',
+  // );
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://172.16.216.51:8000',
+    defaultValue: 'https://expense-tracker-gv07.onrender.com',
   );
   static const String _tokenKey = 'jwt_token';
   static const Duration _defaultTimeout = Duration(seconds: 15);

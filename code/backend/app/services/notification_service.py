@@ -12,6 +12,10 @@ from sqlalchemy.orm import Session
 from app.models.notification import Notification, NotificationType
 from app.models.recurring import Frequency, RecurringExpense
 from app.models.wishlist import WishlistItem
+from decimal import Decimal
+import statistics
+from sqlalchemy import func, extract
+from app.models.transaction import Transaction
 
 
 def create_notification(
@@ -201,9 +205,130 @@ def generate_auto_notifications(
             db.add(notif)
             generated.append(notif)
 
+    # 5. Mid-month (Day >= 15) & Late-month (Day >= 25) spending surplus vs historical mean/median
+    surplus_notifs = _check_periodic_wishlist_affordability(user_id, db, now)
+    generated.extend(surplus_notifs)
+
     if generated:
         db.commit()
         for g in generated:
             db.refresh(g)
 
     return generated
+
+
+def _check_periodic_wishlist_affordability(
+    user_id: UUID,
+    db: Session,
+    now: datetime,
+) -> list[Notification]:
+    """
+    Checks if user is at mid-month (>= 15th) or late-month (>= 25th).
+    If month-to-date spending is below the expected curve of the last 2-3 months
+    (mean or median), finds unpurchased wishlist items that the surplus can cover.
+    """
+    current_day = now.day
+    if current_day < 15:
+        return []
+
+    curr_year = now.year
+    curr_month = now.month
+
+    # Dedup check: Ensure we haven't already notified this user for this period in this month & year
+    period_title_prefix = f"Wishlist Goal Achievable ({'Late-Month' if current_day >= 25 else 'Mid-Month'})"
+    existing_period_notif = db.query(Notification).filter(
+        Notification.user_id == user_id,
+        Notification.title.like(f"{period_title_prefix}%"),
+        extract("year", Notification.created_at) == curr_year,
+        extract("month", Notification.created_at) == curr_month,
+    ).first()
+
+    if existing_period_notif:
+        return []
+
+    # 1. Calculate spending for last 2-3 prior calendar months
+    historical_totals: list[float] = []
+    for m_back in [1, 2, 3]:
+        calc_month = curr_month - m_back
+        calc_year = curr_year
+        while calc_month <= 0:
+            calc_month += 12
+            calc_year -= 1
+
+        month_sum = (
+            db.query(func.coalesce(func.sum(Transaction.amount), 0.0))
+            .filter(
+                Transaction.user_id == user_id,
+                Transaction.is_deleted == False,
+                extract("year", Transaction.transaction_date) == calc_year,
+                extract("month", Transaction.transaction_date) == calc_month,
+            )
+            .scalar()
+        )
+        if month_sum and float(month_sum) > 0:
+            historical_totals.append(float(month_sum))
+
+    if len(historical_totals) < 2:
+        return []
+
+    hist_mean = statistics.mean(historical_totals)
+    hist_median = statistics.median(historical_totals)
+    benchmark_monthly = min(hist_mean, hist_median)
+
+    # 2. Calculate current month-to-date spending
+    curr_mtd_spending = (
+        db.query(func.coalesce(func.sum(Transaction.amount), 0.0))
+        .filter(
+            Transaction.user_id == user_id,
+            Transaction.is_deleted == False,
+            extract("year", Transaction.transaction_date) == curr_year,
+            extract("month", Transaction.transaction_date) == curr_month,
+        )
+        .scalar()
+    )
+    curr_mtd = float(curr_mtd_spending or 0.0)
+
+    # 3. Expected spending curve up to current day (normalized over 30 days)
+    progress_ratio = min(1.0, current_day / 30.0)
+    expected_spending = benchmark_monthly * progress_ratio
+
+    if curr_mtd >= expected_spending:
+        return []
+
+    surplus = expected_spending - curr_mtd
+    if surplus < 100.0:
+        return []
+
+    # 4. Check wishlist for unpurchased items that this surplus can cover
+    matching_wishlist = (
+        db.query(WishlistItem)
+        .filter(
+            WishlistItem.user_id == user_id,
+            WishlistItem.is_purchased == False,
+            WishlistItem.expected_price <= Decimal(str(round(surplus, 2))),
+        )
+        .order_by(WishlistItem.expected_price.desc())
+        .first()
+    )
+
+    if not matching_wishlist:
+        return []
+
+    item_name = matching_wishlist.name
+    item_price = float(matching_wishlist.expected_price)
+
+    title = f"{period_title_prefix}: {item_name}"
+    message = (
+        f"You're spending below your historical average by ₹{surplus:,.0f} this month! "
+        f"Your wishlist item '{item_name}' (₹{item_price:,.0f}) is comfortably within your savings surplus. "
+        f"Treat yourself or achieve your goal!"
+    )
+
+    notif = Notification(
+        user_id=user_id,
+        title=title,
+        message=message,
+        notification_type=NotificationType.WISHLIST_UPDATE.value,
+    )
+    db.add(notif)
+    return [notif]

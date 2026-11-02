@@ -206,11 +206,20 @@ class LocalNotificationService {
   ) async {
     for (int i = 0; i < items.length && i < 3; i++) {
       final item = items[i];
+      String payload = 'notifications';
+      final type = item.notificationType.toLowerCase();
+      if (type == 'wishlist_update' || item.title.toLowerCase().contains('wishlist')) {
+        payload = 'wishlist';
+      } else if (type == 'recurring_due') {
+        payload = 'recurring';
+      } else if (type == 'split_debt') {
+        payload = 'shared_expenses';
+      }
       await showNotification(
         id: item.id.hashCode,
         title: item.title,
         body: item.message,
-        payload: 'notifications',
+        payload: payload,
       );
     }
   }
