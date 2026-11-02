@@ -346,16 +346,26 @@ Estimated Months to Save: {estimated_months if estimated_months is not None else
 Provide 2 concise, highly actionable financial bullet points giving personalized savings strategy and practical budgeting advice specifically for this item and numbers. Do NOT use emojis. Return ONLY a JSON list of strings, for example:
 ["Point 1", "Point 2"]
 """
-        model_name = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
-        res = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.2,
-                max_output_tokens=300,
-            ),
-        )
+        from app.services.vision_service import get_candidate_models
+        res = None
+        for model_name in get_candidate_models():
+            try:
+                res = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.2,
+                        max_output_tokens=300,
+                    ),
+                )
+                if res and res.text:
+                    break
+            except Exception as m_err:
+                err_str = str(m_err)
+                if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
+                    continue
+                break
         import json, re
         raw = res.text.strip()
         match = re.search(r'\[.*\]', raw, re.DOTALL)

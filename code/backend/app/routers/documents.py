@@ -156,9 +156,14 @@ def process_document(
                 doc.ocr_text = raw_text
 
         if not extracted:
+            if not is_vision_available():
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Vision model is disabled. Please ensure GEMINI_API_KEY is configured.",
+                )
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Unable to extract receipt details using Vision model. Please ensure GEMINI_API_KEY is configured.",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Receipt scanning is temporarily unavailable due to high AI provider demand. Please try again in a few moments or enter details manually.",
             )
 
         # Suggest category

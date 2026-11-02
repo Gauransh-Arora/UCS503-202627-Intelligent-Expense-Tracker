@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     # Extraction Settings (Multimodal Vision LLM)
     EXTRACTION_PROVIDER: str = "gemini"
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # Recurring Detection Tolerances
     RECURRING_AMOUNT_TOLERANCE_PCT: float = 0.15

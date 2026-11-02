@@ -52,6 +52,20 @@ def is_vision_available() -> bool:
     return get_gemini_client() is not None
 
 
+def get_candidate_models() -> list[str]:
+    """
+    Return an ordered list of candidate models for high availability.
+    If the primary model experiences a 503/429 demand spike,
+    the call will automatically fail over to alternate candidate models.
+    """
+    preferred = [settings.GEMINI_MODEL, "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]
+    candidates: list[str] = []
+    for m in preferred:
+        if m and m not in candidates:
+            candidates.append(m)
+    return candidates
+
+
 def _get_mime_type(path: Path) -> str:
     ext = path.suffix.lower()
     mapping = {
@@ -119,6 +133,7 @@ def _prepare_statement_pdf_for_vision(path: Path, max_pages: int = 3) -> bytes:
 def parse_receipt_with_vision(file_path: str) -> Optional[dict[str, Any]]:
     """
     Extract structured receipt / bill / UPI screenshot data using Gemini Vision.
+    Automatically cascades across candidate models if one encounters temporary 503/429 spikes.
     Returns None if vision client is unavailable or if parsing fails.
     """
     client = get_gemini_client()
@@ -171,21 +186,35 @@ Guidelines:
 - Never hallucinate details.
 """
 
-    model_name = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
+    models_to_try = get_candidate_models()
+    response = None
+
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=[part, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1,
+                    max_output_tokens=1500,
+                ),
+            )
+            if response and response.text:
+                logger.info(f"Gemini receipt parsing succeeded with model: {model_name}")
+                break
+        except Exception as exc:
+            err_str = str(exc)
+            if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
+                logger.warning(f"Model {model_name} busy or rate-limited ({exc}). Falling back to next candidate model...")
+                continue
+            logger.warning(f"Gemini receipt parsing failed on {model_name}: {exc}")
+            break
+
+    if not response or not response.text:
+        return None
+
     try:
-        response = client.models.generate_content(
-            model=model_name,
-            contents=[part, prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1,
-                max_output_tokens=1500,
-            ),
-        )
-
-        if not response or not response.text:
-            return None
-
         data = json.loads(response.text)
         # Ensure confidence is float between 0.0 and 1.0
         data["confidence"] = float(data.get("confidence") or 0.95)
@@ -193,13 +222,14 @@ Guidelines:
             data["raw_text"] = f"{data.get('merchant_name', '')} {data.get('amount', '')} {data.get('date', '')}"
         return data
     except Exception as exc:
-        logger.warning(f"Gemini receipt parsing failed: {exc}")
+        logger.warning(f"Failed to parse Gemini JSON response: {exc}")
         return None
 
 
 def parse_bank_statement_with_vision(file_path: str) -> Optional[dict[str, Any]]:
     """
     Extract structured transactions from a multi-page PDF bank statement using Gemini Vision.
+    Automatically cascades across candidate models if one encounters temporary 503/429 spikes.
     Returns None if vision client is unavailable or if parsing fails.
     """
     client = get_gemini_client()
@@ -249,27 +279,37 @@ Respond ONLY with valid JSON conforming to this exact structure:
 }
 
 Guidelines:
-- If a row is a debit (withdrawal/outgoing payment), set debit to the amount and credit to null.
-- If a row is a credit (deposit/incoming payment/interest/salary/refund), set credit to the amount and debit to null.
-- Do NOT include initial opening balances ('BALANCE FORWARD', 'BROUGHT FORWARD') as debits or credits; only include actual transactions.
-- Format all dates in YYYY-MM-DD.
-"""
+- If a row is a debit (withdrawal/outgoing payment), set debit to the amount and credit to null.\n- If a row is a credit (deposit/incoming payment/interest/salary/refund), set credit to the amount and debit to null.\n- Do NOT include initial opening balances ('BALANCE FORWARD', 'BROUGHT FORWARD') as debits or credits; only include actual transactions.\n- Format all dates in YYYY-MM-DD.\n"""
 
-    model_name = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
+    models_to_try = get_candidate_models()
+    response = None
+
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=[part, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1,
+                    max_output_tokens=3000,
+                ),
+            )
+            if response and response.text:
+                logger.info(f"Gemini bank statement parsing succeeded with model: {model_name}")
+                break
+        except Exception as exc:
+            err_str = str(exc)
+            if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
+                logger.warning(f"Model {model_name} busy or rate-limited ({exc}). Falling back to next candidate model...")
+                continue
+            logger.warning(f"Gemini statement parsing failed on {model_name}: {exc}")
+            break
+
+    if not response or not response.text:
+        return None
+
     try:
-        response = client.models.generate_content(
-            model=model_name,
-            contents=[part, prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1,
-                max_output_tokens=3000,
-            ),
-        )
-
-        if not response or not response.text:
-            return None
-
         data = json.loads(response.text)
 
         # Validate rows and calculate totals if not provided
@@ -286,5 +326,5 @@ Guidelines:
 
         return data
     except Exception as exc:
-        logger.warning(f"Gemini bank statement parsing failed: {exc}")
+        logger.warning(f"Failed to parse Gemini statement JSON: {exc}")
         return None
