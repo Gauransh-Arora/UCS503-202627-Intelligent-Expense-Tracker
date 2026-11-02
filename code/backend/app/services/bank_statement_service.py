@@ -499,11 +499,59 @@ def mark_duplicates(
 
 
 def parse_bank_statement(file_path: str, user_id: Optional[Any] = None, db: Optional[Session] = None) -> dict[str, Any]:
-    """Parse a bank statement file (PDF or CSV) using Vision LLM with local fallback."""
+    """Parse a bank statement file (PDF or CSV) using high-speed local parser with Vision LLM fallback."""
     path = Path(file_path)
     ext = path.suffix.lower()
 
-    # 1. Primary for PDF: Multimodal Vision LLM
+    # 1. Local parser for CSV
+    if ext == ".csv":
+        rows, meta = _parse_csv(file_path)
+        is_reconciled = _reconcile_balances(rows)
+        meta["balance_reconciled"] = is_reconciled
+        if user_id and db:
+            rows = mark_duplicates(user_id, rows, db)
+        total_debits = sum(r["debit"] or 0 for r in rows)
+        total_credits = sum(r["credit"] or 0 for r in rows)
+        return {
+            "rows": rows,
+            "bank_name": meta.get("bank_name"),
+            "account_number": meta.get("account_number"),
+            "period_from": meta.get("period_from"),
+            "period_to": meta.get("period_to"),
+            "raw_text": "",
+            "total_debits": round(total_debits, 2),
+            "total_credits": round(total_credits, 2),
+            "balance_reconciled": is_reconciled,
+        }
+
+    # 2. For PDF: Try fast local extraction first (takes 1-2s and avoids LLM timeouts on large files)
+    raw_text = ""
+    try:
+        raw_text = _extract_text_from_pdf(file_path)
+        if raw_text and len(raw_text.strip()) > 50:
+            rows, meta = _parse_pdf_text(raw_text)
+            if rows and len(rows) > 0:
+                is_reconciled = _reconcile_balances(rows)
+                meta["balance_reconciled"] = is_reconciled
+                if user_id and db:
+                    rows = mark_duplicates(user_id, rows, db)
+                total_debits = sum(r["debit"] or 0 for r in rows)
+                total_credits = sum(r["credit"] or 0 for r in rows)
+                return {
+                    "rows": rows,
+                    "bank_name": meta.get("bank_name"),
+                    "account_number": meta.get("account_number"),
+                    "period_from": meta.get("period_from"),
+                    "period_to": meta.get("period_to"),
+                    "raw_text": raw_text,
+                    "total_debits": round(total_debits, 2),
+                    "total_credits": round(total_credits, 2),
+                    "balance_reconciled": is_reconciled,
+                }
+    except Exception as exc:
+        logger.warning(f"Local PDF text parsing skipped or failed: {exc}")
+
+    # 3. Vision LLM fallback (for scanned PDFs, image-only statements, or unstructured layouts)
     if ext == ".pdf" and getattr(settings, "EXTRACTION_PROVIDER", "gemini") == "gemini":
         try:
             from app.services.vision_service import is_vision_available, parse_bank_statement_with_vision
@@ -514,16 +562,10 @@ def parse_bank_statement(file_path: str, user_id: Optional[Any] = None, db: Opti
                         vision_res["rows"] = mark_duplicates(user_id, vision_res["rows"], db)
                     return vision_res
         except Exception as exc:
-            logger.warning(f"Vision bank statement parsing fell back to local parser: {exc}")
+            logger.warning(f"Vision bank statement parsing fell back: {exc}")
 
-    # 2. Local fallback parser (and for CSVs)
-    raw_text = ""
-    if ext == ".csv":
-        rows, meta = _parse_csv(file_path)
-    else:
-        raw_text = _extract_text_from_pdf(file_path)
-        rows, meta = _parse_pdf_text(raw_text)
-
+    # 4. Final fallback
+    rows, meta = _parse_pdf_text(raw_text)
     is_reconciled = _reconcile_balances(rows)
     meta["balance_reconciled"] = is_reconciled
 

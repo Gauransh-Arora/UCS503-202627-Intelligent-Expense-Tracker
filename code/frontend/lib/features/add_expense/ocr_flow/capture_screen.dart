@@ -15,7 +15,12 @@ class CaptureScreen extends StatelessWidget {
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source);
+    final pickedFile = await picker.pickImage(
+      source: source,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
+    );
     if (pickedFile != null && context.mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(

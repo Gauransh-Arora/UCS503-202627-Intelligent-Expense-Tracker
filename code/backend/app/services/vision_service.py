@@ -11,6 +11,7 @@ multimodal reasoning directly on document images and PDFs.
 """
 from __future__ import annotations
 
+import io
 import json
 import logging
 import mimetypes
@@ -64,6 +65,57 @@ def _get_mime_type(path: Path) -> str:
     return mapping.get(ext, mimetypes.guess_type(str(path))[0] or "application/octet-stream")
 
 
+def _optimize_image_for_vision(path: Path, max_dimension: int = 1400, quality: int = 85) -> tuple[bytes, str]:
+    """
+    Compress and downscale image to under max_dimension pixels to ensure
+    minimal upload latency, fast LLM tokenization, and prevention of timeouts.
+    """
+    ext = path.suffix.lower()
+    if ext in {".png", ".jpg", ".jpeg", ".webp", ".heic"}:
+        try:
+            from PIL import Image
+            with Image.open(path) as img:
+                w, h = img.size
+                if max(w, h) > max_dimension:
+                    img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
+
+                # Convert to RGB if RGBA/Palette
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=quality, optimize=True)
+                return buf.getvalue(), "image/jpeg"
+        except Exception as err:
+            logger.warning(f"Image optimization skipped: {err}")
+
+    with open(path, "rb") as f:
+        return f.read(), _get_mime_type(path)
+
+
+def _prepare_statement_pdf_for_vision(path: Path, max_pages: int = 3) -> bytes:
+    """
+    Trims large multi-page PDFs to the first max_pages so Gemini Vision
+    does not hang generating hundreds of transaction rows over 10+ pages.
+    """
+    try:
+        import pypdfium2 as pdfium
+        pdf = pdfium.PdfDocument(str(path))
+        if len(pdf) <= max_pages:
+            with open(path, "rb") as f:
+                return f.read()
+
+        new_pdf = pdfium.PdfDocument.new()
+        new_pdf.import_pages(pdf, list(range(max_pages)))
+        buf = io.BytesIO()
+        new_pdf.save(buf)
+        return buf.getvalue()
+    except Exception as err:
+        logger.warning(f"PDF page trimming skipped: {err}")
+        with open(path, "rb") as f:
+            return f.read()
+
+
 def parse_receipt_with_vision(file_path: str) -> Optional[dict[str, Any]]:
     """
     Extract structured receipt / bill / UPI screenshot data using Gemini Vision.
@@ -82,9 +134,7 @@ def parse_receipt_with_vision(file_path: str) -> Optional[dict[str, Any]]:
             logger.warning(f"File not found for vision parsing: {file_path}")
             return None
 
-    mime_type = _get_mime_type(path)
-    with open(path, "rb") as f:
-        file_bytes = f.read()
+    file_bytes, mime_type = _optimize_image_for_vision(path)
 
     from google.genai import types
 
@@ -121,7 +171,7 @@ Guidelines:
 - Never hallucinate details.
 """
 
-    model_name = settings.GEMINI_MODEL or "gemini-1.5-flash"
+    model_name = settings.GEMINI_MODEL or "gemini-3.5-flash-lite"
     try:
         response = client.models.generate_content(
             model=model_name,
@@ -129,6 +179,7 @@ Guidelines:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.1,
+                max_output_tokens=1500,
             ),
         )
 
@@ -165,8 +216,7 @@ def parse_bank_statement_with_vision(file_path: str) -> Optional[dict[str, Any]]
             return None
 
     mime_type = _get_mime_type(path)
-    with open(path, "rb") as f:
-        file_bytes = f.read()
+    file_bytes = _prepare_statement_pdf_for_vision(path, max_pages=3)
 
     from google.genai import types
 
@@ -205,7 +255,7 @@ Guidelines:
 - Format all dates in YYYY-MM-DD.
 """
 
-    model_name = settings.GEMINI_MODEL or "gemini-1.5-flash"
+    model_name = settings.GEMINI_MODEL or "gemini-3.5-flash-lite"
     try:
         response = client.models.generate_content(
             model=model_name,
@@ -213,6 +263,7 @@ Guidelines:
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.1,
+                max_output_tokens=3000,
             ),
         )
 

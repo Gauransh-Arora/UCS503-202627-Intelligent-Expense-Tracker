@@ -279,7 +279,7 @@ class ApiService {
 
     debugPrint('Uploading document to $uri...');
     final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 45),
+      const Duration(seconds: 60),
     );
     final response = await http.Response.fromStream(streamedResponse);
 
@@ -297,7 +297,7 @@ class ApiService {
     final headers = await _authHeaders();
     final response = await _client
         .post(uri, headers: headers)
-        .timeout(const Duration(seconds: 45));
+        .timeout(const Duration(seconds: 90));
 
     if (response.statusCode == 200) {
       return json.decode(response.body) as Map<String, dynamic>;
@@ -505,7 +505,7 @@ class ApiService {
     }
 
     final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 45),
+      const Duration(seconds: 60),
     );
     final response = await http.Response.fromStream(streamedResponse);
 
