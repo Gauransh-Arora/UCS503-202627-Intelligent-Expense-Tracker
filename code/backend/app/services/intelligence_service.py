@@ -326,11 +326,13 @@ def _generate_dynamic_purchase_advice(
     estimated_months: Optional[float],
 ) -> list[str]:
     """Use Gemini to generate personalized, dynamic financial guidance for wishlist items."""
-    if not settings.GEMINI_API_KEY:
-        return []
     try:
-        from google import genai
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        from app.services.vision_service import get_gemini_client
+        client = get_gemini_client()
+        if not client:
+            return []
+
+        from google.genai import types
         prompt = f"""You are a personal financial advisor assessing purchase readiness.
 Item: {item_name}
 Expected Price: ₹{item_price:,.2f}
@@ -344,9 +346,15 @@ Estimated Months to Save: {estimated_months if estimated_months is not None else
 Provide 2 concise, highly actionable financial bullet points giving personalized savings strategy and practical budgeting advice specifically for this item and numbers. Do NOT use emojis. Return ONLY a JSON list of strings, for example:
 ["Point 1", "Point 2"]
 """
+        model_name = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
         res = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
+            model=model_name,
             contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+                max_output_tokens=300,
+            ),
         )
         import json, re
         raw = res.text.strip()

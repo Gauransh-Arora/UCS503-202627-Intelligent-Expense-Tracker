@@ -64,6 +64,11 @@ class ApiService {
     invalidateCache('analytics');
     invalidateCache('intelligence');
     invalidateCache('budgets');
+    invalidateCache('wishlist');
+    invalidateCache('notifications');
+    invalidateCache('splits');
+    invalidateCache('friends');
+    invalidateCache('user');
     refreshNotifier.value++;
   }
 
@@ -695,6 +700,7 @@ class ApiService {
         .post(uri, headers: headers, body: body)
         .timeout(_defaultTimeout);
     if (response.statusCode == 200 || response.statusCode == 201) {
+      notifyDataChanged();
       invalidateCache('budgets');
       return json.decode(response.body) as Map<String, dynamic>;
     } else {
@@ -938,6 +944,7 @@ class ApiService {
         .timeout(_defaultTimeout);
 
     if (response.statusCode == 201 || response.statusCode == 200) {
+      notifyDataChanged();
       invalidateCache('wishlist');
       return WishlistItemModel.fromJson(json.decode(response.body));
     } else {
@@ -955,6 +962,7 @@ class ApiService {
     if (response.statusCode != 204 && response.statusCode != 200) {
       throw Exception('Failed to delete wishlist item');
     }
+    notifyDataChanged();
     invalidateCache('wishlist');
   }
 
@@ -1068,6 +1076,7 @@ class ApiService {
       throw Exception('Failed to mark notification as read');
     }
     invalidateCache('notifications');
+    notifyDataChanged();
   }
 
   static Future<void> markAllNotificationsAsRead() async {
@@ -1081,9 +1090,21 @@ class ApiService {
       throw Exception('Failed to mark all notifications as read');
     }
     invalidateCache('notifications');
+    notifyDataChanged();
   }
 
-  static Future<AutoNotificationResult> triggerAutoNotifications() async {
+  static DateTime? _lastAutoNotifScan;
+
+  static Future<AutoNotificationResult> triggerAutoNotifications({
+    bool forceRefresh = false,
+  }) async {
+    final now = DateTime.now();
+    if (!forceRefresh &&
+        _lastAutoNotifScan != null &&
+        now.difference(_lastAutoNotifScan!) < const Duration(minutes: 5)) {
+      return AutoNotificationResult(generatedCount: 0, notifications: []);
+    }
+    _lastAutoNotifScan = now;
     final uri = Uri.parse('$baseUrl/notifications/trigger-auto');
     final headers = await _authHeaders();
     final response = await _client
@@ -1328,6 +1349,7 @@ class ApiService {
         .timeout(_defaultTimeout);
 
     if (response.statusCode == 201 || response.statusCode == 200) {
+      notifyDataChanged();
       invalidateCache('splits');
       return SettlementItemModel.fromJson(json.decode(response.body));
     } else {

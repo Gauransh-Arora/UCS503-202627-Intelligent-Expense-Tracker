@@ -26,6 +26,19 @@ class _WishlistScreenState extends State<WishlistScreen> {
   void initState() {
     super.initState();
     _loadData();
+    ApiService.refreshNotifier.addListener(_onRefreshNotified);
+  }
+
+  void _onRefreshNotified() {
+    if (mounted) {
+      _loadData(forceRefresh: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    ApiService.refreshNotifier.removeListener(_onRefreshNotified);
+    super.dispose();
   }
 
   Future<void> _loadData({bool forceRefresh = false}) async {

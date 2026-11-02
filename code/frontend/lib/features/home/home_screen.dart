@@ -71,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
         .catchError((_) {});
 
     // Check for mid-month / 25th wishlist affordability and other auto-alerts
-    ApiService.triggerAutoNotifications()
+    ApiService.triggerAutoNotifications(forceRefresh: forceRefresh)
         .then((result) {
           if (result.notifications.isNotEmpty) {
             LocalNotificationService.showFromNotificationItems(

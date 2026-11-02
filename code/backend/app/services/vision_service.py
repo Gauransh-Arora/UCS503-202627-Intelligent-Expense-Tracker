@@ -171,7 +171,7 @@ Guidelines:
 - Never hallucinate details.
 """
 
-    model_name = settings.GEMINI_MODEL or "gemini-3.5-flash-lite"
+    model_name = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
     try:
         response = client.models.generate_content(
             model=model_name,
@@ -255,7 +255,7 @@ Guidelines:
 - Format all dates in YYYY-MM-DD.
 """
 
-    model_name = settings.GEMINI_MODEL or "gemini-3.5-flash-lite"
+    model_name = settings.GEMINI_MODEL or "gemini-3.1-flash-lite"
     try:
         response = client.models.generate_content(
             model=model_name,

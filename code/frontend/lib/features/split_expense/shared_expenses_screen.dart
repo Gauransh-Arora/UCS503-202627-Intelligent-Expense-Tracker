@@ -28,10 +28,18 @@ class _SharedExpensesScreenState extends State<SharedExpensesScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadAllData();
+    ApiService.refreshNotifier.addListener(_onRefreshNotified);
+  }
+
+  void _onRefreshNotified() {
+    if (mounted) {
+      _loadAllData(forceRefresh: true);
+    }
   }
 
   @override
   void dispose() {
+    ApiService.refreshNotifier.removeListener(_onRefreshNotified);
     _tabController.dispose();
     super.dispose();
   }
