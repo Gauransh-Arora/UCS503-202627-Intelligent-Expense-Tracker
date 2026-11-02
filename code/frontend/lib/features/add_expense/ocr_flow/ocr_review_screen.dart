@@ -123,6 +123,7 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
 
 
       if (!mounted) return;
+      setState(() => _isConfirming = false);
       final isSplitDone = _splitData != null && _splitData!.isEnabled && _splitData!.selectedFriends.isNotEmpty;
       final splitFriendsCount = _splitData?.selectedFriends.length ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,7 +136,11 @@ class _OcrReviewScreenState extends State<OcrReviewScreen> {
           backgroundColor: AppColors.credit,
         ),
       );
-      AppRouter.router.go(AppConstants.routeHome);
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(true);
+      } else {
+        AppRouter.router.go(AppConstants.routeHome);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isConfirming = false);
