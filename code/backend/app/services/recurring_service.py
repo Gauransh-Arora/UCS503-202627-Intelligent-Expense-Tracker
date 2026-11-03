@@ -5,8 +5,9 @@ Scans the user's transaction history and detects recurring spending patterns
 (subscriptions, utilities, rent, daily/weekly/monthly payments).
 Uses configurable interval and amount tolerances from application settings.
 """
+import calendar
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date as dt_date, datetime, timedelta, timezone
 from decimal import Decimal
 import statistics
 from uuid import UUID
@@ -16,6 +17,44 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.recurring import Frequency, RecurringExpense
 from app.models.transaction import Transaction
+
+
+def _compute_next_expected_date(
+    frequency: Frequency,
+    last_date: dt_date | None = None,
+    typical_day: int | None = None,
+) -> dt_date:
+    """Project the next upcoming due date based on frequency and cadence."""
+    today = datetime.now(timezone.utc).date()
+    if frequency == Frequency.MONTHLY:
+        day = typical_day or (last_date.day if last_date else today.day)
+        _, last_day_this_month = calendar.monthrange(today.year, today.month)
+        cand_day = min(day, last_day_this_month)
+        candidate = dt_date(today.year, today.month, cand_day)
+        if candidate >= today:
+            return candidate
+        year = today.year if today.month < 12 else today.year + 1
+        month = today.month + 1 if today.month < 12 else 1
+        _, last_day_next_month = calendar.monthrange(year, month)
+        return dt_date(year, month, min(day, last_day_next_month))
+    elif frequency == Frequency.WEEKLY:
+        if last_date:
+            cur = last_date
+            while cur < today:
+                cur += timedelta(days=7)
+            return cur
+        return today + timedelta(days=7)
+    elif frequency == Frequency.DAILY:
+        return today + timedelta(days=1)
+    elif frequency == Frequency.YEARLY:
+        if last_date:
+            year = today.year if (today.month, today.day) <= (last_date.month, last_date.day) else today.year + 1
+            _, last_day = calendar.monthrange(year, last_date.month)
+            return dt_date(year, last_date.month, min(last_date.day, last_day))
+        return today + timedelta(days=365)
+    elif frequency == Frequency.QUARTERLY:
+        return today + timedelta(days=90)
+    return today
 
 
 def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
@@ -37,7 +76,7 @@ def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
     for tx in transactions:
         by_merchant[tx.merchant_name.lower().strip()].append(tx)
 
-    detected = []
+    detected: list[dict] = []
 
     for merchant_key, txns in by_merchant.items():
         if len(txns) < 3:
@@ -84,14 +123,84 @@ def detect_recurring_expenses(user_id: UUID, db: Session) -> list[dict]:
             db.add(rec)
             db.commit()
             db.refresh(rec)
+        else:
+            rec = existing
+
+        cat_name = (
+            txns[-1].category.name
+            if (txns[-1].category and hasattr(txns[-1].category, "name"))
+            else (rec.category.name if (rec.category and hasattr(rec.category, "name")) else None)
+        )
+        next_exp = _compute_next_expected_date(frequency, dates[-1], getattr(rec, "typical_day", None))
+        freq_str = frequency.value if hasattr(frequency, "value") else str(frequency)
+        amt = round(avg_amount, 2)
+
+        monthly_amt = amt
+        if freq_str == "yearly":
+            monthly_amt = round(amt / 12, 2)
+        elif freq_str == "weekly":
+            monthly_amt = round(amt * 4.33, 2)
+        elif freq_str == "daily":
+            monthly_amt = round(amt * 30, 2)
+        elif freq_str == "quarterly":
+            monthly_amt = round(amt / 3, 2)
 
         detected.append({
             "merchant_name": txns[0].merchant_name,
-            "average_amount": round(avg_amount, 2),
-            "frequency": frequency.value if hasattr(frequency, "value") else str(frequency),
+            "amount": amt,
+            "average_amount": amt,
+            "typical_amount": amt,
+            "monthly_amount": monthly_amt,
+            "frequency": freq_str,
             "confidence": confidence,
             "transaction_count": len(txns),
+            "occurrences": len(txns),
+            "count": len(txns),
+            "category": cat_name,
+            "category_name": cat_name,
+            "next_expected_date": next_exp.isoformat() if next_exp else None,
+            "next_expected": next_exp.isoformat() if next_exp else None,
+            "typical_day": getattr(rec, "typical_day", None),
         })
+
+    # Include existing active RecurringExpense records that are already in the DB
+    detected_merchants = {d["merchant_name"].lower().strip() for d in detected}
+    all_recurring = get_recurring_expenses(user_id, db)
+    for rec in all_recurring:
+        m_lower = rec.merchant_name.lower().strip()
+        if m_lower not in detected_merchants:
+            detected_merchants.add(m_lower)
+            cat_name = rec.category.name if rec.category else None
+            next_exp = _compute_next_expected_date(rec.frequency, None, rec.typical_day)
+            avg_amt = float(rec.average_amount)
+            freq_str = rec.frequency.value if hasattr(rec.frequency, "value") else str(rec.frequency)
+            monthly_amt = avg_amt
+            if freq_str == "yearly":
+                monthly_amt = round(avg_amt / 12, 2)
+            elif freq_str == "weekly":
+                monthly_amt = round(avg_amt * 4.33, 2)
+            elif freq_str == "daily":
+                monthly_amt = round(avg_amt * 30, 2)
+            elif freq_str == "quarterly":
+                monthly_amt = round(avg_amt / 3, 2)
+
+            detected.append({
+                "merchant_name": rec.merchant_name,
+                "amount": avg_amt,
+                "average_amount": avg_amt,
+                "typical_amount": avg_amt,
+                "monthly_amount": monthly_amt,
+                "frequency": freq_str,
+                "confidence": float(rec.confidence or 80.0),
+                "transaction_count": 1,
+                "occurrences": 1,
+                "count": 1,
+                "category": cat_name,
+                "category_name": cat_name,
+                "next_expected_date": next_exp.isoformat() if next_exp else None,
+                "next_expected": next_exp.isoformat() if next_exp else None,
+                "typical_day": rec.typical_day,
+            })
 
     return detected
 

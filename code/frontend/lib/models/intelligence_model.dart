@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+
 import '../core/utils/num_parser.dart';
 
 class SubscriptionResponseModel {
@@ -23,12 +24,20 @@ class SubscriptionResponseModel {
   });
 
   String get formattedMonthlyAmount {
-    final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final formatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
     return formatter.format(monthlyAmount);
   }
 
   String get formattedAnnualAmount {
-    final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final formatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
     return formatter.format(annualAmount);
   }
 
@@ -64,20 +73,38 @@ class DetectedRecurringModel {
   });
 
   String get formattedAmount {
-    final formatter = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+    final formatter = NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '₹',
+      decimalDigits: 0,
+    );
     return formatter.format(amount);
   }
 
   factory DetectedRecurringModel.fromJson(Map<String, dynamic> json) {
     return DetectedRecurringModel(
-      merchantName: json['merchant_name']?.toString() ?? json['merchant']?.toString() ?? 'Recurring',
-      amount: asDouble(json['amount'] ?? json['typical_amount']),
+      merchantName:
+          json['merchant_name']?.toString() ??
+          json['merchant']?.toString() ??
+          'Recurring',
+      amount: asDouble(
+        json['amount'] ??
+            json['average_amount'] ??
+            json['typical_amount'] ??
+            json['monthly_amount'],
+      ),
       frequency: json['frequency']?.toString() ?? 'monthly',
-      category: json['category']?.toString() ?? json['category_name']?.toString(),
+      category:
+          json['category']?.toString() ?? json['category_name']?.toString(),
       nextExpected: json['next_expected_date'] != null
           ? DateTime.tryParse(json['next_expected_date'].toString())
-          : (json['next_expected'] != null ? DateTime.tryParse(json['next_expected'].toString()) : null),
-      count: asInt(json['occurrences'] ?? json['count'], 1),
+          : (json['next_expected'] != null
+                ? DateTime.tryParse(json['next_expected'].toString())
+                : null),
+      count: asInt(
+        json['occurrences'] ?? json['count'] ?? json['transaction_count'],
+        1,
+      ),
     );
   }
 }

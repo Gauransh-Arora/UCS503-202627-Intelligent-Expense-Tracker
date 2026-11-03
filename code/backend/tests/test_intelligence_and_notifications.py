@@ -80,6 +80,16 @@ def test_subscriptions_and_recurring(db_session, test_user):
     assert netflix.monthly_amount == 649.0
     assert netflix.annual_amount == round(649.0 * 12, 2)
 
+    # 2b. detect_recurring_expenses()
+    recurring_items = detect_recurring_expenses(test_user.id, db_session)
+    assert len(recurring_items) >= 2
+    net_rec = next(r for r in recurring_items if r["merchant_name"] == "Netflix")
+    assert net_rec["amount"] == 649.0
+    assert net_rec["average_amount"] == 649.0
+    assert net_rec["typical_amount"] == 649.0
+    assert net_rec["frequency"] == "monthly"
+    assert net_rec["next_expected_date"] is not None
+
 
 def test_wishlist_and_purchase_readiness(db_session, test_user):
     # Seed transactions for historical baseline

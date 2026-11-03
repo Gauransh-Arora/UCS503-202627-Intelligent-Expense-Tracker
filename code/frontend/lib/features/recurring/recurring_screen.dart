@@ -53,15 +53,42 @@ class _RecurringScreenState extends State<RecurringScreen>
     }
   }
 
-  double get _totalMonthlySubscriptions =>
-      _subscriptions.fold(0.0, (sum, item) => sum + item.monthlyAmount);
+  double get _totalMonthly {
+    final seen = <String>{};
+    double total = 0.0;
+    for (final s in _subscriptions) {
+      if (seen.add(s.merchantName.trim().toLowerCase())) {
+        total += s.monthlyAmount;
+      }
+    }
+    for (final b in _recurringBills) {
+      if (seen.add(b.merchantName.trim().toLowerCase())) {
+        final freq = b.frequency.toLowerCase();
+        double monthly = b.amount;
+        if (freq == 'yearly') {
+          monthly = b.amount / 12.0;
+        } else if (freq == 'weekly') {
+          monthly = b.amount * 4.33;
+        } else if (freq == 'daily') {
+          monthly = b.amount * 30.0;
+        } else if (freq == 'quarterly') {
+          monthly = b.amount / 3.0;
+        }
+        total += monthly;
+      }
+    }
+    return total;
+  }
 
-  double get _totalMonthlyBills =>
-      _recurringBills.fold(0.0, (sum, item) => sum + item.amount);
-
-  double get _totalMonthly => _totalMonthlySubscriptions > 0
-      ? _totalMonthlySubscriptions
-      : _totalMonthlyBills;
+  int get _totalCommitmentsCount {
+    final uniqueMerchants = <String>{
+      ..._subscriptions.map((s) => s.merchantName.trim().toLowerCase()),
+      ..._recurringBills.map((b) => b.merchantName.trim().toLowerCase()),
+    };
+    return uniqueMerchants.isNotEmpty
+        ? uniqueMerchants.length
+        : (_subscriptions.length + _recurringBills.length);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +174,7 @@ class _RecurringScreenState extends State<RecurringScreen>
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${_subscriptions.length + _recurringBills.length} active recurring commitments',
+                                '$_totalCommitmentsCount active recurring commitments',
                                 style: const TextStyle(
                                   color: AppColors.textTertiary,
                                   fontSize: 11,
