@@ -70,7 +70,7 @@ class SplitParticipant(Base):
 
     # Participant info — may or may not be a registered user or saved friend
     participant_name = Column(String(255), nullable=False)
-    participant_user_id = Column(Uuid, ForeignKey("users.id"), nullable=True)
+    participant_user_id = Column(Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     friend_id = Column(Uuid, ForeignKey("friends.id", ondelete="SET NULL"), nullable=True)
 
     amount_owed = Column(Numeric(12, 2), nullable=False)

@@ -37,6 +37,7 @@ class User(Base):
     recurring_expenses = relationship("RecurringExpense", back_populates="user", cascade="all, delete-orphan")
     category_preferences = relationship("UserCategoryPreference", back_populates="user", cascade="all, delete-orphan")
     splits_created = relationship("ExpenseSplit", back_populates="created_by_user", cascade="all, delete-orphan")
+    settlements = relationship("Settlement", cascade="all, delete-orphan")
     friends = relationship("Friend", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     bank_statements = relationship("BankStatement", back_populates="user", cascade="all, delete-orphan")

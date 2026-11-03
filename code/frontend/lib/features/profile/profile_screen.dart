@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/theme/app_theme.dart';
 import '../bank_statement/bank_statements_screen.dart';
 import '../../models/user_model.dart';
 import '../../models/wishlist_model.dart';
@@ -163,6 +164,143 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Log Out'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    bool isDeleting = false;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surfaceCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
+                ),
+                child: const Icon(
+                  LucideIcons.trash2,
+                  color: AppColors.danger,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontSans,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Are you sure you want to permanently delete your account?',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This will permanently delete all your data including expenses, bank statements, receipts, group splits, and all uploaded files from both local storage and the server (Supabase).\n\nThis action cannot be undone.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+              if (isDeleting) ...[
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.danger),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Deleting account and all data...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isDeleting ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: isDeleting
+                  ? null
+                  : () async {
+                      setDialogState(() => isDeleting = true);
+                      try {
+                        await ApiService.deleteAccount();
+                        if (dialogCtx.mounted) {
+                          Navigator.pop(dialogCtx);
+                        }
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Your account and all associated data have been permanently deleted.',
+                            ),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                        AppRouter.router.go(AppConstants.routeLogin);
+                      } catch (e) {
+                        if (dialogCtx.mounted) {
+                          setDialogState(() => isDeleting = false);
+                        }
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to delete account: $e'),
+                            backgroundColor: AppColors.danger,
+                          ),
+                        );
+                      }
+                    },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.danger,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete Account'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -417,6 +555,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     );
                   },
                 ),
+                const Divider(height: 1, indent: 44, color: AppColors.border),
+                _SettingsTile(
+                  icon: LucideIcons.trash2,
+                  title: 'Delete Account',
+                  subtitle: 'Erase account and all associated data',
+                  iconColor: AppColors.danger,
+                  textColor: AppColors.danger,
+                  onTap: _showDeleteAccountDialog,
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -434,24 +581,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: AppColors.surfaceCard,
                   borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
                   border: Border.all(
-                    color: AppColors.danger.withValues(alpha: 0.3),
+                    color: AppColors.border,
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      LucideIcons.logOut,
+                      color: AppColors.textSecondary,
+                      size: 18,
+                    ),
+                    SizedBox(width: 12),
+                    Text(
+                      'Log Out',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ─── Delete Account Button ────────────────────────────────
+            InkWell(
+              onTap: _showDeleteAccountDialog,
+              borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                  border: Border.all(
+                    color: AppColors.danger.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      LucideIcons.logOut,
+                    const Icon(
+                      LucideIcons.trash2,
                       color: AppColors.danger,
                       size: 18,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Log Out',
-                      style: TextStyle(
-                        color: AppColors.danger,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Delete Account',
+                            style: TextStyle(
+                              color: AppColors.danger,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Permanently erase account and all stored data',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    Icon(
+                      LucideIcons.chevronRight,
+                      size: 18,
+                      color: AppColors.danger.withValues(alpha: 0.6),
                     ),
                   ],
                 ),
@@ -507,13 +712,17 @@ class _SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
-        border: Border.all(color: AppColors.border),
+    return Material(
+      color: AppColors.surfaceCard,
+      borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(children: children),
       ),
-      child: Column(children: children),
     );
   }
 }
@@ -523,12 +732,16 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final Color? iconColor;
+  final Color? textColor;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.iconColor,
+    this.textColor,
   });
 
   @override
@@ -541,25 +754,25 @@ class _SettingsTile extends StatelessWidget {
         width: 28,
         height: 28,
         child: Center(
-          child: Icon(icon, color: AppColors.textPrimary, size: 18),
+          child: Icon(icon, color: iconColor ?? AppColors.textPrimary, size: 18),
         ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 13,
-          color: AppColors.textPrimary,
+          color: textColor ?? AppColors.textPrimary,
         ),
       ),
       subtitle: Text(
         subtitle,
         style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         LucideIcons.chevronRight,
         size: 18,
-        color: AppColors.textTertiary,
+        color: textColor ?? AppColors.textTertiary,
       ),
     );
   }

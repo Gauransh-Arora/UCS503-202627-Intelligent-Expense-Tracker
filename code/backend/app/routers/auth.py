@@ -1,12 +1,16 @@
-"""Authentication router — register, login, get and update current user."""
+"""Authentication router — register, login, get, update, and delete current user."""
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserLogin, UserResponse, UserUpdate
-from app.services.auth_service import login_user as auth_login_user, register_user as auth_register_user
+from app.schemas.user import AccountDeleteResponse, Token, UserCreate, UserLogin, UserResponse, UserUpdate
+from app.services.auth_service import (
+    delete_user_account,
+    login_user as auth_login_user,
+    register_user as auth_register_user,
+)
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -78,3 +82,21 @@ def update_user_profile(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+
+@router.delete("/me", response_model=AccountDeleteResponse, status_code=status.HTTP_200_OK)
+@router.delete("/account", response_model=AccountDeleteResponse, status_code=status.HTTP_200_OK)
+def delete_current_user_account(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Permanently delete the authenticated user's account and all associated data,
+    including database records (Supabase/PostgreSQL) and locally stored file uploads.
+    """
+    delete_user_account(user=current_user, db=db)
+    return AccountDeleteResponse(message="Account and all associated data deleted successfully")
+
+
+# Alias endpoint
+delete_account = delete_current_user_account

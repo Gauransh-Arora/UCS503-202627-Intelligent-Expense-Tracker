@@ -268,6 +268,28 @@ class ApiService {
     }
   }
 
+  static Future<void> deleteAccount() async {
+    final uri = Uri.parse('$baseUrl/auth/me');
+    final headers = await _authHeaders();
+    final response = await _client
+        .delete(uri, headers: headers)
+        .timeout(_defaultTimeout);
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      await clearToken();
+      notifyDataChanged();
+    } else {
+      String errorMsg = 'Failed to delete account';
+      try {
+        final data = json.decode(response.body);
+        if (data is Map && data['detail'] != null) {
+          errorMsg = data['detail'].toString();
+        }
+      } catch (_) {}
+      throw Exception(errorMsg);
+    }
+  }
+
   // ─── Document Uploads ────────────────────────────────────────────────────────
 
   static Future<String> uploadDocument(String filePath) async {

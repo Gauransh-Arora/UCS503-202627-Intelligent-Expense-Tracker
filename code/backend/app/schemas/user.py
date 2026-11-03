@@ -65,3 +65,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     user_id: UUID | None = None
+
+
+class AccountDeleteResponse(BaseModel):
+    message: str = "Account and all associated data deleted successfully"
