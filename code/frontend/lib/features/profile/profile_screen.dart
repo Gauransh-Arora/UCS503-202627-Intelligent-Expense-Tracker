@@ -29,7 +29,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _notificationsEnabled = true;
-  String _selectedCurrency = 'INR (₹)';
   UserModel? _user;
   int _wishlistCount = 0;
   int _recurringCount = 0;
@@ -61,83 +60,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (_) {}
-  }
-
-  void _showCurrencySelector() {
-    final currencies = [
-      'INR (₹)',
-      'USD (\$)',
-      'EUR (€)',
-      'GBP (£)',
-      'AED (د.إ)',
-    ];
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surfaceCard,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTokens.radiusLarge),
-        ),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Select Currency',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.x,
-                      size: 20,
-                      color: AppColors.textSecondary,
-                    ),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const Divider(height: 1, color: AppColors.border),
-              const SizedBox(height: 8),
-              ...currencies.map(
-                (c) => ListTile(
-                  dense: true,
-                  title: Text(
-                    c,
-                    style: TextStyle(
-                      fontWeight: _selectedCurrency == c
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  trailing: _selectedCurrency == c ? const
-                       Icon(
-                          LucideIcons.check,
-                          color: AppColors.primary,
-                          size: 18,
-                        )
-                      : null,
-                  onTap: () {
-                    setState(() => _selectedCurrency = c);
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   void _showLogoutDialog() {
@@ -477,13 +399,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 const Divider(height: 1, indent: 44, color: AppColors.border),
-                _SettingsTile(
-                  icon: LucideIcons.coins,
-                  title: 'Currency',
-                  subtitle: _selectedCurrency,
-                  onTap: _showCurrencySelector,
-                ),
-                const Divider(height: 1, indent: 44, color: AppColors.border),
                 SwitchListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -515,54 +430,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   activeThumbColor: AppColors.primary,
                   onChanged: (val) =>
                       setState(() => _notificationsEnabled = val),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // ─── Account & Security ───────────────────────────────────
-            const _SectionTitle(title: 'Account & Security'),
-            _SettingsGroup(
-              children: [
-                _SettingsTile(
-                  icon: LucideIcons.user,
-                  title: 'Personal Information',
-                  subtitle: 'Account details and credentials',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Account settings saved')),
-                    );
-                  },
-                ),
-                const Divider(height: 1, indent: 44, color: AppColors.border),
-                _SettingsTile(
-                  icon: LucideIcons.keyRound,
-                  title: 'Security & PIN',
-                  subtitle: 'Authentication configuration',
-                  onTap: () {},
-                ),
-                const Divider(height: 1, indent: 44, color: AppColors.border),
-                _SettingsTile(
-                  icon: LucideIcons.download,
-                  title: 'Export Financial Report',
-                  subtitle: 'Download Excel or CSV summary',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Financial statement exported'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  },
-                ),
-                const Divider(height: 1, indent: 44, color: AppColors.border),
-                _SettingsTile(
-                  icon: LucideIcons.trash2,
-                  title: 'Delete Account',
-                  subtitle: 'Erase account and all associated data',
-                  iconColor: AppColors.danger,
-                  textColor: AppColors.danger,
-                  onTap: _showDeleteAccountDialog,
                 ),
               ],
             ),
