@@ -89,7 +89,7 @@ def get_candidate_models() -> list[str]:
     If the primary model experiences a 503/429 demand spike,
     the call will automatically fail over to alternate candidate models.
     """
-    preferred = [settings.GEMINI_MODEL, "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]
+    preferred = [settings.GEMINI_MODEL, "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.5-flash-lite"]
     candidates: list[str] = []
     for m in preferred:
         if m and m not in candidates:
@@ -347,7 +347,7 @@ Respond ONLY with valid JSON conforming to this exact structure:
 Guidelines:
 - If a row is a debit (withdrawal/outgoing payment), set debit to the amount and credit to null.
 - If a row is a credit (deposit/incoming payment/interest/salary/refund), set credit to the amount and debit to null.
-- Do NOT include initial opening balances ('BALANCE FORWARD', 'BROUGHT FORWARD') as debits or credits; only include actual transactions.
+- CRITICAL: Do NOT include summary or balance milestone rows ('OPENING BALANCE', 'CLOSING BALANCE', 'BALANCE FORWARD', 'BROUGHT FORWARD', 'CARRIED FORWARD', 'BAL C/F', 'BAL B/F', 'TOTALS') as transactions; only include genuine individual debit or credit transaction rows.
 - Format all dates in YYYY-MM-DD.
 """
 
@@ -366,8 +366,17 @@ Guidelines:
     try:
         data = json.loads(response.text)
 
-        # Validate rows and calculate totals if not provided
-        rows = data.get("rows", [])
+        # Filter out any non-transactional balance summary rows
+        _EXCLUDE = ("closing balance", "opening balance", "balance forward", "brought forward", "carried forward", "bal c/f", "bal b/f", "closing bal", "opening bal")
+        raw_rows = data.get("rows", [])
+        rows = [
+            r for r in raw_rows
+            if not any(
+                p in (r.get("description") or "").lower() or p in (r.get("merchant") or "").lower()
+                for p in _EXCLUDE
+            )
+        ]
+        data["rows"] = rows
         total_debits = sum(float(r.get("debit") or 0.0) for r in rows)
         total_credits = sum(float(r.get("credit") or 0.0) for r in rows)
 

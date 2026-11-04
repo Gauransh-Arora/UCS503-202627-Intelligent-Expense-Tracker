@@ -118,3 +118,20 @@ def test_robustness_invalid_file_extension_rejected_by_api(client, auth_headers)
             files={"file": ("invalid_document.xyz", f, "application/octet-stream")},
         )
         assert bs_res.status_code in (400, 415)
+
+
+def test_closing_and_opening_balance_filtered(tmp_path):
+    """Verify that opening balance, closing balance, and balance c/f lines are omitted from parsed transaction rows."""
+    sample_csv = tmp_path / "test_statement.csv"
+    sample_csv.write_text(
+        "Date,Description,Debit,Credit,Balance\n"
+        "2026-10-01,OPENING BALANCE,,,10000.00\n"
+        "2026-10-05,AMAZON INDIA,1500.00,,8500.00\n"
+        "2026-10-10,SALARY CREDIT,,50000.00,58500.00\n"
+        "2026-10-31,CLOSING BALANCE,,,58500.00\n"
+    )
+    result = parse_bank_statement(str(sample_csv))
+    descriptions = [r["description"].upper() for r in result["rows"]]
+    assert not any("OPENING" in d for d in descriptions), "Opening balance row must be filtered"
+    assert not any("CLOSING" in d for d in descriptions), "Closing balance row must be filtered"
+    assert len(result["rows"]) == 2

@@ -114,6 +114,48 @@ def _clean_merchant_from_narration(narration: str) -> str:
     return text[:40]
 
 
+_SUMMARY_PHRASES = (
+    "closing balance",
+    "opening balance",
+    "balance forward",
+    "brought forward",
+    "carried forward",
+    "bal b/f",
+    "bal c/f",
+    "b/f balance",
+    "c/f balance",
+    "total withdrawal",
+    "total deposit",
+    "total debit",
+    "total credit",
+    "statement summary",
+    "closing bal",
+    "opening bal",
+)
+
+
+def _is_summary_row(description: str, merchant: str = "") -> bool:
+    """Return True if the text represents a summary/milestone balance rather than a genuine transaction."""
+    desc = (description or "").strip().lower()
+    merch = (merchant or "").strip().lower()
+    for phrase in _SUMMARY_PHRASES:
+        if phrase in desc or phrase in merch:
+            return True
+    if desc in ("balance", "bal", "closing", "opening", "total", "totals"):
+        return True
+    if merch in ("balance", "bal", "closing", "opening", "total", "totals"):
+        return True
+    return False
+
+
+def filter_summary_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Filter out non-transactional balance summary rows from the parsed statement rows."""
+    return [
+        r for r in rows
+        if not _is_summary_row(r.get("description", ""), r.get("merchant", ""))
+    ]
+
+
 def _parse_amount(raw: Any) -> Optional[float]:
     """Convert an amount string or number to a rounded float."""
     if raw is None:
@@ -275,6 +317,8 @@ def _parse_pdf_text(raw_text: str) -> tuple[list[dict], dict[str, Any]]:
 
         if description:
             merchant = _clean_merchant_from_narration(description)
+            if _is_summary_row(description, merchant):
+                continue
             rows.append(
                 {
                     "date": date_str,
@@ -379,6 +423,8 @@ def _parse_csv(file_path: str) -> tuple[list[dict], dict[str, Any]]:
 
         dates.append(date_str)
         merchant = _clean_merchant_from_narration(desc_raw)
+        if _is_summary_row(desc_raw, merchant):
+            continue
         rows.append(
             {
                 "date": date_str,
@@ -558,6 +604,11 @@ def parse_bank_statement(file_path: str, user_id: Optional[Any] = None, db: Opti
             if is_vision_available():
                 vision_res = parse_bank_statement_with_vision(file_path)
                 if vision_res and vision_res.get("rows"):
+                    vision_res["rows"] = filter_summary_rows(vision_res["rows"])
+                    total_debits = sum(r.get("debit") or 0 for r in vision_res["rows"])
+                    total_credits = sum(r.get("credit") or 0 for r in vision_res["rows"])
+                    vision_res["total_debits"] = round(total_debits, 2)
+                    vision_res["total_credits"] = round(total_credits, 2)
                     if user_id and db:
                         vision_res["rows"] = mark_duplicates(user_id, vision_res["rows"], db)
                     return vision_res
