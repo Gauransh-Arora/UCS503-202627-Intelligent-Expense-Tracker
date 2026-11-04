@@ -1,6 +1,7 @@
 """Application configuration settings."""
+import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,6 +32,7 @@ class Settings(BaseSettings):
     # Extraction Settings (Multimodal Vision LLM)
     EXTRACTION_PROVIDER: str = "gemini"
     GEMINI_API_KEY: Optional[str] = None
+    GEMINI_API_KEYS: Optional[str] = None  # Comma-separated list of fallback API keys
     GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # Recurring Detection Tolerances
@@ -53,6 +55,62 @@ class Settings(BaseSettings):
     )
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    _parsed_gemini_keys: list[str] = []
+
+    def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
+        keys: list[str] = []
+        if self.GEMINI_API_KEYS:
+            for k in self.GEMINI_API_KEYS.replace("\n", ",").split(","):
+                k = k.strip()
+                if k and k not in keys:
+                    keys.append(k)
+        if self.GEMINI_API_KEY:
+            for k in self.GEMINI_API_KEY.replace("\n", ",").split(","):
+                k = k.strip()
+                if k and k not in keys:
+                    keys.append(k)
+        for i in range(1, 10):
+            k = os.environ.get(f"GEMINI_API_KEY_{i}")
+            if k:
+                k = k.strip()
+                if k and k not in keys:
+                    keys.append(k)
+        self._parsed_gemini_keys = keys
+        if keys:
+            self.GEMINI_API_KEY = keys[0]
+
+    @property
+    def gemini_api_keys(self) -> list[str]:
+        """
+        Return unique, non-empty Gemini API keys in priority order.
+        Supports:
+          1. GEMINI_API_KEYS="key1, key2, key3"
+          2. GEMINI_API_KEY="key1, key2" (comma-separated or single)
+          3. GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEY_3 env variables
+        """
+        if hasattr(self, "_parsed_gemini_keys") and self._parsed_gemini_keys:
+            return list(self._parsed_gemini_keys)
+
+        keys: list[str] = []
+        if self.GEMINI_API_KEYS:
+            for k in self.GEMINI_API_KEYS.replace("\n", ",").split(","):
+                k = k.strip()
+                if k and k not in keys:
+                    keys.append(k)
+        if self.GEMINI_API_KEY:
+            for k in self.GEMINI_API_KEY.replace("\n", ",").split(","):
+                k = k.strip()
+                if k and k not in keys:
+                    keys.append(k)
+        for i in range(1, 10):
+            k = os.environ.get(f"GEMINI_API_KEY_{i}")
+            if k:
+                k = k.strip()
+                if k and k not in keys:
+                    keys.append(k)
+        return keys
 
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parent.parent / ".env"),

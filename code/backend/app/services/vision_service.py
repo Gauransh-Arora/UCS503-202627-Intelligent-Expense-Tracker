@@ -8,6 +8,7 @@ Uses Google Gemini (Multimodal Vision) to parse:
 
 Bypasses brittle OCR engines and manual regex pipelines by leveraging
 multimodal reasoning directly on document images and PDFs.
+Supports multi-key failover and multi-model cascading for maximum reliability.
 """
 from __future__ import annotations
 
@@ -23,33 +24,63 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Lazy singleton client
-_GEMINI_CLIENT = None
+# Cached clients for multi-key failover
+_GEMINI_CLIENTS: list[tuple[str, Any]] = []
 _INIT_ATTEMPTED = False
 
 
-def get_gemini_client():
-    """Lazily initialize Google GenAI client if API key is configured."""
-    global _GEMINI_CLIENT, _INIT_ATTEMPTED
+def reset_gemini_clients() -> None:
+    """Reset the cached clients (useful for testing or after configuration changes)."""
+    global _GEMINI_CLIENTS, _INIT_ATTEMPTED
+    _GEMINI_CLIENTS = []
+    _INIT_ATTEMPTED = False
+
+
+def get_gemini_clients() -> list[tuple[str, Any]]:
+    """
+    Lazily initialize and return a list of (masked_label, genai.Client) tuples
+    for all configured Gemini API keys.
+    """
+    global _GEMINI_CLIENTS, _INIT_ATTEMPTED
     if not _INIT_ATTEMPTED:
-        api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-        if api_key and api_key.strip():
+        keys = settings.gemini_api_keys
+        if not keys and os.environ.get("GEMINI_API_KEY"):
+            keys = [os.environ.get("GEMINI_API_KEY").strip()]
+
+        if keys:
             try:
                 from google import genai
-                _GEMINI_CLIENT = genai.Client(api_key=api_key.strip())
-                logger.info("Google GenAI (Gemini) client initialized successfully.")
+                for idx, key in enumerate(keys, 1):
+                    masked = f"Key-{idx}(...{key[-4:]})" if len(key) >= 4 else f"Key-{idx}"
+                    try:
+                        from google.genai import types
+                        http_opts = types.HttpOptions(
+                            timeout=20000,
+                            retry_options=types.HttpRetryOptions(attempts=1),
+                        )
+                        client = genai.Client(api_key=key, http_options=http_opts)
+                        _GEMINI_CLIENTS.append((masked, client))
+                    except Exception as err:
+                        logger.warning(f"Failed to initialize Gemini client for {masked}: {err}")
+                if _GEMINI_CLIENTS:
+                    logger.info(f"Initialized {len(_GEMINI_CLIENTS)} Google GenAI (Gemini) client(s) for failover.")
             except Exception as e:
-                logger.warning(f"Failed to initialize Google GenAI client: {e}")
-                _GEMINI_CLIENT = None
+                logger.warning(f"Failed to import google.genai: {e}")
         else:
-            logger.info("GEMINI_API_KEY is not set. Vision LLM will be disabled until key is provided.")
+            logger.info("No GEMINI_API_KEY configured. Vision LLM will be disabled until key is provided.")
         _INIT_ATTEMPTED = True
-    return _GEMINI_CLIENT
+    return _GEMINI_CLIENTS
+
+
+def get_gemini_client():
+    """Return the primary Gemini client (for backwards compatibility)."""
+    clients = get_gemini_clients()
+    return clients[0][1] if clients else None
 
 
 def is_vision_available() -> bool:
-    """Return True if Gemini API key is configured and client is ready."""
-    return get_gemini_client() is not None
+    """Return True if at least one Gemini API key is configured and ready."""
+    return len(get_gemini_clients()) > 0
 
 
 def get_candidate_models() -> list[str]:
@@ -64,6 +95,59 @@ def get_candidate_models() -> list[str]:
         if m and m not in candidates:
             candidates.append(m)
     return candidates
+
+
+def generate_gemini_content(
+    contents: Any,
+    config: Any = None,
+    preferred_models: Optional[list[str]] = None,
+) -> tuple[Optional[Any], Optional[str]]:
+    """
+    Execute generation with multi-key and multi-model cascading failover:
+    For each configured API key:
+        Attempts each candidate model in order.
+        If all candidate models fail on that API key (e.g. rate limit 429, quota exhausted, 503),
+        it shifts to the next API key.
+    Returns (response, used_model_name) or (None, None) if all keys and models failed.
+    """
+    clients = get_gemini_clients()
+    if not clients:
+        logger.warning("No Gemini clients available for generate_gemini_content.")
+        return None, None
+
+    candidate_models = preferred_models or get_candidate_models()
+
+    for key_label, client in clients:
+        logger.info(f"Attempting Gemini generation using [{key_label}]...")
+        for model_name in candidate_models:
+            try:
+                call_kwargs: dict[str, Any] = {
+                    "model": model_name,
+                    "contents": contents,
+                }
+                if config is not None:
+                    call_kwargs["config"] = config
+
+                response = client.models.generate_content(**call_kwargs)
+                if response and response.text:
+                    logger.info(f"Gemini call succeeded using [{key_label}] on model: {model_name}")
+                    return response, model_name
+            except Exception as exc:
+                err_str = str(exc)
+                if any(t in err_str.lower() for t in ("503", "429", "quota", "exhausted", "unavailable", "high demand", "resource_exhausted")):
+                    logger.warning(
+                        f"Model {model_name} on [{key_label}] busy or rate-limited ({exc}). Trying next candidate model..."
+                    )
+                    continue
+                logger.warning(f"Model {model_name} on [{key_label}] failed: {exc}")
+                continue
+
+        logger.warning(
+            f"All candidate models failed on [{key_label}]. Shifting to next API key..."
+        )
+
+    logger.error("All Gemini API keys and candidate models were exhausted without success.")
+    return None, None
 
 
 def _get_mime_type(path: Path) -> str:
@@ -133,11 +217,10 @@ def _prepare_statement_pdf_for_vision(path: Path, max_pages: int = 3) -> bytes:
 def parse_receipt_with_vision(file_path: str) -> Optional[dict[str, Any]]:
     """
     Extract structured receipt / bill / UPI screenshot data using Gemini Vision.
-    Automatically cascades across candidate models if one encounters temporary 503/429 spikes.
+    Automatically cascades across candidate models and fallback API keys.
     Returns None if vision client is unavailable or if parsing fails.
     """
-    client = get_gemini_client()
-    if not client:
+    if not is_vision_available():
         return None
 
     path = Path(file_path).resolve()
@@ -186,30 +269,14 @@ Guidelines:
 - Never hallucinate details.
 """
 
-    models_to_try = get_candidate_models()
-    response = None
-
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[part, prompt],
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0.1,
-                    max_output_tokens=1500,
-                ),
-            )
-            if response and response.text:
-                logger.info(f"Gemini receipt parsing succeeded with model: {model_name}")
-                break
-        except Exception as exc:
-            err_str = str(exc)
-            if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
-                logger.warning(f"Model {model_name} busy or rate-limited ({exc}). Falling back to next candidate model...")
-                continue
-            logger.warning(f"Gemini receipt parsing failed on {model_name}: {exc}")
-            break
+    response, _ = generate_gemini_content(
+        contents=[part, prompt],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.1,
+            max_output_tokens=1500,
+        ),
+    )
 
     if not response or not response.text:
         return None
@@ -229,11 +296,10 @@ Guidelines:
 def parse_bank_statement_with_vision(file_path: str) -> Optional[dict[str, Any]]:
     """
     Extract structured transactions from a multi-page PDF bank statement using Gemini Vision.
-    Automatically cascades across candidate models if one encounters temporary 503/429 spikes.
+    Automatically cascades across candidate models and fallback API keys.
     Returns None if vision client is unavailable or if parsing fails.
     """
-    client = get_gemini_client()
-    if not client:
+    if not is_vision_available():
         return None
 
     path = Path(file_path).resolve()
@@ -279,32 +345,20 @@ Respond ONLY with valid JSON conforming to this exact structure:
 }
 
 Guidelines:
-- If a row is a debit (withdrawal/outgoing payment), set debit to the amount and credit to null.\n- If a row is a credit (deposit/incoming payment/interest/salary/refund), set credit to the amount and debit to null.\n- Do NOT include initial opening balances ('BALANCE FORWARD', 'BROUGHT FORWARD') as debits or credits; only include actual transactions.\n- Format all dates in YYYY-MM-DD.\n"""
+- If a row is a debit (withdrawal/outgoing payment), set debit to the amount and credit to null.
+- If a row is a credit (deposit/incoming payment/interest/salary/refund), set credit to the amount and debit to null.
+- Do NOT include initial opening balances ('BALANCE FORWARD', 'BROUGHT FORWARD') as debits or credits; only include actual transactions.
+- Format all dates in YYYY-MM-DD.
+"""
 
-    models_to_try = get_candidate_models()
-    response = None
-
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[part, prompt],
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0.1,
-                    max_output_tokens=3000,
-                ),
-            )
-            if response and response.text:
-                logger.info(f"Gemini bank statement parsing succeeded with model: {model_name}")
-                break
-        except Exception as exc:
-            err_str = str(exc)
-            if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
-                logger.warning(f"Model {model_name} busy or rate-limited ({exc}). Falling back to next candidate model...")
-                continue
-            logger.warning(f"Gemini statement parsing failed on {model_name}: {exc}")
-            break
+    response, _ = generate_gemini_content(
+        contents=[part, prompt],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.1,
+            max_output_tokens=3000,
+        ),
+    )
 
     if not response or not response.text:
         return None

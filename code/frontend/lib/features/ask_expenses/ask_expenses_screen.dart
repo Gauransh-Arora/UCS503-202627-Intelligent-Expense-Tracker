@@ -54,8 +54,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
           if (mounted) {
             setState(() {
               _messages[0] = ChatMessage(
-                text:
-                    'Query ledger records for transactions, categories, recurring commitments, or balances.',
+                text: 'Query ledger records for transactions, categories, recurring commitments, or balances.',
                 isUser: false,
                 timestamp: DateTime.now(),
               );
@@ -77,7 +76,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
       }
@@ -86,7 +85,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
 
   Future<void> _sendMessage(String query) async {
     final text = query.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isTyping) return;
 
     _textCtrl.clear();
     setState(() {
@@ -130,6 +129,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Row(
@@ -173,7 +173,7 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
           // ─── Quick Query Chips ──────────────────────────────────
           Container(
             height: 36,
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            margin: const EdgeInsets.only(top: 8, bottom: 4),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -268,79 +268,95 @@ class _AskExpensesScreenState extends State<AskExpensesScreen> {
 
           // ─── Input Bar ──────────────────────────────────────────
           Container(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              MediaQuery.of(context).viewInsets.bottom + 12,
-            ),
             decoration: const BoxDecoration(
               color: AppColors.surfaceCard,
               border: Border(top: BorderSide(color: AppColors.border)),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textCtrl,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: _sendMessage,
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: 'Ask about your transactions...',
-                      hintStyle: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(
-                            color: AppColors.textTertiary,
-                            fontSize: 13,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _textCtrl,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: _sendMessage,
+                        onTap: () => Future.delayed(
+                          const Duration(milliseconds: 300),
+                          _scrollToBottom,
+                        ),
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Ask about your transactions...',
+                          hintStyle: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: AppColors.textTertiary,
+                                fontSize: 13,
+                              ),
+                          filled: true,
+                          isDense: true,
+                          fillColor: AppColors.surfaceElevated,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTokens.radiusSmall,
+                            ),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
                           ),
-                      filled: true,
-                      fillColor: AppColors.surfaceElevated,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTokens.radiusSmall,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTokens.radiusSmall,
+                            ),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTokens.radiusSmall,
+                            ),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                         ),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTokens.radiusSmall,
-                        ),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTokens.radiusSmall,
-                        ),
-                        borderSide: const BorderSide(
-                          color: AppColors.primary,
-                          width: 1.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(AppTokens.radiusSmall),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      LucideIcons.arrowUp,
-                      color: Colors.white,
-                      size: 18,
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(
+                          AppTokens.radiusSmall,
+                        ),
+                      ),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(
+                          LucideIcons.arrowUp,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        onPressed: () => _sendMessage(_textCtrl.text),
+                      ),
                     ),
-                    onPressed: () => _sendMessage(_textCtrl.text),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ],

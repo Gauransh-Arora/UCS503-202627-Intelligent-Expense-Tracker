@@ -125,14 +125,13 @@ _INTENTS = [
 
 
 def _classify_with_llm(question: str) -> Optional[dict]:
-    """Use Gemini to dynamically classify intent, merchant, category, and date parameters."""
-    from app.config import settings
-    if not settings.GEMINI_API_KEY:
+    """Use Gemini to dynamically classify intent, merchant, category, and date parameters with multi-key failover."""
+    from app.services.vision_service import generate_gemini_content, is_vision_available
+    if not is_vision_available():
         return None
     try:
-        from google import genai
+        from google.genai import types
         import json
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
         now = datetime.now(timezone.utc)
         prompt = f"""You are a financial query intent classifier for a personal expense tracking app.
 Current date: {now.strftime('%Y-%m-%d')} (Current Year: {now.year}, Current Month: {now.month}).
@@ -168,14 +167,19 @@ Return ONLY a JSON object:
 
 User question: "{question}"
 """
-        res = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
+        res, _ = generate_gemini_content(
             contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.1,
+                max_output_tokens=500,
+            ),
         )
-        raw = res.text.strip()
-        match = re.search(r'\{.*\}', raw, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
+        if res and res.text:
+            raw = res.text.strip()
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
     except Exception:
         pass
     return None

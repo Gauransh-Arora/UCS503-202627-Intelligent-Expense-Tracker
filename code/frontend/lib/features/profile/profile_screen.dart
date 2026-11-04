@@ -223,7 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'This will permanently delete all your data including expenses, bank statements, receipts, group splits, and all uploaded files from both local storage and the server (Supabase).\n\nThis action cannot be undone.',
+                'This will permanently delete all your data including expenses, bank statements, receipts, group splits, and all uploaded files.\n\nThis action cannot be undone.',
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.textSecondary,

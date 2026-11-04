@@ -327,11 +327,7 @@ def _generate_dynamic_purchase_advice(
 ) -> list[str]:
     """Use Gemini to generate personalized, dynamic financial guidance for wishlist items."""
     try:
-        from app.services.vision_service import get_gemini_client
-        client = get_gemini_client()
-        if not client:
-            return []
-
+        from app.services.vision_service import generate_gemini_content
         from google.genai import types
         prompt = f"""You are a personal financial advisor assessing purchase readiness.
 Item: {item_name}
@@ -346,26 +342,17 @@ Estimated Months to Save: {estimated_months if estimated_months is not None else
 Provide 2 concise, highly actionable financial bullet points giving personalized savings strategy and practical budgeting advice specifically for this item and numbers. Do NOT use emojis. Return ONLY a JSON list of strings, for example:
 ["Point 1", "Point 2"]
 """
-        from app.services.vision_service import get_candidate_models
-        res = None
-        for model_name in get_candidate_models():
-            try:
-                res = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.2,
-                        max_output_tokens=300,
-                    ),
-                )
-                if res and res.text:
-                    break
-            except Exception as m_err:
-                err_str = str(m_err)
-                if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "high demand" in err_str:
-                    continue
-                break
+        res, _ = generate_gemini_content(
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+                max_output_tokens=300,
+            ),
+        )
+        if not res or not res.text:
+            return []
+
         import json, re
         raw = res.text.strip()
         match = re.search(r'\[.*\]', raw, re.DOTALL)
