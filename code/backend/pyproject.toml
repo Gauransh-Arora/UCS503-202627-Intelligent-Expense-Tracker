@@ -1,9 +1,15 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "FastAPI Backend for Intelligent Expense Tracker"
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+    { name = "Sarwangini Hamal" },
+    { name = "Aashi Tyagi" },
+    { name = "Gauransh Arora", email = "garora1_be24@thapar.edu" },
+    { name = "Divyansh Kumar" },
+]
 dependencies = [
     "alembic>=1.20.0",
     "bcrypt<4.1.0",

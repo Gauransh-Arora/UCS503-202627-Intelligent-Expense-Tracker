@@ -1,13 +1,25 @@
 # Intelligent Expense Tracker
 
 > **UCS503 Software Engineering Course Project**  
-> *"A Smart Solution for Expense Tracking, Categorization, and Analysis"*
+> *"An Automated Platform for Expense Capture, Collaborative Spending, and Financial Intelligence"*
 
 [![Backend Tests](https://img.shields.io/badge/Backend%20Tests-42%20passed-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/Frontend%20Tests-5%20passed-brightgreen.svg)]()
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)]()
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-teal.svg)]()
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-blue.svg)]()
+
+### Team Members & Authors
+
+| Roll Number | Name | Email | Journal |
+| :---: | :--- | :--- | :--- |
+| `1024170262` | **Sarwangini Hamal** | `shamal_be24@thapar.edu` | [`journals/1024170262-sarwangini`](journals/1024170262-sarwangini/index.md) |
+| `1024170263` | **Aashi Tyagi** | `atyagi1_be24@thapar.edu` | [`journals/1024170263-aashi`](journals/1024170263-aashi/index.md) |
+| `1024170264` | **Gauransh Arora** | `garora1_be24@thapar.edu` | [`journals/1024170264-gauransh`](journals/1024170264-gauransh/index.md) |
+| `1024170267` | **Divyansh Kumar** | `dkumar1_be24@thapar.edu` | [`journals/1024170267-divyansh`](journals/1024170267-divyansh/index.md) |
+
+**Submitted to:** Nisha Thakur  
+**Institution:** Thapar Institute of Engineering and Technology, Patiala
 
 ---
 
@@ -34,7 +46,7 @@ This system provides automated optical extraction, machine-assisted categorizati
 ```
    ┌─────────────────────────────────────────────────────────────┐
    │                   Flutter Mobile App (Client)               │
-   │   - Modern Dark-Themed UI with Curated HSL Palettes        │
+   │   - Tactile Off-White & Dark Forest Financial Ledger UI     │
    │   - Dynamic API_BASE_URL (--dart-define)                    │
    │   - Draft Verification & Confirmation Screens               │
    │   - Bank Statement Review & Merge Controls                  │
@@ -46,7 +58,7 @@ This system provides automated optical extraction, machine-assisted categorizati
    │   - Pydantic v2 Settings (Config & Secrets)                 │
    │   - Strict JWT Authentication & Multi-User Data Isolation   │
    │   - Decimal Financial Precision & MoneyAmount Arithmetic    │
-   │   - Preprocessing Pipeline + PaddleOCR / Tesseract Fallback │
+   │   - Preprocessing Pipeline + OCR Extraction Engine          │
    │   - Statistical Spending Velocity & Anomaly Evaluators      │
    └──────────────────────────────┬──────────────────────────────┘
                                   │ SQLAlchemy 2.0 ORM
@@ -67,7 +79,7 @@ This system provides automated optical extraction, machine-assisted categorizati
 - **Python 3.12+**
 - **uv** (recommended fast Python package manager)
 - **Flutter 3.x+** with Dart SDK
-- **Tesseract OCR** (optional, PaddleOCR included)
+- **Tesseract OCR** (optional, fallback OCR included)
 
 ---
 
@@ -160,10 +172,15 @@ flutter test
 
 ---
 
-## 5. Documentation & Project Reports
+## 5. Documentation & Project Resources
 
-- **Audit & Architectural Gap Analysis:** [`docs/AUDIT.md`](docs/AUDIT.md)
-- **Final Completion & Verification Report:** [`docs/COMPLETION_REPORT.md`](docs/COMPLETION_REPORT.md)
-- **Selection Criteria:** [`docs/criteria-for-project-selection.md`](docs/criteria-for-project-selection.md)
-- **Course Journals:** Located under `journals/`
-- **Academic LaTeX Reports:** Located in `Project Proposal/`, `Project Report Prototype Stage/`, and `Project Report Final/`
+- **GitHub Pages Documentation:** [`docs/index.md`](docs/index.md) (Live documentation build deployed via MkDocs Material)
+- **Student Course Journals:** Located under [`journals/`](journals/)
+  - [Sarwangini Hamal (`1024170262`)](journals/1024170262-sarwangini/index.md)
+  - [Aashi Tyagi (`1024170263`)](journals/1024170263-aashi/index.md)
+  - [Gauransh Arora (`1024170264`)](journals/1024170264-gauransh/index.md)
+  - [Divyansh Kumar (`1024170267`)](journals/1024170267-divyansh/index.md)
+- **Academic LaTeX Reports:**
+  - Project Proposal: [`project-proposal/main.tex`](project-proposal/main.tex)
+  - Prototype Stage Report: [`project-report-prototype-stage/`](project-report-prototype-stage/)
+  - Final Stage Report: [`project-report-final/`](project-report-final/)

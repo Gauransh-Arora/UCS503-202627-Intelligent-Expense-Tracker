@@ -1,12 +1,15 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "intelligent-expense-tracker"
 version = "0.1.0"
 authors = [
-  { name = "Gauransh Arora" },
+  { name = "Sarwangini Hamal" },
+  { name = "Aashi Tyagi" },
+  { name = "Gauransh Arora", email = "garora1_be24@thapar.edu" },
+  { name = "Divyansh Kumar" },
 ]
 description = "UCS503 Software Engineering - Intelligent Expense Tracker"
 readme = "README.md"
@@ -19,8 +22,11 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/tiet-ucs503/ucs503p-202627odd-template"
-Issues = "https://github.com/tiet-ucs503/ucs503p-202627odd-template/issues"
+Homepage = "https://github.com/Gauransh-Arora/UCS503-202627-Intelligent-Expense-Tracker"
+Issues = "https://github.com/Gauransh-Arora/UCS503-202627-Intelligent-Expense-Tracker/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["code/backend/app"]
 
 [tool.pytest.ini_options]
 pythonpath = [
